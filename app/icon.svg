@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <!-- Nozzle body (trapezoid) -->
+  <polygon points="11,4 21,4 18,14 14,14" fill="#d4822a"/>
+  <!-- Nozzle tip (small triangle) -->
+  <polygon points="14,14 18,14 16,18" fill="#b86a1a"/>
+  <!-- Printed layer 1 (narrowest, top) -->
+  <rect x="10" y="20" width="12" height="3" rx="1.5" fill="#d4822a"/>
+  <!-- Printed layer 2 (middle) -->
+  <rect x="7" y="24" width="18" height="3" rx="1.5" fill="#c4721e"/>
+  <!-- Printed layer 3 (widest, bottom) -->
+  <rect x="4" y="28" width="24" height="3" rx="1.5" fill="#b86a1a"/>
+</svg>

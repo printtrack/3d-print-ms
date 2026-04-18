@@ -1,0 +1,4 @@
+# Runs the full E2E suite before allowing a push.
+# Bypass with `git push --no-verify` only if you already ran tests locally and understand why.
+echo "Running E2E test suite (takes ~3 minutes)…"
+npm run test:e2e

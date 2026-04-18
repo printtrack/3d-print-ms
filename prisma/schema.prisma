@@ -1,0 +1,462 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  TEAM_MEMBER
+}
+
+enum PrintJobStatus {
+  PLANNED
+  SLICED
+  IN_PROGRESS
+  DONE
+  CANCELLED
+}
+
+enum FileSource {
+  CUSTOMER
+  TEAM
+}
+
+enum FileCategory {
+  REFERENCE
+  DESIGN
+  RESULT
+  OTHER
+}
+
+enum VerificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum VerificationType {
+  DESIGN_REVIEW
+  PRICE_APPROVAL
+}
+
+
+model User {
+  id               String            @id @default(cuid())
+  name             String
+  email            String            @unique
+  password         String
+  role             Role              @default(TEAM_MEMBER)
+  createdAt        DateTime          @default(now())
+  assignedOrders   OrderAssignee[]
+  comments         OrderComment[]
+  auditLogs        AuditLog[]
+  accounts         Account[]
+  sessions         Session[]
+  knowledgeEntries KnowledgeEntry[]
+  milestoneTasks   MilestoneTask[]
+  projectAssignees ProjectAssignee[]
+  projectAuditLogs ProjectAuditLog[]
+}
+
+model ProjectPhase {
+  id        String    @id @default(cuid())
+  name      String
+  color     String    @default("#6366f1")
+  position  Int       @default(0)
+  isDefault Boolean   @default(false)
+  projects  Project[]
+}
+
+model OrderPhase {
+  id          String  @id @default(cuid())
+  name        String
+  color       String  @default("#6366f1")
+  position    Int
+  isDefault   Boolean @default(false)
+  isSurvey    Boolean @default(false)
+  isPrototype Boolean @default(false)
+  orders      Order[]
+}
+
+model PartPhase {
+  id           String      @id @default(cuid())
+  name         String
+  color        String      @default("#6366f1")
+  position     Int
+  isDefault    Boolean     @default(false)
+  isPrintReady Boolean     @default(false)
+  orderParts   OrderPart[]
+}
+
+model Order {
+  id             String           @id @default(cuid())
+  trackingToken  String           @unique @default(cuid())
+  customerName   String
+  customerEmail  String
+  description    String           @db.Text
+  phase          OrderPhase       @relation(fields: [phaseId], references: [id])
+  phaseId        String
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  archivedAt     DateTime?
+  deadline       DateTime?
+  phaseOrder     Int?
+  priceEstimate  Decimal?         @db.Decimal(10, 2)
+  isPrototype    Boolean          @default(false)
+  iterationCount Int              @default(1)
+  isInternal     Boolean          @default(false)
+  generalProject Boolean          @default(false)
+  estimatedCompletionAt DateTime?
+  projectId      String?
+  project        Project?         @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  assignees      OrderAssignee[]
+  files          OrderFile[]
+  comments       OrderComment[]
+  auditLogs      AuditLog[]
+  parts                 OrderPart[]
+  surveyResponse        SurveyResponse?
+  verificationRequests  VerificationRequest[]
+  milestones            Milestone[]
+}
+
+model Filament {
+  id               String             @id @default(cuid())
+  name             String
+  material         String
+  color            String
+  colorHex         String?
+  brand            String?
+  spoolWeightGrams Int
+  remainingGrams   Int
+  notes            String?            @db.Text
+  isActive         Boolean            @default(true)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  orderParts        OrderPart[]
+  printJobFilaments PrintJobFilament[]
+}
+
+model Machine {
+  id           String     @id @default(cuid())
+  name         String
+  buildVolumeX Int
+  buildVolumeY Int
+  buildVolumeZ Int
+  hourlyRate   Decimal?   @db.Decimal(10, 2)
+  notes        String?    @db.Text
+  isActive     Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  printJobs    PrintJob[]
+}
+
+model PrintJob {
+  id               String             @id @default(cuid())
+  machineId        String
+  machine          Machine            @relation(fields: [machineId], references: [id])
+  status           PrintJobStatus     @default(PLANNED)
+  queuePosition    Int                @default(0)
+  plannedAt        DateTime?
+  startedAt        DateTime?
+  completedAt      DateTime?
+  printTimeMinutes    Int?
+  printTimeFromGcode  Boolean            @default(false)
+  notes               String?            @db.Text
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime           @updatedAt
+  parts            PrintJobPart[]
+  filamentUsages   PrintJobFilament[]
+  files            PrintJobFile[]
+}
+
+model PrintJobFile {
+  id           String   @id @default(cuid())
+  printJob     PrintJob @relation(fields: [printJobId], references: [id], onDelete: Cascade)
+  printJobId   String
+  filename     String
+  originalName String
+  mimeType     String
+  size         Int
+  createdAt    DateTime @default(now())
+}
+
+model PrintJobPart {
+  printJobId  String
+  orderPartId String
+  printJob    PrintJob  @relation(fields: [printJobId], references: [id], onDelete: Cascade)
+  orderPart   OrderPart @relation(fields: [orderPartId], references: [id], onDelete: Cascade)
+  addedAt     DateTime  @default(now())
+
+  @@id([printJobId, orderPartId])
+}
+
+model PrintJobFilament {
+  id          String   @id @default(cuid())
+  printJobId  String
+  filamentId  String
+  printJob    PrintJob @relation(fields: [printJobId], references: [id], onDelete: Cascade)
+  filament    Filament @relation(fields: [filamentId], references: [id])
+  gramsActual Int
+  createdAt   DateTime @default(now())
+}
+
+model OrderPart {
+  id             String         @id @default(cuid())
+  order          Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId        String
+  name           String
+  description    String?        @db.Text
+  filament       Filament?      @relation(fields: [filamentId], references: [id])
+  filamentId     String?
+  gramsEstimated Int?
+  quantity       Int            @default(1)
+  iterationCount Int            @default(1)
+  partPhase      PartPhase?     @relation(fields: [partPhaseId], references: [id], onDelete: SetNull)
+  partPhaseId    String?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  files          OrderFile[]
+  printJobParts  PrintJobPart[]
+}
+
+model OrderAssignee {
+  orderId String
+  userId  String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([orderId, userId])
+}
+
+model OrderFile {
+  id           String     @id @default(cuid())
+  order        Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId      String
+  orderPart    OrderPart? @relation(fields: [orderPartId], references: [id], onDelete: SetNull)
+  orderPartId  String?
+  filename     String
+  originalName String
+  mimeType     String
+  size         Int
+  source       FileSource   @default(CUSTOMER)
+  category     FileCategory @default(DESIGN)
+  createdAt    DateTime     @default(now())
+}
+
+model OrderComment {
+  id        String   @id @default(cuid())
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId   String
+  author    User     @relation(fields: [authorId], references: [id])
+  authorId  String
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId   String
+  user      User?    @relation(fields: [userId], references: [id])
+  userId    String?
+  action    String
+  details   String?  @db.Text
+  createdAt DateTime @default(now())
+}
+
+model KnowledgeEntry {
+  id        String          @id @default(cuid())
+  title     String
+  problem   String          @db.Text
+  solution  String          @db.Text
+  tags      Json     @default("[]")
+  files     KnowledgeFile[]
+  authorId  String?
+  author    User?           @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  createdAt DateTime        @default(now())
+  updatedAt DateTime        @updatedAt
+}
+
+model KnowledgeFile {
+  id           String         @id @default(cuid())
+  entry        KnowledgeEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  entryId      String
+  filename     String
+  originalName String
+  mimeType     String
+  size         Int
+  createdAt    DateTime       @default(now())
+}
+
+model SurveyResponse {
+  id          String    @id @default(cuid())
+  order       Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId     String    @unique
+  token       String    @unique @default(cuid())
+  sentAt      DateTime  @default(now())
+  submittedAt DateTime?
+  answers     Json?
+  comment     String?   @db.Text
+}
+
+model VerificationRequest {
+  id         String             @id @default(cuid())
+  order      Order              @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId    String
+  type       VerificationType   @default(DESIGN_REVIEW)
+  token      String             @unique @default(cuid())
+  status     VerificationStatus @default(PENDING)
+  sentAt     DateTime           @default(now())
+  resolvedAt DateTime?
+  resolvedBy String?
+}
+
+model Milestone {
+  id          String          @id @default(cuid())
+  orderId     String?
+  order       Order?          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  projectId   String?
+  project     Project?        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name        String
+  description String?         @db.Text
+  dueAt       DateTime?
+  completedAt DateTime?
+  color       String          @default("#6366f1")
+  position    Int             @default(0)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  tasks       MilestoneTask[]
+}
+
+model MilestoneTask {
+  id          String     @id @default(cuid())
+  milestoneId String
+  milestone   Milestone  @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+  title       String
+  assigneeId  String?
+  assignee    User?      @relation(fields: [assigneeId], references: [id])
+  completed   Boolean    @default(false)
+  completedAt DateTime?
+  position    Int        @default(0)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+model Project {
+  id               String            @id @default(cuid())
+  name             String
+  description      String?           @db.Text
+  projectPhaseId   String
+  projectPhase     ProjectPhase      @relation(fields: [projectPhaseId], references: [id])
+  phaseOrder       Int               @default(0)
+  deadline         DateTime?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  archivedAt       DateTime?
+  orders           Order[]
+  milestones       Milestone[]
+  assignees        ProjectAssignee[]
+  auditLogs        ProjectAuditLog[]
+}
+
+model ProjectAssignee {
+  projectId String
+  userId    String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([projectId, userId])
+}
+
+model ProjectAuditLog {
+  id        String   @id @default(cuid())
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId String
+  user      User?    @relation(fields: [userId], references: [id])
+  userId    String?
+  action    String
+  details   String?  @db.Text
+  createdAt DateTime @default(now())
+}
+
+model Setting {
+  key       String   @id
+  value     String   @db.Text
+  updatedAt DateTime @updatedAt
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  token     String   @unique @default(cuid())
+  email     String
+  expires   DateTime
+  createdAt DateTime @default(now())
+}
+
+model Customer {
+  id            String           @id @default(cuid())
+  email         String           @unique
+  name          String
+  password      String
+  creditBalance Int              @default(0)
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  credits       FilamentCredit[]
+}
+
+model FilamentCredit {
+  id          String   @id @default(cuid())
+  customerId  String
+  customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  amount      Int
+  reason      String   @db.Text
+  orderId     String?
+  performedBy String?
+  createdAt   DateTime @default(now())
+
+  @@index([customerId])
+  @@index([orderId])
+}
+
+// Auth.js Standard Models
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@id([identifier, token])
+}
