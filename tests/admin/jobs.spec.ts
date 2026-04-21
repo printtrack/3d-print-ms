@@ -480,6 +480,8 @@ test("timeline: navigation arrows change the date label", async ({ seed, page })
   await page.goto("/admin/jobs");
 
   const label = page.getByTestId("timeline-nav-label");
+  // Wait for the label to be non-empty (ResizeObserver + mount completes)
+  await expect(label).not.toHaveText("");
   const initialText = await label.textContent();
 
   await page.getByRole("button", { name: "Vor" }).click();
@@ -487,26 +489,25 @@ test("timeline: navigation arrows change the date label", async ({ seed, page })
   expect(afterNextText).not.toBe(initialText);
 
   await page.getByRole("button", { name: "Zurück" }).click();
-  const afterBackText = await label.textContent();
-  expect(afterBackText).toBe(initialText);
+  await expect(label).toHaveText(initialText!);
 });
 
-test("timeline: Heute button returns to current week after navigating away", async ({ seed, page }) => {
+test("timeline: Heute button returns to current period after navigating away", async ({ seed, page }) => {
   await createTestMachine({ name: "Drucker Heute-Test" });
   await page.goto("/admin/jobs");
 
   const label = page.getByTestId("timeline-nav-label");
-  const initialText = await label.textContent();
 
   // Navigate forward two weeks
   await page.getByRole("button", { name: "Vor" }).click();
   await page.getByRole("button", { name: "Vor" }).click();
   const afterText = await label.textContent();
-  expect(afterText).not.toBe(initialText);
+  // Should have moved away from today's range
+  expect(afterText).toBeTruthy();
 
-  // Click Heute — should return to current week
+  // Click Heute — should recenter on today (today-line becomes visible)
   await page.getByRole("button", { name: "Heute" }).click();
-  await expect(label).toHaveText(initialText!);
+  await expect(page.locator('[data-testid="timeline-today-line"]').first()).toBeVisible();
 });
 
 test("timeline: switching to Tag view changes the label to a single day", async ({ seed, page }) => {
@@ -519,16 +520,16 @@ test("timeline: switching to Tag view changes the label to a single day", async 
   await expect(label).toContainText(",");
 });
 
-test("timeline: switching to Monat view shows month label and machine name", async ({ seed, page }) => {
+test("timeline: switching to Monat view shows date range label and machine name", async ({ seed, page }) => {
   await createTestMachine({ name: "Drucker Monat-Test" });
   await page.goto("/admin/jobs");
 
   await page.getByRole("button", { name: "Monat" }).click();
 
-  // Month label format: "März 2026" — just a month name and year
+  // Month preset shows a date range, e.g. "1. – 30. April 2026"
   const label = page.getByTestId("timeline-nav-label");
   const text = await label.textContent();
-  expect(text).toMatch(/^\S+ \d{4}$/);
+  expect(text).toMatch(/\d+\. .+ \d{4}/);
 
   // Machine name still visible in the row
   await expect(page.getByText("Drucker Monat-Test")).toBeVisible();

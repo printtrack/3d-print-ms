@@ -336,6 +336,20 @@ function Footer({
               {contactEmail}
             </a>
           )}
+          <a
+            href="/impressum"
+            className="transition-colors"
+            style={{ color: "oklch(1 0 0 / 55%)" }}
+          >
+            Impressum
+          </a>
+          <a
+            href="/datenschutz"
+            className="transition-colors"
+            style={{ color: "oklch(1 0 0 / 55%)" }}
+          >
+            Datenschutz
+          </a>
           <Link
             href="/portal/signin"
             className="transition-colors"

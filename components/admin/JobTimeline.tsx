@@ -75,30 +75,47 @@ import {
   MONTH_NAMES,
   MONTH_NAMES_LONG,
   DAY_NAMES_LONG,
-  getMondayOfWeek,
-  getWeekDays,
-  isSameLocalDay,
   toLocalDateString,
   isToday,
 } from "@/lib/gantt-utils";
+import { getRulerMode } from "@/lib/timeline-ruler";
 
 const MACHINE_COL_W = 160;
 const ROW_H = 56;
 const RULER_H = 72;
-const MIN_PX_H = 4;
+const BAND_H = 22;
+const MIN_PX_H = 0.02;
 const MAX_PX_H = 150;
-const MIN_PX_DAY = 20;
-const DEFAULT_PX_H = 16;
+
+// Pixels-per-hour defaults for each preset mode
+const DEFAULT_PX_H_BY_VIEW: Record<ViewMode, number> = {
+  day: 40,
+  week: 16,
+  month: 40 / 24, // ~1.667 px/hour ≈ 40 px/day
+};
 
 function getSnapMinutes(pxH: number): number {
   if (pxH >= 40) return 15;
   if (pxH >= 20) return 30;
-  return 60;
+  if (pxH >= 5) return 60;
+  return 1440; // 1-day snap
 }
 
 function snapToGrid(minutes: number, pxH: number): number {
   const snap = getSnapMinutes(pxH);
   return Math.round(minutes / snap) * snap;
+}
+
+function snapPlannedAt(ms: number, pxH: number): Date {
+  if (pxH < 5) {
+    const d = new Date(ms);
+    const result = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+    result.setHours(8, 0, 0, 0);
+    return result;
+  }
+  const snap = getSnapMinutes(pxH);
+  const snappedMs = Math.round(ms / (snap * 60_000)) * (snap * 60_000);
+  return new Date(snappedMs);
 }
 
 function getHourStep(pixelsPerHour: number): number | null {
@@ -109,20 +126,11 @@ function getHourStep(pixelsPerHour: number): number | null {
   return null;
 }
 
-function getTotalWidth(viewMode: ViewMode, pxH: number, daysInMonth: number): number {
-  if (viewMode === "day") return 24 * pxH;
-  if (viewMode === "month") return daysInMonth * pxH;
-  return 7 * 24 * pxH;
-}
-
 export function JobTimeline({ machines, jobs, onJobCreated, onJobUpdated, onJobDeleted }: JobTimelineProps) {
   const [viewMode, setViewMode] = useState<ViewMode>("week");
-  const [viewDate, setViewDate] = useState(() => new Date());
-  const [zoomByView, setZoomByView] = useState<Record<ViewMode, number>>({
-    day: DEFAULT_PX_H,
-    week: DEFAULT_PX_H,
-    month: 40,
-  });
+  const [originMs, setOriginMs] = useState(() => Date.now() - 24 * 3_600_000);
+  const [pxH, setPxH] = useState(DEFAULT_PX_H_BY_VIEW.week);
+  const [containerWidth, setContainerWidth] = useState(0);
 
   const [selectedJob, setSelectedJob] = useState<PrintJob | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
@@ -135,13 +143,11 @@ export function JobTimeline({ machines, jobs, onJobCreated, onJobUpdated, onJobD
   const [longPressActiveId, setLongPressActiveId] = useState<string | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
-  const pixelsPerHourRef = useRef(DEFAULT_PX_H);
+  const pixelsPerHourRef = useRef(pxH);
+  const originMsRef = useRef(originMs);
   const dragStateRef = useRef<DragState | null>(null);
   const dragPreviewRef = useRef<DragPreview | null>(null);
   const hasDraggedRef = useRef(false);
-  const viewModeRef = useRef<ViewMode>("week");
-  const viewStartRef = useRef<Date>(getMondayOfWeek(new Date()));
-  const totalWidthRef = useRef(0);
   const machinesRef = useRef(machines);
   const jobsRef = useRef(jobs);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -152,80 +158,83 @@ export function JobTimeline({ machines, jobs, onJobCreated, onJobUpdated, onJobD
     clientY: number;
     type: "move" | "resize";
   } | null>(null);
+  const panDragRef = useRef<{ startClientX: number; originMsAtStart: number } | null>(null);
+  const pinchStateRef = useRef<{
+    initialDist: number;
+    initialPxH: number;
+    midX: number;
+    originMsAtStart: number;
+  } | null>(null);
 
   useEffect(() => { setMounted(true); }, []);
   useEffect(() => { machinesRef.current = machines; }, [machines]);
   useEffect(() => { jobsRef.current = jobs; }, [jobs]);
+  useEffect(() => { pixelsPerHourRef.current = pxH; }, [pxH]);
+  useEffect(() => { originMsRef.current = originMs; }, [originMs]);
 
-  // Derived values
-  const pxH = zoomByView[viewMode];
-  const weekStart = getMondayOfWeek(viewDate);
-  const monthStart = new Date(viewDate.getFullYear(), viewDate.getMonth(), 1);
-  const daysInMonth = new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 0).getDate();
-  const totalWidth = getTotalWidth(viewMode, pxH, daysInMonth);
-
-  // Sync refs
+  // ResizeObserver for container width
   useEffect(() => {
-    pixelsPerHourRef.current = pxH;
-  }, [pxH]);
+    const el = containerRef.current;
+    if (!el) return;
+    const obs = new ResizeObserver((entries) => {
+      setContainerWidth(entries[0]?.contentRect.width ?? 0);
+    });
+    obs.observe(el);
+    return () => obs.disconnect();
+  }, []);
 
-  useEffect(() => {
-    viewModeRef.current = viewMode;
-  }, [viewMode]);
+  const contentWidth = Math.max(0, containerWidth - MACHINE_COL_W);
 
-  useEffect(() => {
-    if (viewMode === "week") viewStartRef.current = weekStart;
-    else if (viewMode === "day") {
-      const d = new Date(viewDate);
-      d.setHours(0, 0, 0, 0);
-      viewStartRef.current = d;
-    } else {
-      viewStartRef.current = monthStart;
+  // Today line: current time as pixel offset from originMs
+  const todayLineLeft = mounted
+    ? ((Date.now() - originMs) / 3_600_000) * pxH
+    : null;
+  const showTodayLine = todayLineLeft !== null && todayLineLeft >= 0 && todayLineLeft <= contentWidth;
+
+  // Nav label from visible range
+  const navLabel = (() => {
+    if (!mounted || contentWidth === 0) return "";
+    const visibleEndMs = originMs + (contentWidth / pxH) * 3_600_000;
+    const start = new Date(originMs);
+    const end = new Date(visibleEndMs);
+    const spanDays = (visibleEndMs - originMs) / 86_400_000;
+    if (spanDays <= 1.1) {
+      return `${DAY_NAMES_LONG[start.getDay()]}, ${start.getDate()}. ${MONTH_NAMES_LONG[start.getMonth()]} ${start.getFullYear()}`;
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [viewMode, viewDate]);
-
-  useEffect(() => {
-    totalWidthRef.current = totalWidth;
-  }, [totalWidth]);
-
-  // Day view: the single day
-  const dayViewDate = new Date(viewDate);
-  dayViewDate.setHours(0, 0, 0, 0);
-
-  // Week view days
-  const days = getWeekDays(weekStart);
-
-  // Navigation label
-  const sunday = days[6];
-  let navLabel = "";
-  if (viewMode === "day") {
-    navLabel = `${DAY_NAMES_LONG[viewDate.getDay()]}, ${viewDate.getDate()}. ${MONTH_NAMES_LONG[viewDate.getMonth()]} ${viewDate.getFullYear()}`;
-  } else if (viewMode === "week") {
-    navLabel =
-      weekStart.getMonth() === sunday.getMonth()
-        ? `${weekStart.getDate()}. – ${sunday.getDate()}. ${MONTH_NAMES_LONG[weekStart.getMonth()]} ${weekStart.getFullYear()}`
-        : `${weekStart.getDate()}. ${MONTH_NAMES[weekStart.getMonth()]} – ${sunday.getDate()}. ${MONTH_NAMES[sunday.getMonth()]} ${sunday.getFullYear()}`;
-  } else {
-    navLabel = `${MONTH_NAMES_LONG[viewDate.getMonth()]} ${viewDate.getFullYear()}`;
-  }
+    if (start.getFullYear() !== end.getFullYear()) {
+      return `${start.getDate()}. ${MONTH_NAMES[start.getMonth()]} ${start.getFullYear()} – ${end.getDate()}. ${MONTH_NAMES[end.getMonth()]} ${end.getFullYear()}`;
+    }
+    if (start.getMonth() !== end.getMonth()) {
+      return `${start.getDate()}. ${MONTH_NAMES[start.getMonth()]} – ${end.getDate()}. ${MONTH_NAMES[end.getMonth()]} ${start.getFullYear()}`;
+    }
+    return `${start.getDate()}. – ${end.getDate()}. ${MONTH_NAMES_LONG[start.getMonth()]} ${start.getFullYear()}`;
+  })();
 
   function navigate(dir: -1 | 1) {
-    setViewDate((d) => {
-      const next = new Date(d);
-      if (viewMode === "day") next.setDate(next.getDate() + dir);
-      else if (viewMode === "week") next.setDate(next.getDate() + dir * 7);
-      else next.setMonth(next.getMonth() + dir);
-      return next;
-    });
+    const stepMs =
+      viewMode === "day" ? 86_400_000 :
+      viewMode === "week" ? 7 * 86_400_000 :
+      30 * 86_400_000;
+    setOriginMs((o) => o + dir * stepMs);
   }
 
   function goToday() {
-    setViewDate(new Date());
+    setOriginMs(Date.now() - (contentWidth / pixelsPerHourRef.current / 2) * 3_600_000);
   }
 
   function resetZoom() {
-    setZoomByView((z) => ({ ...z, [viewMode]: viewMode === "month" ? 40 : DEFAULT_PX_H }));
+    const newPxH = DEFAULT_PX_H_BY_VIEW[viewMode];
+    setPxH(newPxH);
+    pixelsPerHourRef.current = newPxH;
+    setOriginMs(Date.now() - (contentWidth / newPxH / 2) * 3_600_000);
+  }
+
+  function applyViewPreset(vm: ViewMode) {
+    const newPxH = DEFAULT_PX_H_BY_VIEW[vm];
+    setViewMode(vm);
+    setPxH(newPxH);
+    pixelsPerHourRef.current = newPxH;
+    setOriginMs(Date.now() - (contentWidth / newPxH / 2) * 3_600_000);
   }
 
   function getUnscheduledJobs(): PrintJob[] {
@@ -247,41 +256,24 @@ export function JobTimeline({ machines, jobs, onJobCreated, onJobUpdated, onJobD
     setSelectedJob(null);
   }
 
-  function jobLeftForView(plannedAt: string): number {
-    const vm = viewModeRef.current;
-    const pxPerH = pixelsPerHourRef.current;
-    if (vm === "month") {
-      const jobDate = new Date(plannedAt);
-      const ms = viewStartRef.current;
-      const localMidnight = new Date(jobDate.getFullYear(), jobDate.getMonth(), jobDate.getDate());
-      const dayIdx = Math.round((localMidnight.getTime() - ms.getTime()) / 86_400_000);
-      return dayIdx * pxPerH;
-    }
-    const diffMs = new Date(plannedAt).getTime() - viewStartRef.current.getTime();
-    return (diffMs / 3_600_000) * pxPerH;
+  // Pixel offset of a plannedAt from originMs (uses refs — safe in callbacks/effects)
+  function jobLeftForRef(plannedAt: string): number {
+    return ((new Date(plannedAt).getTime() - originMsRef.current) / 3_600_000) * pixelsPerHourRef.current;
   }
 
+  // Pixel offset of a plannedAt from originMs (uses state — safe in render)
   function jobLeft(plannedAt: string): number {
-    const vm = viewMode;
-    if (vm === "month") {
-      const jobDate = new Date(plannedAt);
-      const localMidnight = new Date(jobDate.getFullYear(), jobDate.getMonth(), jobDate.getDate());
-      const dayIdx = Math.round((localMidnight.getTime() - monthStart.getTime()) / 86_400_000);
-      return dayIdx * pxH;
-    }
-    const start = vm === "week" ? weekStart : dayViewDate;
-    const diffMs = new Date(plannedAt).getTime() - start.getTime();
-    return (diffMs / 3_600_000) * pxH;
+    return ((new Date(plannedAt).getTime() - originMs) / 3_600_000) * pxH;
   }
 
   function jobBarWidth(printTimeMinutes: number | null): number {
-    if (viewMode === "month") {
-      const minutes = printTimeMinutes ?? 120;
-      const durationDays = minutes / (24 * 60);
-      return Math.max(pxH * 0.9, durationDays * pxH);
-    }
     const minutes = printTimeMinutes ?? 120;
-    return Math.max(8, (minutes / 60) * pxH);
+    return Math.max(3, (minutes / 60) * pxH);
+  }
+
+  function jobBarWidthRef(printTimeMinutes: number | null): number {
+    const minutes = printTimeMinutes ?? 120;
+    return Math.max(3, (minutes / 60) * pixelsPerHourRef.current);
   }
 
   function getMachineJobs(machineId: string): PrintJob[] {
@@ -338,7 +330,7 @@ export function JobTimeline({ machines, jobs, onJobCreated, onJobUpdated, onJobD
     );
     const pxPerH = pixelsPerHourRef.current;
     for (const j of machineJobs) {
-      const jLeft = jobLeftForView(j.plannedAt!);
+      const jLeft = jobLeftForRef(j.plannedAt!);
       const jWidth = Math.max(pxPerH / 4, ((j.printTimeMinutes ?? 120) / 60) * pxPerH);
       if (previewLeft < jLeft + jWidth && previewLeft + previewWidth > jLeft) {
         return true;
@@ -356,40 +348,28 @@ export function JobTimeline({ machines, jobs, onJobCreated, onJobUpdated, onJobD
     hasDraggedRef.current = true;
 
     const pxPerH = pixelsPerHourRef.current;
-    const totalW = totalWidthRef.current;
     let preview: DragPreview;
 
     if (drag.type === "move" || drag.type === "schedule") {
       let snappedLeft: number;
 
       if (drag.type === "schedule") {
-        // For unscheduled: compute absolute position from cursor, not delta
         const container = containerRef.current;
         if (!container) return;
         const rect = container.getBoundingClientRect();
-        const rawLeft = clientX - rect.left + container.scrollLeft - MACHINE_COL_W;
-        const clampedLeft = Math.max(0, Math.min(totalW - drag.originalWidth, rawLeft));
-        if (viewModeRef.current === "month") {
-          const dayIdx = Math.round(clampedLeft / pxPerH);
-          snappedLeft = dayIdx * pxPerH;
-        } else {
-          const rawMinutes = (clampedLeft / pxPerH) * 60;
-          const snappedMinutes = snapToGrid(rawMinutes, pxPerH);
-          snappedLeft = (snappedMinutes / 60) * pxPerH;
-        }
+        // Row canvas rect.left is past the sticky sidebar, so just subtract MACHINE_COL_W from container
+        const rawLeft = clientX - rect.left - MACHINE_COL_W;
+        const rawMs = originMsRef.current + (rawLeft / pxPerH) * 3_600_000;
+        const snapped = snapPlannedAt(rawMs, pxPerH);
+        snappedLeft = (snapped.getTime() - originMsRef.current) / 3_600_000 * pxPerH;
       } else {
         const rawLeft = drag.originalLeft + dx;
-        const clampedLeft = Math.max(0, Math.min(totalW - drag.originalWidth, rawLeft));
-        if (viewModeRef.current === "month") {
-          const dayIdx = Math.round(clampedLeft / pxPerH);
-          snappedLeft = dayIdx * pxPerH;
-        } else {
-          const rawMinutes = (clampedLeft / pxPerH) * 60;
-          const snappedMinutes = snapToGrid(rawMinutes, pxPerH);
-          snappedLeft = (snappedMinutes / 60) * pxPerH;
-        }
+        const rawMs = originMsRef.current + (rawLeft / pxPerH) * 3_600_000;
+        const snapped = snapPlannedAt(rawMs, pxPerH);
+        snappedLeft = (snapped.getTime() - originMsRef.current) / 3_600_000 * pxPerH;
       }
 
+      // Determine target machine by Y position
       const container = containerRef.current;
       let targetMachineId = machinesRef.current[drag.originalMachineIndex]?.id ?? drag.job.machineId ?? "";
       if (container) {
@@ -410,13 +390,7 @@ export function JobTimeline({ machines, jobs, onJobCreated, onJobUpdated, onJobD
       const snappedWidth = Math.max(pxPerH / 4, (snappedMinutes / 60) * pxPerH);
       const targetMachineId = machinesRef.current[drag.originalMachineIndex]?.id ?? drag.job.machineId ?? "";
       const isOverlapping = checkClientOverlap(drag.originalLeft, snappedWidth, targetMachineId, drag.jobId);
-      preview = {
-        jobId: drag.jobId,
-        left: drag.originalLeft,
-        width: snappedWidth,
-        machineId: targetMachineId,
-        isOverlapping,
-      };
+      preview = { jobId: drag.jobId, left: drag.originalLeft, width: snappedWidth, machineId: targetMachineId, isOverlapping };
     }
 
     dragPreviewRef.current = preview;
@@ -425,12 +399,21 @@ export function JobTimeline({ machines, jobs, onJobCreated, onJobUpdated, onJobD
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const handleMouseMove = useCallback((e: MouseEvent) => {
+    if (panDragRef.current && !dragStateRef.current) {
+      const dx = e.clientX - panDragRef.current.startClientX;
+      if (Math.abs(dx) > 5) hasDraggedRef.current = true;
+      const newOriginMs = panDragRef.current.originMsAtStart - (dx / pixelsPerHourRef.current) * 3_600_000;
+      originMsRef.current = newOriginMs;
+      setOriginMs(newOriginMs);
+      return;
+    }
     applyPointerMove(e.clientX, e.clientY);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const handleMouseUp = useCallback(() => {
+    panDragRef.current = null;
     const drag = dragStateRef.current;
     const preview = dragPreviewRef.current;
     dragStateRef.current = null;
@@ -441,7 +424,6 @@ export function JobTimeline({ machines, jobs, onJobCreated, onJobUpdated, onJobD
 
     if (!drag || !hasDraggedRef.current || !preview) return;
 
-    // Don't submit if client-side overlap already detected
     if (preview.isOverlapping) {
       toast.error("Überschneidung mit einem anderen Druckauftrag");
       return;
@@ -450,15 +432,7 @@ export function JobTimeline({ machines, jobs, onJobCreated, onJobUpdated, onJobD
     const pxPerH = pixelsPerHourRef.current;
 
     if (drag.type === "move" || drag.type === "schedule") {
-      let newPlannedAt: Date;
-      if (viewModeRef.current === "month") {
-        const dayIdx = Math.round(preview.left / pxPerH);
-        newPlannedAt = new Date(viewStartRef.current);
-        newPlannedAt.setDate(newPlannedAt.getDate() + dayIdx);
-        newPlannedAt.setHours(8, 0, 0, 0);
-      } else {
-        newPlannedAt = new Date(viewStartRef.current.getTime() + (preview.left / pxPerH) * 3_600_000);
-      }
+      const newPlannedAt = new Date(originMsRef.current + (preview.left / pxPerH) * 3_600_000);
       const body: Record<string, unknown> = { plannedAt: newPlannedAt.toISOString() };
       if (preview.machineId !== drag.job.machineId || drag.type === "schedule") {
         body.machineId = preview.machineId;
@@ -515,15 +489,8 @@ export function JobTimeline({ machines, jobs, onJobCreated, onJobUpdated, onJobD
     const t = e.touches[0];
     if (!t) return;
 
-    longPressPendingRef.current = {
-      job,
-      machineIndex,
-      clientX: t.clientX,
-      clientY: t.clientY,
-      type,
-    };
+    longPressPendingRef.current = { job, machineIndex, clientX: t.clientX, clientY: t.clientY, type };
 
-    // Visual feedback at 150ms, activate at 250ms
     longPressTimerRef.current = setTimeout(() => {
       setLongPressActiveId(job.id);
       longPressTimerRef.current = setTimeout(() => {
@@ -535,15 +502,15 @@ export function JobTimeline({ machines, jobs, onJobCreated, onJobUpdated, onJobD
           job: p.job,
           startClientX: p.clientX,
           startClientY: p.clientY,
-          originalLeft: jobLeftForView(p.job.plannedAt!),
-          originalWidth: jobBarWidth(p.job.printTimeMinutes),
+          originalLeft: jobLeftForRef(p.job.plannedAt!),
+          originalWidth: jobBarWidthRef(p.job.printTimeMinutes),
           originalMachineIndex: p.machineIndex,
         };
         hasDraggedRef.current = false;
         dragPreviewRef.current = {
           jobId: p.job.id,
-          left: jobLeftForView(p.job.plannedAt!),
-          width: jobBarWidth(p.job.printTimeMinutes),
+          left: jobLeftForRef(p.job.plannedAt!),
+          width: jobBarWidthRef(p.job.printTimeMinutes),
           machineId: machinesRef.current[p.machineIndex]?.id ?? p.job.machineId ?? "",
         };
         longPressPendingRef.current = null;
@@ -553,7 +520,25 @@ export function JobTimeline({ machines, jobs, onJobCreated, onJobUpdated, onJobD
   }
 
   const handleTouchMove = useCallback((e: TouchEvent) => {
-    // If long-press pending and finger moved > 8px, cancel long-press (allow scroll)
+    // Two-finger pinch zoom
+    if (e.touches.length === 2 && pinchStateRef.current) {
+      e.preventDefault();
+      const ps = pinchStateRef.current;
+      const dx = e.touches[1].clientX - e.touches[0].clientX;
+      const dy = e.touches[1].clientY - e.touches[0].clientY;
+      const dist = Math.hypot(dx, dy);
+      const ratio = dist / ps.initialDist;
+      const newPxH = Math.min(MAX_PX_H, Math.max(MIN_PX_H, ps.initialPxH * ratio));
+      const cursorTimeMs = ps.originMsAtStart + (ps.midX / ps.initialPxH) * 3_600_000;
+      const newOriginMs = cursorTimeMs - (ps.midX / newPxH) * 3_600_000;
+      originMsRef.current = newOriginMs;
+      pixelsPerHourRef.current = newPxH;
+      setOriginMs(newOriginMs);
+      setPxH(newPxH);
+      return;
+    }
+
+    // If long-press pending and finger moved > 8px, cancel it
     if (longPressPendingRef.current) {
       const t = e.touches[0];
       if (t) {
@@ -564,8 +549,19 @@ export function JobTimeline({ machines, jobs, onJobCreated, onJobUpdated, onJobD
           return;
         }
       }
-      return; // still waiting for long-press, don't scroll or drag
+      return;
     }
+
+    // Background pan (one finger, no job drag active)
+    if (e.touches.length === 1 && panDragRef.current && !dragStateRef.current) {
+      e.preventDefault();
+      const dx = e.touches[0].clientX - panDragRef.current.startClientX;
+      const newOriginMs = panDragRef.current.originMsAtStart - (dx / pixelsPerHourRef.current) * 3_600_000;
+      originMsRef.current = newOriginMs;
+      setOriginMs(newOriginMs);
+      return;
+    }
+
     if (!dragStateRef.current) return;
     e.preventDefault();
     const t = e.touches[0];
@@ -574,6 +570,8 @@ export function JobTimeline({ machines, jobs, onJobCreated, onJobUpdated, onJobD
   }, []);
 
   const handleTouchEnd = useCallback(() => {
+    pinchStateRef.current = null;
+    panDragRef.current = null;
     clearLongPress();
     handleMouseUp();
   }, [handleMouseUp]);
@@ -630,51 +628,36 @@ export function JobTimeline({ machines, jobs, onJobCreated, onJobUpdated, onJobD
 
   function handleRowClick(e: React.MouseEvent<HTMLDivElement>, machineId: string) {
     if (hasDraggedRef.current) { hasDraggedRef.current = false; return; }
-    const rowEl = e.currentTarget;
-    const rect = rowEl.getBoundingClientRect();
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
     const x = e.clientX - rect.left;
-
-    let clickedDate: Date;
-    if (viewMode === "month") {
-      const dayIdx = Math.floor(x / pxH);
-      clickedDate = new Date(monthStart);
-      clickedDate.setDate(clickedDate.getDate() + dayIdx);
-      clickedDate.setHours(8, 0, 0, 0);
-    } else {
-      const start = viewMode === "week" ? weekStart : dayViewDate;
-      const clickedMs = start.getTime() + (x / pxH) * 3_600_000;
-      clickedDate = new Date(clickedMs);
-      clickedDate.setMinutes(0, 0, 0);
-    }
-
+    const ms = originMsRef.current + (x / pixelsPerHourRef.current) * 3_600_000;
+    const clickedDate = snapPlannedAt(ms, pixelsPerHourRef.current);
     setCreateDefaults({
       machineId,
       date: toLocalDateString(clickedDate),
-      time: `${String(clickedDate.getHours()).padStart(2, "0")}:00`,
+      time: `${String(clickedDate.getHours()).padStart(2, "0")}:${String(clickedDate.getMinutes()).padStart(2, "0")}`,
     });
     setCreateOpen(true);
   }
 
   const handleWheel = useCallback((e: WheelEvent) => {
-    // Only zoom on Ctrl/Cmd+wheel; let plain scroll pan natively
-    if (!e.ctrlKey && !e.metaKey) return;
     e.preventDefault();
     const container = containerRef.current;
     if (!container) return;
-
-    const vm = viewModeRef.current;
     const oldPxH = pixelsPerHourRef.current;
     const factor = e.deltaY > 0 ? 0.85 : 1.18;
-    const minPx = vm === "month" ? MIN_PX_DAY : MIN_PX_H;
-    const newPxH = Math.min(MAX_PX_H, Math.max(minPx, oldPxH * factor));
+    const newPxH = Math.min(MAX_PX_H, Math.max(MIN_PX_H, oldPxH * factor));
     if (newPxH === oldPxH) return;
 
-    const mouseX = e.clientX - container.getBoundingClientRect().left;
-    const contentX = mouseX + container.scrollLeft - MACHINE_COL_W;
-    const newScrollLeft = (contentX / oldPxH) * newPxH - mouseX + MACHINE_COL_W;
-    container.scrollLeft = Math.max(0, newScrollLeft);
+    const rect = container.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left - MACHINE_COL_W;
+    const cursorTimeMs = originMsRef.current + (mouseX / oldPxH) * 3_600_000;
+    const newOriginMs = cursorTimeMs - (mouseX / newPxH) * 3_600_000;
 
-    setZoomByView((z) => ({ ...z, [vm]: newPxH }));
+    originMsRef.current = newOriginMs;
+    pixelsPerHourRef.current = newPxH;
+    setOriginMs(newOriginMs);
+    setPxH(newPxH);
   }, []);
 
   useEffect(() => {
@@ -684,136 +667,229 @@ export function JobTimeline({ machines, jobs, onJobCreated, onJobUpdated, onJobD
     return () => el.removeEventListener("wheel", handleWheel);
   }, [handleWheel]);
 
-  // Today line position
-  const todayLineLeft = mounted
-    ? viewMode === "month"
-      ? (() => {
-          const now = new Date();
-          const localMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-          const dayIdx = (localMidnight.getTime() - monthStart.getTime()) / 86_400_000;
-          return dayIdx * pxH + pxH / 2;
-        })()
-      : (() => {
-          const start = viewMode === "week" ? weekStart : dayViewDate;
-          return ((new Date().getTime() - start.getTime()) / 3_600_000) * pxH;
-        })()
-    : null;
-  const showTodayLine = todayLineLeft !== null && todayLineLeft >= 0 && todayLineLeft <= totalWidth;
+  // ── Ruler rendering ──────────────────────────────────────────────────────────
 
-  // Hour ticks (day/week only)
-  const hourStep = viewMode !== "month" ? getHourStep(pxH) : null;
-  const spanDays = viewMode === "day" ? 1 : 7;
-  const hourTicks: number[] = [];
-  if (hourStep !== null) {
-    for (let h = 0; h <= spanDays * 24; h += hourStep) {
-      hourTicks.push(h);
+  function renderDayCells(topOffset: number, cellHeight: number) {
+    const pxD = pxH * 24;
+    const msPerPxD = 86_400_000 / pxD;
+    const endMs = originMs + contentWidth * msPerPxD;
+    const d0 = new Date(originMs);
+    let cur = new Date(d0.getFullYear(), d0.getMonth(), d0.getDate());
+    const cells: React.ReactNode[] = [];
+    while (cur.getTime() <= endMs + 86_400_000) {
+      const x = (cur.getTime() - originMs) / msPerPxD;
+      const day = new Date(cur);
+      const isT = isToday(day);
+      cells.push(
+        <div
+          key={cur.getTime()}
+          className={cn(
+            "absolute flex flex-col items-center justify-center border-r text-[10px]",
+            isT ? "text-primary font-bold" : "text-muted-foreground"
+          )}
+          style={{ left: x, width: pxD, top: topOffset, height: cellHeight }}
+        >
+          {pxD >= 16 && (
+            <>
+              {pxD >= 28 && <span className="leading-none">{DAY_NAMES_SHORT[day.getDay()]}</span>}
+              <span className={cn(
+                "w-5 h-5 rounded-full flex items-center justify-center",
+                isT ? "bg-primary text-primary-foreground" : ""
+              )}>
+                {day.getDate()}
+              </span>
+            </>
+          )}
+          {pxD < 16 && pxD >= 4 && day.getDate() === 1 && (
+            <span className="text-[9px] leading-none">{day.getDate()}</span>
+          )}
+        </div>
+      );
+      cur.setDate(cur.getDate() + 1);
     }
+    return cells;
   }
 
-  // Month view: array of days
-  const monthDays = Array.from({ length: daysInMonth }, (_, i) => {
-    const d = new Date(monthStart);
-    d.setDate(d.getDate() + i);
-    return d;
-  });
+  function renderMonthBand(top: number, height: number) {
+    const pxD = pxH * 24;
+    const msPerPxD = 86_400_000 / pxD;
+    const endMs = originMs + contentWidth * msPerPxD;
+    const cells: React.ReactNode[] = [];
+    const d0 = new Date(originMs);
+    let cur = new Date(d0.getFullYear(), d0.getMonth(), 1);
+    while (cur.getTime() <= endMs) {
+      const monthStart = cur.getTime();
+      const nextMonth = new Date(cur.getFullYear(), cur.getMonth() + 1, 1);
+      const monthEnd = Math.min(nextMonth.getTime(), endMs + 86_400_000);
+      const x = Math.max(0, (monthStart - originMs) / msPerPxD);
+      const w = (monthEnd - Math.max(monthStart, originMs)) / msPerPxD;
+      const label = w > 50
+        ? `${MONTH_NAMES_LONG[cur.getMonth()]} ${cur.getFullYear()}`
+        : w > 25 ? MONTH_NAMES[cur.getMonth()]
+        : "";
+      cells.push(
+        <div key={monthStart} className="absolute border-r text-[10px] font-semibold text-foreground overflow-hidden flex items-center px-1.5" style={{ left: x, width: w, top, height }}>
+          {label}
+        </div>
+      );
+      cur = nextMonth;
+    }
+    return cells;
+  }
 
-  // Ruler columns for current view
+  function renderYearBand(top: number, height: number) {
+    const pxD = pxH * 24;
+    const msPerPxD = 86_400_000 / pxD;
+    const endMs = originMs + contentWidth * msPerPxD;
+    const cells: React.ReactNode[] = [];
+    let year = new Date(originMs).getFullYear() - 1;
+    while (new Date(year, 0, 1).getTime() <= endMs) {
+      const yearStart = new Date(year, 0, 1).getTime();
+      const yearEnd = new Date(year + 1, 0, 1).getTime();
+      const x = Math.max(0, (yearStart - originMs) / msPerPxD);
+      const w = (Math.min(yearEnd, endMs + 86_400_000) - Math.max(yearStart, originMs)) / msPerPxD;
+      if (w > 0) {
+        cells.push(
+          <div key={year} className="absolute border-r text-[10px] font-bold text-foreground overflow-hidden flex items-center px-1.5" style={{ left: x, width: w, top, height }}>
+            {w > 25 ? String(year) : ""}
+          </div>
+        );
+      }
+      year++;
+    }
+    return cells;
+  }
+
+  function renderMonthCells(top: number, height: number) {
+    const pxD = pxH * 24;
+    const msPerPxD = 86_400_000 / pxD;
+    const endMs = originMs + contentWidth * msPerPxD;
+    const cells: React.ReactNode[] = [];
+    const d0 = new Date(originMs);
+    let cur = new Date(d0.getFullYear(), d0.getMonth(), 1);
+    while (cur.getTime() <= endMs) {
+      const monthStart = cur.getTime();
+      const nextMonth = new Date(cur.getFullYear(), cur.getMonth() + 1, 1);
+      const x = (monthStart - originMs) / msPerPxD;
+      const w = (nextMonth.getTime() - monthStart) / msPerPxD;
+      const label = w > 60 ? MONTH_NAMES[cur.getMonth()] : w > 20 ? MONTH_NAMES[cur.getMonth()][0] : "";
+      cells.push(
+        <div key={monthStart} className={cn("absolute border-r text-[10px] font-medium overflow-hidden flex items-center justify-center", isToday(cur) ? "text-primary" : "text-muted-foreground")} style={{ left: x, width: w, top, height }}>
+          {label}
+        </div>
+      );
+      cur = nextMonth;
+    }
+    return cells;
+  }
+
   function renderRulerColumns() {
-    if (viewMode === "month") {
-      return monthDays.map((day, i) => {
-        const dayWidth = pxH;
-        return (
+    if (contentWidth === 0) return null;
+    const pxD = pxH * 24;
+    const rulerMode = getRulerMode(pxD);
+    const msPerPxH = 3_600_000 / pxH;
+    const endMs = originMs + contentWidth * msPerPxH;
+    const hourStep = getHourStep(pxH);
+
+    if (rulerMode === "days") {
+      // Day cells + optional hour ticks
+      const d0 = new Date(originMs);
+      const firstDay = new Date(d0.getFullYear(), d0.getMonth(), d0.getDate());
+      const dayCells: React.ReactNode[] = [];
+      let cur = new Date(firstDay);
+      while (cur.getTime() <= endMs + 86_400_000) {
+        const x = (cur.getTime() - originMs) / (3_600_000 / pxH);
+        const dayWidth = 24 * pxH;
+        const day = new Date(cur);
+        const isT = isToday(day);
+        dayCells.push(
           <div
-            key={i}
+            key={cur.getTime()}
             className={cn(
-              "absolute top-0 flex flex-col items-center justify-start pt-1.5 border-r text-xs font-medium",
-              isToday(day) ? "text-primary" : "text-muted-foreground"
+              "absolute flex flex-col items-center justify-start pt-1.5 border-r text-xs font-medium",
+              isT ? "text-primary" : "text-muted-foreground"
             )}
-            style={{ left: i * dayWidth, width: dayWidth, height: RULER_H }}
+            style={{ left: x, width: dayWidth, height: RULER_H }}
           >
-            {dayWidth >= 28 && (
-              <span className="text-[10px] leading-none">{DAY_NAMES_SHORT[day.getDay()]}</span>
-            )}
+            <span className="text-[10px] uppercase tracking-wide leading-none">
+              {DAY_NAMES_SHORT[day.getDay()]}
+            </span>
             <span className={cn(
-              "w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold mt-0.5",
-              isToday(day) ? "bg-primary text-primary-foreground" : ""
+              "w-7 h-7 rounded-full flex items-center justify-center text-sm font-semibold leading-tight mt-0.5",
+              isT ? "bg-primary text-primary-foreground" : "text-foreground"
             )}>
               {day.getDate()}
             </span>
           </div>
         );
-      });
+        cur.setDate(cur.getDate() + 1);
+      }
+
+      const hourTicks: React.ReactNode[] = [];
+      if (hourStep !== null) {
+        const startHourMs = Math.ceil(originMs / (hourStep * 3_600_000)) * (hourStep * 3_600_000);
+        for (let t = startHourMs; t <= endMs + 3_600_000; t += hourStep * 3_600_000) {
+          const hourOfDay = new Date(t).getHours();
+          if (hourOfDay === 0) continue;
+          const tickLeft = (t - originMs) / (3_600_000 / pxH);
+          hourTicks.push(
+            <div key={t} className="absolute bottom-0 flex flex-col items-center" style={{ left: tickLeft, transform: "translateX(-50%)" }}>
+              <span className="text-[10px] text-muted-foreground/60 leading-none mb-0.5">
+                {String(hourOfDay).padStart(2, "0")}
+              </span>
+              <div className="h-2 w-px bg-border/60" />
+            </div>
+          );
+        }
+      }
+
+      return <>{dayCells}{hourTicks}</>;
     }
 
-    // Day or week view
-    const viewDays = viewMode === "day" ? [dayViewDate] : days;
-    return viewDays.map((day, i) => {
-      const dayLeft = i * 24 * pxH;
-      const dayWidth = 24 * pxH;
+    if (rulerMode === "days-band") {
       return (
-        <div
-          key={i}
-          className={cn(
-            "absolute top-0 flex flex-col items-center justify-start pt-1.5 border-r text-xs font-medium",
-            isToday(day) ? "text-primary" : "text-muted-foreground"
-          )}
-          style={{ left: dayLeft, width: dayWidth, height: RULER_H }}
-        >
-          <span className="text-[10px] uppercase tracking-wide leading-none">
-            {DAY_NAMES_SHORT[day.getDay()]}
-          </span>
-          <span className={cn(
-            "w-7 h-7 rounded-full flex items-center justify-center text-sm font-semibold leading-tight mt-0.5",
-            isToday(day) ? "bg-primary text-primary-foreground" : "text-foreground"
-          )}>
-            {day.getDate()}
-          </span>
-        </div>
+        <>
+          {renderMonthBand(0, BAND_H)}
+          {renderDayCells(BAND_H, RULER_H - BAND_H)}
+        </>
       );
-    });
+    }
+
+    // months-band: year on top, month cells below
+    return (
+      <>
+        {renderYearBand(0, BAND_H)}
+        {renderMonthCells(BAND_H, RULER_H - BAND_H)}
+      </>
+    );
   }
 
-  function renderGridLines(machineId: string) {
-    if (viewMode === "month") {
-      return monthDays.map((_, i) => (
-        <div
-          key={i}
-          className="absolute top-0 bottom-0 border-r border-border/40 pointer-events-none"
-          style={{ left: (i + 1) * pxH }}
-        />
-      ));
+  function renderGridLines() {
+    const pxD = pxH * 24;
+    const msPerPxD = 86_400_000 / pxD;
+    const endMs = originMs + contentWidth * msPerPxD;
+    const d0 = new Date(originMs);
+    const firstMidnight = new Date(d0.getFullYear(), d0.getMonth(), d0.getDate()).getTime();
+    const lines: number[] = [];
+    for (let t = firstMidnight; t <= endMs + 86_400_000; t += 86_400_000) {
+      const x = (t - originMs) / msPerPxD;
+      if (x >= -1) lines.push(x);
     }
-    const viewDays = viewMode === "day" ? [dayViewDate] : days;
-    return viewDays.map((_, i) => (
-      <div
-        key={i}
-        className="absolute top-0 bottom-0 border-r border-border/40 pointer-events-none"
-        style={{ left: (i + 1) * 24 * pxH }}
-      />
+    return lines.map((x, i) => (
+      <div key={i} className="absolute top-0 bottom-0 border-r border-border/40 pointer-events-none" style={{ left: x }} />
     ));
   }
 
   function renderTodayHighlight() {
-    if (viewMode === "month") {
-      const now = new Date();
-      const localMidnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const dayIdx = Math.round((localMidnight.getTime() - monthStart.getTime()) / 86_400_000);
-      if (dayIdx < 0 || dayIdx >= daysInMonth) return null;
-      return (
-        <div
-          className="absolute top-0 bottom-0 bg-primary/5 pointer-events-none"
-          style={{ left: dayIdx * pxH, width: pxH }}
-        />
-      );
-    }
-    const viewDays = viewMode === "day" ? [dayViewDate] : days;
-    return viewDays.map((day, i) => isToday(day) ? (
-      <div
-        key={i}
-        className="absolute top-0 bottom-0 bg-primary/5 pointer-events-none"
-        style={{ left: i * 24 * pxH, width: 24 * pxH }}
-      />
-    ) : null);
+    const pxD = pxH * 24;
+    const msPerPxD = 86_400_000 / pxD;
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const x = (todayStart - originMs) / msPerPxD;
+    if (x < -pxD || x > contentWidth) return null;
+    return (
+      <div className="absolute top-0 bottom-0 bg-primary/5 pointer-events-none" style={{ left: x, width: pxD }} />
+    );
   }
 
   const unscheduled = getUnscheduledJobs();
@@ -822,7 +898,6 @@ export function JobTimeline({ machines, jobs, onJobCreated, onJobUpdated, onJobD
     <>
       {/* Navigation header */}
       <div className="flex items-center gap-2 px-6 py-3 border-b bg-background flex-shrink-0 flex-wrap">
-        {/* Prev / label / next */}
         <Button variant="outline" size="icon" className="h-8 w-8" aria-label="Zurück" onClick={() => navigate(-1)}>
           <ChevronLeft className="h-4 w-4" />
         </Button>
@@ -836,12 +911,12 @@ export function JobTimeline({ machines, jobs, onJobCreated, onJobUpdated, onJobD
 
         <div className="w-px h-5 bg-border mx-1" />
 
-        {/* View switcher */}
+        {/* View preset buttons */}
         <div className="flex items-center rounded-md border overflow-hidden">
           {(["day", "week", "month"] as ViewMode[]).map((vm) => (
             <button
               key={vm}
-              onClick={() => setViewMode(vm)}
+              onClick={() => applyViewPreset(vm)}
               className={cn(
                 "px-3 py-1 text-xs font-medium transition-colors",
                 viewMode === vm
@@ -861,26 +936,53 @@ export function JobTimeline({ machines, jobs, onJobCreated, onJobUpdated, onJobD
           size="sm"
           className="h-8 text-xs"
           onClick={resetZoom}
-          title="Zoom zurücksetzen (Strg+Scroll zum Zoomen)"
+          title="Zoom zurücksetzen"
         >
           1:1
         </Button>
       </div>
 
-      {/* Gantt container */}
+      {/* Gantt container — no horizontal scrollbar */}
       <div
         ref={containerRef}
-        className="flex-1 overflow-auto relative"
+        className="flex-1 overflow-x-hidden overflow-y-auto relative"
         style={{ cursor: "default" }}
+        onMouseDown={(e) => {
+          if (e.button !== 0 || dragStateRef.current) return;
+          panDragRef.current = { startClientX: e.clientX, originMsAtStart: originMsRef.current };
+          hasDraggedRef.current = false;
+        }}
+        onTouchStart={(e) => {
+          if (e.touches.length === 2) {
+            const dx = e.touches[1].clientX - e.touches[0].clientX;
+            const dy = e.touches[1].clientY - e.touches[0].clientY;
+            const dist = Math.hypot(dx, dy);
+            const rect = containerRef.current?.getBoundingClientRect();
+            const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2
+              - (rect?.left ?? 0) - MACHINE_COL_W;
+            pinchStateRef.current = {
+              initialDist: dist,
+              initialPxH: pixelsPerHourRef.current,
+              midX,
+              originMsAtStart: originMsRef.current,
+            };
+            panDragRef.current = null;
+          } else if (e.touches.length === 1 && !dragStateRef.current) {
+            panDragRef.current = {
+              startClientX: e.touches[0].clientX,
+              originMsAtStart: originMsRef.current,
+            };
+          }
+        }}
       >
-        <div style={{ width: MACHINE_COL_W + totalWidth, minWidth: "100%" }}>
+        <div style={{ minWidth: "100%" }}>
 
           {/* Sticky ruler */}
           <div
             className="sticky top-0 z-20 bg-muted/80 backdrop-blur-sm border-b flex"
             style={{ height: RULER_H }}
           >
-            {/* Corner */}
+            {/* Machine column header */}
             <div
               className="sticky left-0 z-30 bg-muted/80 backdrop-blur-sm border-r flex items-center px-3 text-xs font-medium text-muted-foreground flex-shrink-0"
               style={{ width: MACHINE_COL_W, minWidth: MACHINE_COL_W }}
@@ -888,28 +990,9 @@ export function JobTimeline({ machines, jobs, onJobCreated, onJobUpdated, onJobD
               Maschine
             </div>
 
-            {/* Ruler content */}
-            <div className="relative flex-1" style={{ width: totalWidth, minWidth: totalWidth }}>
+            {/* Ruler canvas */}
+            <div className="relative flex-1 overflow-hidden">
               {renderRulerColumns()}
-
-              {/* Hour ticks (day/week) */}
-              {hourTicks.map((h) => {
-                const tickLeft = h * pxH;
-                const hour = h % 24;
-                if (hour === 0) return null;
-                return (
-                  <div
-                    key={h}
-                    className="absolute bottom-0 flex flex-col items-center"
-                    style={{ left: tickLeft, transform: "translateX(-50%)" }}
-                  >
-                    <span className="text-[10px] text-muted-foreground/60 leading-none mb-0.5">
-                      {String(hour).padStart(2, "0")}
-                    </span>
-                    <div className="h-2 w-px bg-border/60" />
-                  </div>
-                );
-              })}
 
               {/* Today line in ruler */}
               {showTodayLine && (
@@ -935,18 +1018,18 @@ export function JobTimeline({ machines, jobs, onJobCreated, onJobUpdated, onJobD
                   {machine.name}
                 </div>
 
-                {/* Row canvas */}
+                {/* Row canvas — flex-1, infinite */}
                 <div
-                  className="relative flex-1 cursor-crosshair"
-                  style={{ width: totalWidth, minWidth: totalWidth }}
+                  className="relative flex-1 cursor-crosshair overflow-hidden"
                   onClick={(e) => handleRowClick(e, machine.id)}
                 >
-                  {renderGridLines(machine.id)}
+                  {renderGridLines()}
                   {renderTodayHighlight()}
 
                   {/* Today line */}
                   {showTodayLine && (
                     <div
+                      data-testid="timeline-today-line"
                       className="absolute top-0 bottom-0 w-0.5 bg-red-500/70 pointer-events-none z-10"
                       style={{ left: todayLineLeft }}
                     />
@@ -956,6 +1039,7 @@ export function JobTimeline({ machines, jobs, onJobCreated, onJobUpdated, onJobD
                   {machineJobs.map((job) => {
                     const left = jobLeft(job.plannedAt!);
                     const width = jobBarWidth(job.printTimeMinutes);
+                    if (left + width < 0 || left > contentWidth) return null;
                     const customerName = job.parts[0]?.orderPart.order.customerName ?? STATUS_LABELS[job.status];
                     const durationLabel = job.printTimeMinutes
                       ? ` (${(job.printTimeMinutes / 60).toFixed(1)}h)`

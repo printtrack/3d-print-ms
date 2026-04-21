@@ -38,6 +38,18 @@ test.describe("Visual regression — static public pages", () => {
     await expect(page).toHaveScreenshot("reset-password.png", SCREENSHOT_OPTIONS);
   });
 
+  test("impressum", async ({ seed, page }) => {
+    await page.goto("/impressum");
+    await page.waitForLoadState("networkidle");
+    await expect(page).toHaveScreenshot("impressum.png", SCREENSHOT_OPTIONS);
+  });
+
+  test("datenschutz", async ({ seed, page }) => {
+    await page.goto("/datenschutz");
+    await page.waitForLoadState("networkidle");
+    await expect(page).toHaveScreenshot("datenschutz.png", SCREENSHOT_OPTIONS);
+  });
+
   test("portal sign-in", async ({ seed, page }) => {
     await page.goto("/portal/signin");
     await page.waitForLoadState("networkidle");

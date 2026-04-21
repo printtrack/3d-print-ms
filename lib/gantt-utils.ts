@@ -5,7 +5,7 @@ export const LANE_ROW_H = 44;
 export const SUB_ROW_H = 36;
 export const RULER_H = 72;
 export const OPEN_BAR_DAYS = 30;
-export const MIN_PX_D = 4;
+export const MIN_PX_D = 0.3;
 export const MAX_PX_D = 200;
 
 export type ViewMode = "week" | "month" | "quarter";

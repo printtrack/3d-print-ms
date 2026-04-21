@@ -5,7 +5,7 @@ import path from "path";
 
 const testDbUrl =
   process.env.DATABASE_URL_TEST ??
-  "mysql://root@localhost:3306/3dprint_ms_test";
+  "mysql://joberndo@localhost:3306/3dprinting_cms_test";
 
 export const prismaTest = new PrismaClient({
   datasources: { db: { url: testDbUrl } },

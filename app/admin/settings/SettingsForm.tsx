@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
-import { Plus, Trash2, Building2, Mail, MessageSquare, Layers, LayoutList, FolderKanban, Users, Printer } from "lucide-react";
+import { Plus, Trash2, Building2, Scale, Mail, MessageSquare, Layers, LayoutList, FolderKanban, Users, Printer } from "lucide-react";
 import { PhaseManager } from "@/components/admin/PhaseManager";
 import { TeamManager } from "@/components/admin/TeamManager";
 import { MachineManager } from "@/components/admin/MachineManager";
@@ -80,6 +80,7 @@ const NAV_GROUPS = [
     label: "Allgemein",
     items: [
       { key: "general", label: "Unternehmen", icon: Building2 },
+      { key: "legal", label: "Rechtliches", icon: Scale },
     ],
   },
   {
@@ -106,7 +107,7 @@ const NAV_GROUPS = [
   },
 ];
 
-const SETTINGS_SECTIONS = new Set(["general", "emails", "survey"]);
+const SETTINGS_SECTIONS = new Set(["general", "emails", "survey", "legal"]);
 
 export function SettingsForm({
   initialSettings,
@@ -494,6 +495,67 @@ export function SettingsForm({
           </Card>
         )}
 
+        {/* Rechtliches */}
+        {activeSection === "legal" && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Angaben für Impressum &amp; Datenschutz</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <p className="text-xs text-muted-foreground">
+                Diese Angaben erscheinen unter{" "}
+                <a href="/impressum" target="_blank" className="underline">/impressum</a> und{" "}
+                <a href="/datenschutz" target="_blank" className="underline">/datenschutz</a>.
+              </p>
+              <div className="space-y-2">
+                <Label htmlFor="legal_name">Vollständiger Name / Firma</Label>
+                <Input
+                  id="legal_name"
+                  value={settings.legal_name ?? ""}
+                  onChange={(e) => set("legal_name", e.target.value)}
+                  placeholder="Max Mustermann"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="legal_street">Straße und Hausnummer</Label>
+                <Input
+                  id="legal_street"
+                  value={settings.legal_street ?? ""}
+                  onChange={(e) => set("legal_street", e.target.value)}
+                  placeholder="Musterstraße 1"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="legal_city">PLZ und Ort</Label>
+                <Input
+                  id="legal_city"
+                  value={settings.legal_city ?? ""}
+                  onChange={(e) => set("legal_city", e.target.value)}
+                  placeholder="12345 Musterstadt"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="legal_phone">Telefonnummer</Label>
+                <Input
+                  id="legal_phone"
+                  value={settings.legal_phone ?? ""}
+                  onChange={(e) => set("legal_phone", e.target.value)}
+                  placeholder="+49 (0) 123 456789"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="legal_email">E-Mail-Adresse</Label>
+                <Input
+                  id="legal_email"
+                  type="email"
+                  value={settings.legal_email ?? ""}
+                  onChange={(e) => set("legal_email", e.target.value)}
+                  placeholder="info@beispiel.de"
+                />
+              </div>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Team */}
         {activeSection === "team" && (

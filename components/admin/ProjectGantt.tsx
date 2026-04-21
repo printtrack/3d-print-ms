@@ -49,7 +49,8 @@ function ProjectGanttRows({
   users: GanttUser[];
 }) {
   const router = useRouter();
-  const { viewStart, totalWidth, pxD } = useGanttContext();
+  const { originMs, contentWidth, pxD } = useGanttContext();
+  const viewStart = new Date(originMs);
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
   const [milestoneDialog, setMilestoneDialog] = useState<{
     open: boolean;
@@ -146,7 +147,7 @@ function ProjectGanttRows({
           : OPEN_BAR_DAYS * pxD;
         const projLeft = Math.max(0, projRawLeft);
         const projWidth = projRawWidth - (projLeft - projRawLeft);
-        const projBarVisible = projLeft + projWidth > 0 && projLeft < totalWidth;
+        const projBarVisible = projLeft + projWidth > 0;
 
         // Order lanes inside this project
         const lanes = assignLanes(project.orders, viewStart, pxD);
@@ -163,7 +164,7 @@ function ProjectGanttRows({
             {/* Project header row */}
             <div
               className="relative border-b hover:bg-muted/10 group"
-              style={{ height: ROW_H, width: totalWidth, minWidth: "100%", background: color + "08", borderLeft: `3px solid ${color}` }}
+              style={{ height: ROW_H, minWidth: "100%", background: color + "08", borderLeft: `3px solid ${color}` }}
             >
               <GanttGridLines />
               <GanttTodayLine />
@@ -231,7 +232,7 @@ function ProjectGanttRows({
               {/* Project milestone diamonds */}
               {project.milestones.filter((m) => m.dueAt).map((m) => {
                 const left = barLeft(m.dueAt!, viewStart, pxD);
-                if (left < 7 || left > totalWidth + 10) return null;
+                if (left < 7) return null;
                 return (
                   <div
                     key={m.id}
@@ -275,7 +276,7 @@ function ProjectGanttRows({
                   <div
                     key={laneIdx}
                     className="relative border-b hover:bg-muted/10 group"
-                    style={{ height: LANE_ROW_H, width: totalWidth, minWidth: "100%", borderLeft: `3px solid ${color}33` }}
+                    style={{ height: LANE_ROW_H, minWidth: "100%", borderLeft: `3px solid ${color}33` }}
                   >
                     <GanttGridLines />
                     <GanttTodayLine />
@@ -288,7 +289,7 @@ function ProjectGanttRows({
                       const rawWidth = endDate ? barWidth(startDate, endDate, pxD) : OPEN_BAR_DAYS * pxD;
                       const clampedLeft = Math.max(0, rawLeft);
                       const width = rawWidth - (clampedLeft - rawLeft);
-                      const barVisible = clampedLeft + width > 0 && clampedLeft < totalWidth;
+                      const barVisible = clampedLeft + width > 0;
                       const phaseColor = order.phase.color;
                       const tooltip = `${order.customerName} — ${order.phase.name}${endDate ? `\n${new Date(endDate).toLocaleDateString("de-DE")}` : "\nKein Termin"}`;
 
@@ -340,7 +341,7 @@ function ProjectGanttRows({
                           {/* Milestone diamonds */}
                           {order.milestones.filter((m) => m.dueAt).map((m) => {
                             const left = barLeft(m.dueAt!, viewStart, pxD);
-                            if (left < 7 || left > totalWidth + 10) return null;
+                            if (left < 7) return null;
                             return (
                               <div
                                 key={m.id}
@@ -379,7 +380,7 @@ function ProjectGanttRows({
       {projects.length === 0 && (
         <div
           className="relative border-b flex items-center justify-center text-[11px] text-muted-foreground"
-          style={{ height: LANE_ROW_H, width: totalWidth, minWidth: "100%" }}
+          style={{ height: LANE_ROW_H, minWidth: "100%" }}
         >
           <GanttGridLines />
           Keine Projekte

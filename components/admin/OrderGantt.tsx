@@ -58,7 +58,8 @@ function OrderGanttRows({
   users: GanttUser[];
 }) {
   const router = useRouter();
-  const { viewStart, totalWidth, pxD } = useGanttContext();
+  const { originMs, contentWidth, pxD } = useGanttContext();
+  const viewStart = new Date(originMs);
   const [milestoneDialog, setMilestoneDialog] = useState<{
     open: boolean;
     orderId?: string;
@@ -112,7 +113,7 @@ function OrderGanttRows({
       {Array.from({ length: maxLane + 1 }, (_, laneIdx) => {
         const laneOrders = byLane.get(laneIdx) ?? [];
         return (
-          <div key={laneIdx} className="relative border-b hover:bg-muted/10 group" style={{ height: LANE_ROW_H, width: totalWidth, minWidth: "100%" }}>
+          <div key={laneIdx} className="relative border-b hover:bg-muted/10 group" style={{ height: LANE_ROW_H, minWidth: "100%" }}>
             <GanttGridLines />
             <GanttTodayLine />
 
@@ -124,7 +125,7 @@ function OrderGanttRows({
               const rawWidth = endDate ? barWidth(startDate, endDate, pxD) : OPEN_BAR_DAYS * pxD;
               const clampedLeft = Math.max(0, rawLeft);
               const width = rawWidth - (clampedLeft - rawLeft);
-              const barVisible = clampedLeft + width > 0 && clampedLeft < totalWidth;
+              const barVisible = clampedLeft + width > 0;
               const phaseColor = order.phase.color;
               const tooltip = `${order.customerName} — ${order.phase.name}${endDate ? `\n${new Date(endDate).toLocaleDateString("de-DE")}` : "\nKein Termin"}`;
 
@@ -179,7 +180,7 @@ function OrderGanttRows({
                     .filter((m) => m.dueAt)
                     .map((m) => {
                       const left = barLeft(m.dueAt!, viewStart, pxD);
-                      if (left < 7 || left > totalWidth + 10) return null;
+                      if (left < 7) return null;
                       return (
                         <div
                           key={m.id}
@@ -234,7 +235,7 @@ function OrderGanttRows({
       {orders.length === 0 && (
         <div
           className="relative border-b flex items-center justify-center text-[11px] text-muted-foreground"
-          style={{ height: LANE_ROW_H, width: totalWidth, minWidth: "100%" }}
+          style={{ height: LANE_ROW_H, minWidth: "100%" }}
         >
           <GanttGridLines />
           Keine Aufträge
