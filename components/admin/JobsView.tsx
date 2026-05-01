@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Kanban, GanttChart } from "lucide-react";
+import { Kanban, GanttChart, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { JobQueueBoard } from "./JobQueueBoard";
 import { JobTimeline } from "./JobTimeline";
+import { PlanJobsDialog } from "./PlanJobsDialog";
 import type { PrintJob } from "./JobCard";
 
 
@@ -30,6 +31,7 @@ interface JobsViewProps {
 export function JobsView({ machines, initialJobs, teamMembers = [] }: JobsViewProps) {
   const [view, setView] = useState<"timeline" | "queue">("timeline");
   const [jobs, setJobs] = useState<PrintJob[]>(initialJobs);
+  const [plannerOpen, setPlannerOpen] = useState(false);
 
   useEffect(() => {
     async function runAutoTransition() {
@@ -61,6 +63,10 @@ export function JobsView({ machines, initialJobs, teamMembers = [] }: JobsViewPr
     setJobs((prev) => [...prev, job]);
   }
 
+  function handleJobsCreated(newJobs: PrintJob[]) {
+    setJobs((prev) => [...prev, ...newJobs]);
+  }
+
   function handleJobUpdated(job: PrintJob) {
     setJobs((prev) => prev.map((j) => (j.id === job.id ? job : j)));
   }
@@ -78,7 +84,12 @@ export function JobsView({ machines, initialJobs, teamMembers = [] }: JobsViewPr
             {view === "timeline" ? "Gantt-Ansicht" : "Board-Ansicht"}
           </p>
         </div>
-        <div className="flex items-center gap-1 rounded-lg border p-1">
+        <div className="flex items-center gap-2">
+          <Button size="sm" className="gap-1.5" onClick={() => setPlannerOpen(true)}>
+            <Sparkles className="h-4 w-4" />
+            Druckjobs vorschlagen
+          </Button>
+          <div className="flex items-center gap-1 rounded-lg border p-1">
           <Button
             variant="ghost"
             size="sm"
@@ -97,8 +108,15 @@ export function JobsView({ machines, initialJobs, teamMembers = [] }: JobsViewPr
             <GanttChart className="h-3.5 w-3.5" />
             Gantt
           </Button>
+          </div>
         </div>
       </div>
+
+      <PlanJobsDialog
+        open={plannerOpen}
+        onOpenChange={setPlannerOpen}
+        onJobsCreated={handleJobsCreated}
+      />
 
       <div className="flex-1 min-h-0 flex flex-col">
         {view === "timeline" ? (

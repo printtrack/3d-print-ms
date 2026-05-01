@@ -490,7 +490,7 @@ test("timeline: navigation arrows change the date label", async ({ seed, page })
   await expect(label).not.toHaveText("");
   const initialText = await label.textContent();
 
-  await page.getByRole("button", { name: "Vor" }).click();
+  await page.getByRole("button", { name: "Vor", exact: true }).click();
   const afterNextText = await label.textContent();
   expect(afterNextText).not.toBe(initialText);
 
@@ -505,8 +505,8 @@ test("timeline: Heute button returns to current period after navigating away", a
   const label = page.getByTestId("timeline-nav-label");
 
   // Navigate forward two weeks
-  await page.getByRole("button", { name: "Vor" }).click();
-  await page.getByRole("button", { name: "Vor" }).click();
+  await page.getByRole("button", { name: "Vor", exact: true }).click();
+  await page.getByRole("button", { name: "Vor", exact: true }).click();
   const afterText = await label.textContent();
   // Should have moved away from today's range
   expect(afterText).toBeTruthy();

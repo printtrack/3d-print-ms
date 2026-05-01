@@ -455,3 +455,83 @@ export async function createTestOrderWithStlFile() {
 
   return { order, part, file };
 }
+
+/**
+ * Creates a binary STL buffer with a single triangle whose vertices span
+ * the given bounding box. The bbox parsed from this file will be (bboxX, bboxY, bboxZ).
+ */
+export function makeStlBuffer(bboxX: number, bboxY: number, bboxZ: number): Buffer {
+  const buf = Buffer.alloc(134);
+  buf.writeUInt32LE(1, 80);
+  // Normal
+  buf.writeFloatLE(0, 84); buf.writeFloatLE(0, 88); buf.writeFloatLE(1, 92);
+  // Vertex 1: (0, 0, 0)
+  buf.writeFloatLE(0, 96); buf.writeFloatLE(0, 100); buf.writeFloatLE(0, 104);
+  // Vertex 2: (bboxX, 0, 0)
+  buf.writeFloatLE(bboxX, 108); buf.writeFloatLE(0, 112); buf.writeFloatLE(0, 116);
+  // Vertex 3: (0, bboxY, bboxZ)
+  buf.writeFloatLE(0, 120); buf.writeFloatLE(bboxY, 124); buf.writeFloatLE(bboxZ, 128);
+  return buf;
+}
+
+/**
+ * Creates a print-ready part with STL file on disk and OrderFile record.
+ * Requires seedDb() to have been called (for partPhases and orderPhases).
+ */
+export async function createTestPrintReadyPart(options: {
+  filamentId: string;
+  gramsEstimated?: number;
+  quantity?: number;
+  bboxX?: number;
+  bboxY?: number;
+  bboxZ?: number;
+  name?: string;
+}) {
+  const defaultPhase = await prismaTest.orderPhase.findFirst({ where: { isDefault: true } });
+  if (!defaultPhase) throw new Error("No default order phase. Run seedDb() first.");
+
+  const printReadyPhase = await prismaTest.partPhase.findFirst({ where: { isPrintReady: true } });
+  if (!printReadyPhase) throw new Error("No print-ready part phase. Run seedDb() first.");
+
+  const order = await prismaTest.order.create({
+    data: {
+      customerName: options.name ?? "Planner Test",
+      customerEmail: "planner@example.com",
+      description: options.name ?? "Planner Test Order",
+      phaseId: defaultPhase.id,
+    },
+  });
+
+  const part = await prismaTest.orderPart.create({
+    data: {
+      orderId: order.id,
+      name: options.name ?? "Test Teil",
+      filamentId: options.filamentId,
+      gramsEstimated: options.gramsEstimated,
+      quantity: options.quantity ?? 1,
+      partPhaseId: printReadyPhase.id,
+    },
+  });
+
+  const stlBuf = makeStlBuffer(options.bboxX ?? 20, options.bboxY ?? 20, options.bboxZ ?? 20);
+  const filename = `part-${part.id}.stl`;
+  const uploadDir = process.env.UPLOAD_DIR
+    ? path.resolve(process.cwd(), process.env.UPLOAD_DIR)
+    : path.join(process.cwd(), "public", "uploads");
+  const orderDir = path.join(uploadDir, order.id);
+  await mkdir(orderDir, { recursive: true });
+  await writeFile(path.join(orderDir, filename), stlBuf);
+
+  const file = await prismaTest.orderFile.create({
+    data: {
+      orderId: order.id,
+      orderPartId: part.id,
+      filename,
+      originalName: filename,
+      mimeType: "model/stl",
+      size: stlBuf.length,
+    },
+  });
+
+  return { order, part, file };
+}

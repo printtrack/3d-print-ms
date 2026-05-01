@@ -219,6 +219,9 @@ model OrderPart {
   filament       Filament?           @relation(fields: [filamentId], references: [id])
   filamentId     String?
   gramsEstimated Int?
+  bboxXmm        Int?
+  bboxYmm        Int?
+  bboxZmm        Int?
   quantity       Int                 @default(1)
   iterationCount Int                 @default(1)
   partPhase      PartPhase?          @relation(fields: [partPhaseId], references: [id], onDelete: SetNull)
