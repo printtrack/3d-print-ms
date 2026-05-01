@@ -6,7 +6,7 @@ import { z } from "zod";
 const patchSchema = z.object({
   title: z.string().min(1).optional(),
   completed: z.boolean().optional(),
-  assigneeId: z.string().nullable().optional(),
+  assigneeIds: z.array(z.string()).optional(),
 });
 
 export async function PATCH(
@@ -22,6 +22,15 @@ export async function PATCH(
     const body = await req.json();
     const data = patchSchema.parse(body);
 
+    if (data.assigneeIds !== undefined) {
+      await prisma.milestoneTaskAssignee.deleteMany({ where: { taskId } });
+      if (data.assigneeIds.length > 0) {
+        await prisma.milestoneTaskAssignee.createMany({
+          data: data.assigneeIds.map((userId) => ({ taskId, userId })),
+        });
+      }
+    }
+
     const task = await prisma.milestoneTask.update({
       where: { id: taskId },
       data: {
@@ -32,9 +41,8 @@ export async function PATCH(
               completedAt: data.completed ? new Date() : null,
             }
           : {}),
-        ...(data.assigneeId !== undefined ? { assigneeId: data.assigneeId } : {}),
       },
-      include: { assignee: { select: { id: true, name: true } } },
+      include: { assignees: { include: { user: { select: { id: true, name: true } } } } },
     });
 
     return NextResponse.json(task);

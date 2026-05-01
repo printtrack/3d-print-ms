@@ -8,6 +8,7 @@ const createSchema = z.object({
   machineId: z.string().min(1),
   plannedAt: z.string().datetime().nullable().optional(),
   notes: z.string().nullable().optional(),
+  assigneeIds: z.array(z.string()).optional(),
 });
 
 const jobInclude = {
@@ -27,6 +28,7 @@ const jobInclude = {
       filament: { select: { id: true, name: true, material: true, color: true, colorHex: true } },
     },
   },
+  assignees: { include: { user: { select: { id: true, name: true, email: true } } } },
 } as const;
 
 export async function GET(req: NextRequest) {
@@ -80,6 +82,9 @@ export async function POST(req: NextRequest) {
         plannedAt: data.plannedAt ? new Date(data.plannedAt) : null,
         notes: data.notes ?? null,
         queuePosition,
+        ...(data.assigneeIds && data.assigneeIds.length > 0
+          ? { assignees: { create: data.assigneeIds.map((userId) => ({ userId })) } }
+          : {}),
       },
       include: jobInclude,
     });

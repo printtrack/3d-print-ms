@@ -18,9 +18,9 @@ export async function resetDb() {
   await prismaTest.$executeRawUnsafe(`SET FOREIGN_KEY_CHECKS = 0`);
   for (const table of [
     "AuditLog", "OrderComment", "OrderFile", "SurveyResponse", "VerificationRequest",
-    "PrintJobFilament", "PrintJobPart", "PrintJobFile", "PrintJob",
-    "OrderPart", "OrderAssignee", "Machine",
-    "MilestoneTask", "Milestone", "Order",
+    "PrintJobAssignee", "PrintJobFilament", "PrintJobPart", "PrintJobFile", "PrintJob",
+    "OrderPartAssignee", "OrderPart", "OrderAssignee", "Machine",
+    "MilestoneTaskAssignee", "MilestoneTask", "Milestone", "Order",
     "OrderPhase", "PartPhase", "Filament",
     "ProjectAuditLog", "ProjectAssignee", "Project", "ProjectPhase",
     "KnowledgeEntry", "KnowledgeFile",
@@ -47,6 +47,23 @@ export async function createTestCreditTransaction(
     }),
   ]);
   return credit;
+}
+
+export async function createTestUser(
+  overrides: Partial<{
+    name: string;
+    email: string;
+    role: "ADMIN" | "TEAM_MEMBER";
+  }> = {}
+) {
+  return prismaTest.user.create({
+    data: {
+      name: overrides.name ?? "Team Mitglied",
+      email: overrides.email ?? `team-${Date.now()}@example.com`,
+      password: "$2b$12$y2KSFIcuvvM4gjdMj9qAHuyZRS0XfB4KRW67T9Q5Pi9wP7ipk6HJG",
+      role: overrides.role ?? "TEAM_MEMBER",
+    },
+  });
 }
 
 export async function createTestCustomer(

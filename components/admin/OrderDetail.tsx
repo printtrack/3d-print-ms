@@ -15,19 +15,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
+import { AssigneePicker } from "@/components/admin/AssigneePicker";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -50,10 +38,8 @@ import {
   ArrowLeft,
   Check,
   ChevronDown,
-  ChevronsUpDown,
   Clock,
   Flag,
-  Layers,
   MessageSquare,
   Plus,
   RotateCcw,
@@ -78,8 +64,7 @@ interface MilestoneTaskData {
   title: string;
   completed: boolean;
   completedAt: string | null;
-  assigneeId: string | null;
-  assignee: { id: string; name: string } | null;
+  assignees: { user: { id: string; name: string } }[];
   position: number;
 }
 
@@ -106,12 +91,6 @@ interface FilamentOption {
   remainingGrams: number;
 }
 
-interface PrintJobInfo {
-  id: string;
-  status: "PLANNED" | "IN_PROGRESS" | "DONE" | "CANCELLED";
-  plannedAt: string | null;
-  machine: { id: string; name: string };
-}
 
 interface OrderDetailProps {
   order: {
@@ -178,7 +157,6 @@ interface OrderDetailProps {
   parts: OrderPartData[];
   availableFilaments: FilamentOption[];
   customerCredit: { id: string; balance: number } | null;
-  printJob?: PrintJobInfo | null;
   partPhases: Array<{ id: string; name: string; color: string; isPrintReady: boolean }>;
   machines: Array<{ id: string; name: string }>;
   initialMilestones: MilestoneData[];
@@ -223,14 +201,13 @@ function getActionLabel(action: string): string {
   return labels[action] ?? action;
 }
 
-export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin, parts: initialParts, availableFilaments, customerCredit: initialCustomerCredit, printJob: initialPrintJob, partPhases, machines, initialMilestones }: OrderDetailProps) {
+export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin, parts: initialParts, availableFilaments, customerCredit: initialCustomerCredit, partPhases, machines, initialMilestones }: OrderDetailProps) {
   const router = useRouter();
   const [selectedPhaseId, setSelectedPhaseId] = useState(order.phaseId);
   const [parts, setParts] = useState<OrderPartData[]>(initialParts);
   const [selectedAssigneeIds, setSelectedAssigneeIds] = useState<string[]>(
     order.assignees.map((a) => a.id)
   );
-  const [assigneePopoverOpen, setAssigneePopoverOpen] = useState(false);
   const [deadlineValue, setDeadlineValue] = useState(
     order.deadline ? new Date(order.deadline).toISOString().split("T")[0] : ""
   );
@@ -274,7 +251,6 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
     `Abzug für Auftrag vom ${new Date(order.createdAt).toLocaleDateString("de-DE")}`
   );
   const [savingCredit, setSavingCredit] = useState(false);
-  const [printJob] = useState<PrintJobInfo | null>(initialPrintJob ?? null);
   const [milestones, setMilestones] = useState<MilestoneData[]>(initialMilestones);
   const [milestoneDialog, setMilestoneDialog] = useState<{ open: boolean; milestone: MilestoneData | null }>({ open: false, milestone: null });
 
@@ -656,57 +632,8 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
             isPrototype={isPrototype && currentPhaseIsPrototype}
             iterationCount={iterationCount}
             onIterationChange={setIterationCount}
+            teamMembers={teamMembers}
           />
-
-          {/* Print Job */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <Layers className="h-4 w-4" />
-                Druckauftrag
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {printJob ? (
-                <div className="space-y-3">
-                  <div className="flex items-center gap-3 p-3 bg-muted/40 rounded-md">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium">{printJob.machine.name}</p>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className={`text-xs px-1.5 py-0.5 rounded font-medium ${
-                          printJob.status === "PLANNED" ? "bg-blue-100 text-blue-700" :
-                          printJob.status === "IN_PROGRESS" ? "bg-amber-100 text-amber-700" :
-                          printJob.status === "DONE" ? "bg-green-100 text-green-700" :
-                          "bg-muted text-muted-foreground"
-                        }`}>
-                          {printJob.status === "PLANNED" ? "Geplant" :
-                           printJob.status === "IN_PROGRESS" ? "Im Druck" :
-                           printJob.status === "DONE" ? "Abgeschlossen" : "Storniert"}
-                        </span>
-                        {printJob.plannedAt && (
-                          <span className="text-xs text-muted-foreground">
-                            {new Date(printJob.plannedAt).toLocaleDateString("de-DE")}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    <Link href="/admin/jobs" className="underline hover:text-foreground">
-                      Alle Jobs anzeigen →
-                    </Link>
-                  </p>
-                </div>
-              ) : (
-                <p className="text-sm text-muted-foreground text-center py-2">
-                  Kein Druckauftrag zugewiesen.{" "}
-                  <Link href="/admin/jobs" className="underline hover:text-foreground">
-                    Zu Druckjobs →
-                  </Link>
-                </p>
-              )}
-            </CardContent>
-          </Card>
 
           {/* Comments */}
           <Card>
@@ -808,73 +735,14 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
 
               <div className="space-y-2">
                 <label className="text-sm font-medium">Zugewiesen an</label>
-                <Popover
-                  open={assigneePopoverOpen}
-                  onOpenChange={(open) => {
-                    setAssigneePopoverOpen(open);
-                    if (!open) handleSaveAssignees(selectedAssigneeIds);
+                <AssigneePicker
+                  users={teamMembers}
+                  value={selectedAssigneeIds}
+                  onChange={async (ids) => {
+                    setSelectedAssigneeIds(ids);
+                    await handleSaveAssignees(ids);
                   }}
-                >
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      className="w-full justify-between font-normal"
-                    >
-                      <span className="truncate">
-                        {selectedAssigneeIds.length === 0
-                          ? "Nicht zugewiesen"
-                          : teamMembers
-                              .filter((m) => selectedAssigneeIds.includes(m.id))
-                              .map((m) => m.name)
-                              .join(", ")}
-                      </span>
-                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-full p-0" align="start">
-                    <Command>
-                      <CommandInput placeholder="Suchen..." />
-                      <CommandList>
-                        <CommandEmpty>Keine Mitglieder gefunden.</CommandEmpty>
-                        <CommandGroup>
-                          {teamMembers.map((member) => {
-                            const selected = selectedAssigneeIds.includes(member.id);
-                            return (
-                              <CommandItem
-                                key={member.id}
-                                value={member.name}
-                                onSelect={() => {
-                                  setSelectedAssigneeIds((prev) =>
-                                    selected
-                                      ? prev.filter((id) => id !== member.id)
-                                      : [...prev, member.id]
-                                  );
-                                }}
-                              >
-                                <Check
-                                  className={`mr-2 h-4 w-4 ${selected ? "opacity-100" : "opacity-0"}`}
-                                />
-                                {member.name}
-                              </CommandItem>
-                            );
-                          })}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-                {selectedAssigneeIds.length > 0 && (
-                  <div className="flex flex-wrap gap-1.5">
-                    {teamMembers
-                      .filter((m) => selectedAssigneeIds.includes(m.id))
-                      .map((m) => (
-                        <Badge key={m.id} variant="secondary" className="text-xs">
-                          {m.name}
-                        </Badge>
-                      ))}
-                  </div>
-                )}
+                />
               </div>
 
               {savingAssignees && (

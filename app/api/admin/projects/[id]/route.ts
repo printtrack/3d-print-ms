@@ -19,7 +19,7 @@ const projectInclude = {
     orderBy: { position: "asc" } as const,
     include: {
       tasks: {
-        include: { assignee: { select: { id: true, name: true } } },
+        include: { assignees: { include: { user: { select: { id: true, name: true } } } } },
         orderBy: { position: "asc" } as const,
       },
     },

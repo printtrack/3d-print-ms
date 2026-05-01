@@ -19,7 +19,7 @@ export default async function PlanningPage() {
           orderBy: { position: "asc" },
           include: {
             tasks: {
-              include: { assignee: { select: { id: true, name: true } } },
+              include: { assignees: { include: { user: { select: { id: true, name: true } } } } },
               orderBy: { position: "asc" },
             },
           },
@@ -80,8 +80,7 @@ export default async function PlanningPage() {
         title: t.title,
         completed: t.completed,
         completedAt: t.completedAt?.toISOString() ?? null,
-        assigneeId: t.assigneeId,
-        assignee: t.assignee,
+        assignees: t.assignees,
         position: t.position,
       })),
     })),

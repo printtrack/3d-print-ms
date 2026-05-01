@@ -43,6 +43,7 @@ import {
 import { MilestoneDialog } from "@/components/admin/MilestoneDialog";
 import { LinkOrderDialog } from "@/components/admin/LinkOrderDialog";
 import { cn, formatDateTime } from "@/lib/utils";
+import { AssigneePicker } from "@/components/admin/AssigneePicker";
 
 // ---- Types ----
 
@@ -51,8 +52,7 @@ interface MilestoneTask {
   title: string;
   completed: boolean;
   completedAt: string | null;
-  assigneeId: string | null;
-  assignee: { id: string; name: string } | null;
+  assignees: { user: { id: string; name: string } }[];
   position: number;
 }
 
@@ -281,13 +281,7 @@ export function ProjectDetail({ project: initial, teamMembers, phases }: Project
     }));
   }
 
-  function toggleAssignee(id: string) {
-    setAssigneeIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    );
-  }
-
-  const sortedMilestones = [...project.milestones].sort((a, b) => {
+const sortedMilestones = [...project.milestones].sort((a, b) => {
     if (a.completedAt && !b.completedAt) return 1;
     if (!a.completedAt && b.completedAt) return -1;
     if (!a.completedAt && !b.completedAt) {
@@ -527,39 +521,11 @@ export function ProjectDetail({ project: initial, teamMembers, phases }: Project
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-0 space-y-2">
-              {/* Selected */}
-              {assigneeIds.length > 0 && (
-                <div className="flex flex-wrap gap-1">
-                  {assigneeIds.map((uid) => {
-                    const member = teamMembers.find((m) => m.id === uid);
-                    if (!member) return null;
-                    return (
-                      <button
-                        key={uid}
-                        onClick={() => toggleAssignee(uid)}
-                        className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full hover:bg-destructive/10 hover:text-destructive transition-colors"
-                        title="Entfernen"
-                      >
-                        {member.name} ×
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
-              {/* Unselected */}
-              <div className="flex flex-wrap gap-1">
-                {teamMembers
-                  .filter((m) => !assigneeIds.includes(m.id))
-                  .map((m) => (
-                    <button
-                      key={m.id}
-                      onClick={() => toggleAssignee(m.id)}
-                      className="text-xs px-2 py-0.5 rounded-full border border-dashed text-muted-foreground hover:text-foreground hover:border-foreground transition-colors"
-                    >
-                      + {m.name}
-                    </button>
-                  ))}
-              </div>
+              <AssigneePicker
+                users={teamMembers}
+                value={assigneeIds}
+                onChange={(ids) => setAssigneeIds(ids)}
+              />
               {hasChanges && (
                 <Button size="sm" className="w-full mt-1" onClick={handleSave} disabled={saving}>
                   {saving ? "Speichern..." : "Änderungen speichern"}

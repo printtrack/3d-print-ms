@@ -49,6 +49,7 @@ export interface PrintJob {
     filament: { id: string; name: string; material: string; color: string; colorHex: string | null };
   }>;
   files?: PrintJobFile[];
+  assignees: Array<{ user: { id: string; name: string; email: string } }>;
 }
 
 const STATUS_LABELS: Record<PrintJob["status"], string> = {

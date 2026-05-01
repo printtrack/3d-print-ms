@@ -31,6 +31,7 @@ interface FileManagerProps {
   isPrototype?: boolean;
   iterationCount?: number;
   onIterationChange?: (newCount: number) => void;
+  teamMembers?: Array<{ id: string; name: string; email?: string }>;
 }
 
 export function FileManager({
@@ -49,6 +50,7 @@ export function FileManager({
   isPrototype = false,
   iterationCount = 1,
   onIterationChange,
+  teamMembers = [],
 }: FileManagerProps) {
   const router = useRouter();
   const [uploading, setUploading] = useState(false);
@@ -431,6 +433,7 @@ export function FileManager({
                     }
                   : undefined
               }
+              teamMembers={teamMembers}
             />
           ))}
 

@@ -33,9 +33,10 @@ interface JobQueueBoardProps {
   onJobCreated?: (job: PrintJob) => void;
   onJobUpdated?: (job: PrintJob) => void;
   onJobDeleted?: (id: string) => void;
+  teamMembers?: Array<{ id: string; name: string; email: string }>;
 }
 
-export function JobQueueBoard({ machines, initialJobs, onJobCreated, onJobUpdated, onJobDeleted }: JobQueueBoardProps) {
+export function JobQueueBoard({ machines, initialJobs, onJobCreated, onJobUpdated, onJobDeleted, teamMembers = [] }: JobQueueBoardProps) {
   const [jobs, setJobs] = useState<PrintJob[]>(initialJobs);
 
   // Sync status-only updates pushed down from parent (e.g. auto-transition DONE)
@@ -54,6 +55,22 @@ export function JobQueueBoard({ machines, initialJobs, onJobCreated, onJobUpdate
   const [detailOpen, setDetailOpen] = useState(false);
   const [createOpen, setCreateOpen] = useState(false);
   const [createMachineId, setCreateMachineId] = useState("");
+
+  // Auto-open job detail when ?jobId= URL param is present (deep-link from Order Detail part badge)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const jobId = params.get("jobId");
+    if (!jobId) return;
+    const job = jobs.find((j) => j.id === jobId);
+    if (job) {
+      setSelectedJob(job);
+      setDetailOpen(true);
+    }
+    const url = new URL(window.location.href);
+    url.searchParams.delete("jobId");
+    window.history.replaceState({}, "", url.toString());
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -247,6 +264,7 @@ export function JobQueueBoard({ machines, initialJobs, onJobCreated, onJobUpdate
         onOpenChange={setDetailOpen}
         onUpdated={handleJobUpdated}
         onDeleted={handleJobDeleted}
+        teamMembers={teamMembers}
       />
 
       <CreateJobDialog

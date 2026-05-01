@@ -12,7 +12,7 @@ export default async function JobsPage() {
   const session = await auth();
   if (!session) redirect("/auth/signin");
 
-  const [machines, jobs] = await Promise.all([
+  const [machines, jobs, users] = await Promise.all([
     prisma.machine.findMany({
       where: { isActive: true },
       orderBy: { name: "asc" },
@@ -37,7 +37,12 @@ export default async function JobsPage() {
             filament: { select: { id: true, name: true, material: true, color: true, colorHex: true } },
           },
         },
+        assignees: { include: { user: { select: { id: true, name: true, email: true } } } },
       },
+    }),
+    prisma.user.findMany({
+      select: { id: true, name: true, email: true },
+      orderBy: { name: "asc" },
     }),
   ]);
 
@@ -93,6 +98,7 @@ export default async function JobsPage() {
     <JobsView
       machines={serializedMachines}
       initialJobs={serializedJobs}
+      teamMembers={users}
     />
   );
 }

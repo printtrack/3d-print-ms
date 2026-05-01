@@ -104,7 +104,7 @@ export async function POST(req: NextRequest) {
       include: {
         phase: { select: { id: true, name: true, color: true } },
         assignees: { include: { user: { select: { id: true, name: true, email: true } } } },
-        milestones: { orderBy: { position: "asc" }, include: { tasks: { include: { assignee: { select: { id: true, name: true } } } } } },
+        milestones: { orderBy: { position: "asc" }, include: { tasks: { include: { assignees: { include: { user: { select: { id: true, name: true } } } } } } } },
         parts: { include: { printJobParts: { include: { printJob: { select: { id: true, plannedAt: true, startedAt: true, completedAt: true, printTimeMinutes: true, status: true, machine: { select: { id: true, name: true } } } } } } } },
       },
     });

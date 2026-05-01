@@ -21,6 +21,7 @@ import { CreateJobDialog } from "@/components/admin/CreateJobDialog";
 import { PartEditDialog } from "./PartEditDialog";
 import { PartLinkJobDialog } from "./PartLinkJobDialog";
 import { type OrderFileData, type FileCategory } from "./types";
+import { AssigneePicker, type AssigneeUser } from "@/components/admin/AssigneePicker";
 
 export interface OrderPartData {
   id: string;
@@ -58,6 +59,7 @@ export interface OrderPartData {
     printJobId: string;
     printJob: { id: string; status: string; machine: { name: string } };
   }>;
+  assignees: Array<{ user: { id: string; name: string; email: string } }>;
 }
 
 export interface FilamentOption {
@@ -112,6 +114,7 @@ interface PartFileSectionProps {
   /** "orphan" = unassigned-files bucket rendered with subtler styling */
   variant?: "orphan";
   isPrototype?: boolean;
+  teamMembers?: AssigneeUser[];
 }
 
 export function PartFileSection({
@@ -139,12 +142,37 @@ export function PartFileSection({
   partData,
   variant,
   isPrototype = false,
+  teamMembers = [],
 }: PartFileSectionProps) {
   const router = useRouter();
   const isOrphan = variant === "orphan";
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const dragCounter = useRef(0);
   const [isSectionDragOver, setIsSectionDragOver] = useState(false);
+
+  // Part assignees state
+  const part = partData?.part;
+  const [partAssigneeIds, setPartAssigneeIds] = useState<string[]>(
+    part?.assignees?.map((a) => a.user.id) ?? []
+  );
+
+  async function handlePartAssigneeChange(ids: string[]) {
+    if (!part) return;
+    setPartAssigneeIds(ids);
+    try {
+      const res = await fetch(`/api/admin/orders/${part.orderId}/parts/${part.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ assigneeIds: ids }),
+      });
+      if (!res.ok) throw new Error();
+      const updated = await res.json();
+      partData?.onPartUpdated({ ...part, assignees: updated.assignees });
+    } catch {
+      toast.error("Zuweisung konnte nicht gespeichert werden");
+      setPartAssigneeIds(part.assignees?.map((a) => a.user.id) ?? []);
+    }
+  }
 
   // Dialog state
   const [editOpen, setEditOpen] = useState(false);
@@ -400,6 +428,18 @@ export function PartFileSection({
 
           <div className="flex-1" />
 
+          {/* Part assignee picker — only shown when partData is present and admin */}
+          {isAdmin && partData && teamMembers.length > 0 && (
+            <div onClick={(e) => e.stopPropagation()}>
+              <AssigneePicker
+                users={teamMembers}
+                value={partAssigneeIds}
+                onChange={handlePartAssigneeChange}
+                compact
+              />
+            </div>
+          )}
+
           <span className="text-xs text-muted-foreground shrink-0">{fileCountLabel}</span>
 
           {/* Linked job badge */}
@@ -410,16 +450,25 @@ export function PartFileSection({
             if (activeLinks.length === 0) return null;
             return (
               <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
-                <a
-                  href="/admin/jobs"
-                  className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition-colors"
-                  title={activeLinks.map((l) => l.printJob.machine.name).join(", ")}
-                >
-                  <Link2 className="h-2.5 w-2.5" />
-                  {activeLinks.length === 1
-                    ? activeLinks[0].printJob.machine.name
-                    : `${activeLinks.length} Jobs`}
-                </a>
+                {activeLinks.length === 1 ? (
+                  <a
+                    href={`/admin/jobs?jobId=${activeLinks[0].printJobId}`}
+                    className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition-colors"
+                    title={activeLinks[0].printJob.machine.name}
+                  >
+                    <Link2 className="h-2.5 w-2.5" />
+                    {activeLinks[0].printJob.machine.name}
+                  </a>
+                ) : (
+                  <a
+                    href="/admin/jobs"
+                    className="inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition-colors"
+                    title={activeLinks.map((l) => l.printJob.machine.name).join(", ")}
+                  >
+                    <Link2 className="h-2.5 w-2.5" />
+                    {`${activeLinks.length} Jobs`}
+                  </a>
+                )}
               </div>
             );
           })()}

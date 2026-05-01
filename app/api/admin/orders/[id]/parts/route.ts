@@ -9,7 +9,18 @@ const createSchema = z.object({
   filamentId: z.string().optional().nullable(),
   gramsEstimated: z.number().int().positive().optional().nullable(),
   quantity: z.number().int().min(1).optional(),
+  assigneeIds: z.array(z.string()).optional(),
 });
+
+const partInclude = {
+  filament: { select: { id: true, name: true, material: true, color: true, colorHex: true, brand: true } },
+  partPhase: { select: { id: true, name: true, color: true, isPrintReady: true } },
+  files: true,
+  printJobParts: {
+    include: { printJob: { select: { id: true, status: true, machine: { select: { name: true } } } } },
+  },
+  assignees: { include: { user: { select: { id: true, name: true, email: true } } } },
+} as const;
 
 export async function GET(
   _req: NextRequest,
@@ -21,14 +32,7 @@ export async function GET(
   const { id } = await params;
   const parts = await prisma.orderPart.findMany({
     where: { orderId: id },
-    include: {
-      filament: { select: { id: true, name: true, material: true, color: true, colorHex: true, brand: true } },
-      partPhase: { select: { id: true, name: true, color: true, isPrintReady: true } },
-      files: true,
-      printJobParts: {
-        include: { printJob: { select: { id: true, status: true, machine: { select: { name: true } } } } },
-      },
-    },
+    include: partInclude,
     orderBy: { createdAt: "asc" },
   });
 
@@ -62,15 +66,11 @@ export async function POST(
         gramsEstimated: data.gramsEstimated ?? null,
         quantity: data.quantity ?? 1,
         partPhaseId: defaultPartPhase?.id ?? null,
+        ...(data.assigneeIds && data.assigneeIds.length > 0
+          ? { assignees: { create: data.assigneeIds.map((userId) => ({ userId })) } }
+          : {}),
       },
-      include: {
-        filament: { select: { id: true, name: true, material: true, color: true, colorHex: true, brand: true } },
-        partPhase: { select: { id: true, name: true, color: true, isPrintReady: true } },
-        files: true,
-        printJobParts: {
-          include: { printJob: { select: { id: true, status: true, machine: { select: { name: true } } } } },
-        },
-      },
+      include: partInclude,
     });
 
     await prisma.auditLog.create({

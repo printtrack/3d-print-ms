@@ -23,6 +23,7 @@ import { toast } from "sonner";
 import { AlertTriangle, Download, Loader2, Search, Trash2, Upload, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PrintJob } from "./JobCard";
+import { AssigneePicker } from "@/components/admin/AssigneePicker";
 
 interface JobDetailDialogProps {
   job: PrintJob | null;
@@ -30,6 +31,7 @@ interface JobDetailDialogProps {
   onOpenChange: (open: boolean) => void;
   onUpdated: (job: PrintJob) => void;
   onDeleted: (jobId: string) => void;
+  teamMembers?: Array<{ id: string; name: string; email: string }>;
 }
 
 const STATUS_OPTIONS = [
@@ -80,12 +82,14 @@ export function JobDetailDialog({
   onOpenChange,
   onUpdated,
   onDeleted,
+  teamMembers = [],
 }: JobDetailDialogProps) {
   const [status, setStatus] = useState<PrintJob["status"]>("PLANNED");
   const [plannedDate, setPlannedDate] = useState("");
   const [plannedTime, setPlannedTime] = useState("08:00");
   const [printTimeMinutes, setPrintTimeMinutes] = useState("");
   const [notes, setNotes] = useState("");
+  const [assigneeIds, setAssigneeIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
   const [partSearch, setPartSearch] = useState("");
   const [searchResults, setSearchResults] = useState<OrderSearchResult[]>([]);
@@ -105,6 +109,7 @@ export function JobDetailDialog({
       setPlannedTime(job.plannedAt ? toLocalTime(job.plannedAt) : "08:00");
       setPrintTimeMinutes(job.printTimeMinutes ? String(job.printTimeMinutes) : "");
       setNotes(job.notes ?? "");
+      setAssigneeIds(job.assignees?.map((a) => a.user.id) ?? []);
       setPartSearch("");
       setSearchResults([]);
     }
@@ -140,6 +145,7 @@ export function JobDetailDialog({
             : null,
           ...(job.printTimeFromGcode ? {} : { printTimeMinutes: printTimeMinutes ? parseInt(printTimeMinutes, 10) : null }),
           notes: notes.trim() || null,
+          assigneeIds,
         }),
       });
       if (!res.ok) throw new Error();
@@ -332,41 +338,40 @@ export function JobDetailDialog({
         </DialogHeader>
 
         <div className="space-y-5 py-2 overflow-y-auto flex-1">
-          {/* Status & timing */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-2">
-              <Label>Status</Label>
-              <Select value={status} onValueChange={(v) => setStatus(v as PrintJob["status"])}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {STATUS_OPTIONS.map((s) => (
-                    <SelectItem key={s.value} value={s.value}>
-                      {s.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          {/* Status */}
+          <div className="space-y-2">
+            <Label>Status</Label>
+            <Select value={status} onValueChange={(v) => setStatus(v as PrintJob["status"])}>
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {STATUS_OPTIONS.map((s) => (
+                  <SelectItem key={s.value} value={s.value}>
+                    {s.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-            <div className="space-y-2">
-              <Label>Geplanter Start</Label>
-              <div className="flex gap-2">
-                <input
-                  type="date"
-                  value={plannedDate}
-                  onChange={(e) => setPlannedDate(e.target.value)}
-                  className="flex-1 text-sm border border-input rounded-md px-3 py-2 bg-background"
-                />
-                <input
-                  type="time"
-                  value={plannedTime}
-                  onChange={(e) => setPlannedTime(e.target.value)}
-                  disabled={!plannedDate}
-                  className="w-24 text-sm border border-input rounded-md px-3 py-2 bg-background disabled:opacity-50"
-                />
-              </div>
+          {/* Geplanter Start — full width so date + time don't clip */}
+          <div className="space-y-2">
+            <Label>Geplanter Start</Label>
+            <div className="flex gap-2">
+              <input
+                type="date"
+                value={plannedDate}
+                onChange={(e) => setPlannedDate(e.target.value)}
+                className="flex-1 min-w-0 text-sm border border-input rounded-md px-3 py-2 bg-background"
+              />
+              <input
+                type="time"
+                value={plannedTime}
+                onChange={(e) => setPlannedTime(e.target.value)}
+                disabled={!plannedDate}
+                className="w-32 text-sm border border-input rounded-md px-3 py-2 bg-background disabled:opacity-50"
+              />
             </div>
           </div>
 
@@ -395,6 +400,17 @@ export function JobDetailDialog({
               rows={2}
             />
           </div>
+
+          {teamMembers.length > 0 && (
+            <div className="space-y-2">
+              <Label>Zugewiesen an</Label>
+              <AssigneePicker
+                users={teamMembers}
+                value={assigneeIds}
+                onChange={(ids) => setAssigneeIds(ids)}
+              />
+            </div>
+          )}
 
           {/* Assigned parts */}
           <div className="space-y-2">

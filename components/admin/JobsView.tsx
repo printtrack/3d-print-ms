@@ -24,9 +24,10 @@ interface Machine {
 interface JobsViewProps {
   machines: Machine[];
   initialJobs: PrintJob[];
+  teamMembers?: Array<{ id: string; name: string; email: string }>;
 }
 
-export function JobsView({ machines, initialJobs }: JobsViewProps) {
+export function JobsView({ machines, initialJobs, teamMembers = [] }: JobsViewProps) {
   const [view, setView] = useState<"timeline" | "queue">("timeline");
   const [jobs, setJobs] = useState<PrintJob[]>(initialJobs);
 
@@ -107,6 +108,7 @@ export function JobsView({ machines, initialJobs }: JobsViewProps) {
             onJobCreated={handleJobCreated}
             onJobUpdated={handleJobUpdated}
             onJobDeleted={handleJobDeleted}
+            teamMembers={teamMembers}
           />
         ) : (
           <JobQueueBoard
@@ -115,6 +117,7 @@ export function JobsView({ machines, initialJobs }: JobsViewProps) {
             onJobCreated={handleJobCreated}
             onJobUpdated={handleJobUpdated}
             onJobDeleted={handleJobDeleted}
+            teamMembers={teamMembers}
           />
         )}
       </div>

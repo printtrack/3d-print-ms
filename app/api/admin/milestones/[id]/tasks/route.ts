@@ -5,7 +5,7 @@ import { z } from "zod";
 
 const createSchema = z.object({
   title: z.string().min(1),
-  assigneeId: z.string().nullable().optional(),
+  assigneeIds: z.array(z.string()).default([]),
 });
 
 export async function POST(
@@ -30,10 +30,12 @@ export async function POST(
       data: {
         milestoneId,
         title: data.title,
-        assigneeId: data.assigneeId ?? null,
         position: (last?.position ?? -1) + 1,
+        ...(data.assigneeIds.length > 0
+          ? { assignees: { create: data.assigneeIds.map((userId) => ({ userId })) } }
+          : {}),
       },
-      include: { assignee: { select: { id: true, name: true } } },
+      include: { assignees: { include: { user: { select: { id: true, name: true } } } } },
     });
 
     return NextResponse.json(task, { status: 201 });

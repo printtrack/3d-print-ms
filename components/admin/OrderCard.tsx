@@ -17,6 +17,7 @@ interface OrderCardProps {
     deadline: string | null;
     phase: { id: string; name: string; color: string };
     assignees: Array<{ id: string; name: string; email: string }>;
+    allAssignees?: Array<{ id: string; name: string; isTopLevel: boolean }>;
     files: Array<{ id: string; filename: string; mimeType: string }>;
     _count: { comments: number };
     priceEstimate: number | null;
@@ -166,24 +167,32 @@ export function OrderCard({ order, searchQuery }: OrderCardProps) {
                   {order._count.comments}
                 </span>
               )}
-              {order.assignees.length > 0 && (
-                <div className="flex -space-x-1.5">
-                  {order.assignees.slice(0, 3).map((a) => (
-                    <Avatar key={a.id} className="h-6 w-6 ring-2 ring-background">
-                      <AvatarFallback className="text-xs bg-primary/10 text-primary">
-                        {getInitials(a.name)}
-                      </AvatarFallback>
-                    </Avatar>
-                  ))}
-                  {order.assignees.length > 3 && (
-                    <div className="h-6 w-6 rounded-full bg-muted ring-2 ring-background flex items-center justify-center">
-                      <span className="text-xs text-muted-foreground font-medium">
-                        +{order.assignees.length - 3}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              )}
+              {(() => {
+                const displayList = order.allAssignees ?? order.assignees.map((a) => ({ ...a, isTopLevel: true }));
+                if (displayList.length === 0) return null;
+                return (
+                  <div className="flex -space-x-1.5">
+                    {displayList.slice(0, 3).map((a) => (
+                      <Avatar
+                        key={a.id}
+                        className={`h-6 w-6 ring-2 ${a.isTopLevel ? "ring-background" : "ring-muted-foreground/30"}`}
+                        title={a.name}
+                      >
+                        <AvatarFallback className={`text-xs ${a.isTopLevel ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"}`}>
+                          {getInitials(a.name)}
+                        </AvatarFallback>
+                      </Avatar>
+                    ))}
+                    {displayList.length > 3 && (
+                      <div className="h-6 w-6 rounded-full bg-muted ring-2 ring-background flex items-center justify-center">
+                        <span className="text-xs text-muted-foreground font-medium">
+                          +{displayList.length - 3}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           </div>
         </div>

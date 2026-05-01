@@ -18,8 +18,7 @@ export interface PlanningTask {
   title: string;
   completed: boolean;
   completedAt: string | null;
-  assigneeId: string | null;
-  assignee: { id: string; name: string } | null;
+  assignees: { user: { id: string; name: string } }[];
   position: number;
 }
 

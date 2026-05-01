@@ -88,14 +88,20 @@ test("deletes a planned job from detail dialog", async ({ seed, page }) => {
   await expect(page.getByText("Job gelöscht").first()).toBeVisible();
 });
 
-test("order detail shows Druckauftrag section", async ({ seed, page }) => {
+test("order detail part badge links to correct job via ?jobId=", async ({ seed, page }) => {
   const allPhases = await prismaTest.orderPhase.findMany();
   const phase = allPhases[0];
   const order = await createTestOrder(phase.id);
+  const machine = await createTestMachine({ name: "Badge-Drucker" });
+  const job = await createTestPrintJob(machine.id, { status: "PLANNED" });
+  const part = await prismaTest.orderPart.create({ data: { orderId: order.id, name: "Badge Teil" } });
+  await prismaTest.printJobPart.create({ data: { printJobId: job.id, orderPartId: part.id } });
 
   await page.goto(`/admin/orders/${order.id}`);
-  await expect(page.getByText("Druckauftrag", { exact: true }).first()).toBeVisible();
-  await expect(page.getByText(/Kein Druckauftrag zugewiesen/)).toBeVisible();
+  const badge = page.getByRole("link", { name: "Badge-Drucker" });
+  await expect(badge).toBeVisible({ timeout: 8000 });
+  const href = await badge.getAttribute("href");
+  expect(href).toContain(`jobId=${job.id}`);
 });
 
 // --- Auto-transition API tests ---

@@ -48,21 +48,23 @@ enum VerificationType {
 
 
 model User {
-  id               String            @id @default(cuid())
+  id               String                  @id @default(cuid())
   name             String
-  email            String            @unique
+  email            String                  @unique
   password         String
-  role             Role              @default(TEAM_MEMBER)
-  createdAt        DateTime          @default(now())
+  role             Role                    @default(TEAM_MEMBER)
+  createdAt        DateTime                @default(now())
   assignedOrders   OrderAssignee[]
   comments         OrderComment[]
   auditLogs        AuditLog[]
   accounts         Account[]
   sessions         Session[]
   knowledgeEntries KnowledgeEntry[]
-  milestoneTasks   MilestoneTask[]
   projectAssignees ProjectAssignee[]
   projectAuditLogs ProjectAuditLog[]
+  partAssignees    OrderPartAssignee[]
+  taskAssignees    MilestoneTaskAssignee[]
+  jobAssignees     PrintJobAssignee[]
 }
 
 model ProjectPhase {
@@ -174,6 +176,7 @@ model PrintJob {
   parts            PrintJobPart[]
   filamentUsages   PrintJobFilament[]
   files            PrintJobFile[]
+  assignees        PrintJobAssignee[]
 }
 
 model PrintJobFile {
@@ -208,22 +211,23 @@ model PrintJobFilament {
 }
 
 model OrderPart {
-  id             String         @id @default(cuid())
-  order          Order          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  id             String              @id @default(cuid())
+  order          Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
   orderId        String
   name           String
-  description    String?        @db.Text
-  filament       Filament?      @relation(fields: [filamentId], references: [id])
+  description    String?             @db.Text
+  filament       Filament?           @relation(fields: [filamentId], references: [id])
   filamentId     String?
   gramsEstimated Int?
-  quantity       Int            @default(1)
-  iterationCount Int            @default(1)
-  partPhase      PartPhase?     @relation(fields: [partPhaseId], references: [id], onDelete: SetNull)
+  quantity       Int                 @default(1)
+  iterationCount Int                 @default(1)
+  partPhase      PartPhase?          @relation(fields: [partPhaseId], references: [id], onDelete: SetNull)
   partPhaseId    String?
-  createdAt      DateTime       @default(now())
-  updatedAt      DateTime       @updatedAt
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
   files          OrderFile[]
   printJobParts  PrintJobPart[]
+  assignees      OrderPartAssignee[]
 }
 
 model OrderAssignee {
@@ -233,6 +237,33 @@ model OrderAssignee {
   user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([orderId, userId])
+}
+
+model OrderPartAssignee {
+  orderPartId String
+  userId      String
+  orderPart   OrderPart @relation(fields: [orderPartId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([orderPartId, userId])
+}
+
+model MilestoneTaskAssignee {
+  taskId String
+  userId String
+  task   MilestoneTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  user   User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([taskId, userId])
+}
+
+model PrintJobAssignee {
+  printJobId String
+  userId     String
+  printJob   PrintJob @relation(fields: [printJobId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([printJobId, userId])
 }
 
 model OrderFile {
@@ -336,17 +367,16 @@ model Milestone {
 }
 
 model MilestoneTask {
-  id          String     @id @default(cuid())
+  id          String                  @id @default(cuid())
   milestoneId String
-  milestone   Milestone  @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
+  milestone   Milestone               @relation(fields: [milestoneId], references: [id], onDelete: Cascade)
   title       String
-  assigneeId  String?
-  assignee    User?      @relation(fields: [assigneeId], references: [id])
-  completed   Boolean    @default(false)
+  completed   Boolean                 @default(false)
   completedAt DateTime?
-  position    Int        @default(0)
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  position    Int                     @default(0)
+  createdAt   DateTime                @default(now())
+  updatedAt   DateTime                @updatedAt
+  assignees   MilestoneTaskAssignee[]
 }
 
 model Project {

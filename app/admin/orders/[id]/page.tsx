@@ -10,7 +10,7 @@ interface PageProps {
 export const dynamic = "force-dynamic";
 
 async function getData(id: string) {
-  const [order, phases, teamMembers, orderParts, availableFilaments, printJobPart, partPhases, activeMachines, milestones] = await Promise.all([
+  const [order, phases, teamMembers, orderParts, availableFilaments, partPhases, activeMachines, milestones] = await Promise.all([
     prisma.order.findUnique({
       where: { id },
       include: {
@@ -55,6 +55,7 @@ async function getData(id: string) {
         printJobParts: {
           include: { printJob: { select: { id: true, status: true, machine: { select: { name: true } } } } },
         },
+        assignees: { include: { user: { select: { id: true, name: true, email: true } } } },
       },
       orderBy: { createdAt: "asc" },
     }),
@@ -62,19 +63,6 @@ async function getData(id: string) {
       where: { isActive: true },
       orderBy: [{ material: "asc" }, { name: "asc" }],
       select: { id: true, name: true, material: true, color: true, colorHex: true, brand: true, remainingGrams: true },
-    }),
-    prisma.printJobPart.findFirst({
-      where: { orderPart: { orderId: id } },
-      include: {
-        printJob: {
-          select: {
-            id: true,
-            status: true,
-            plannedAt: true,
-            machine: { select: { id: true, name: true } },
-          },
-        },
-      },
     }),
     prisma.partPhase.findMany({ orderBy: { position: "asc" } }),
     prisma.machine.findMany({
@@ -87,14 +75,14 @@ async function getData(id: string) {
       orderBy: { position: "asc" },
       include: {
         tasks: {
-          include: { assignee: { select: { id: true, name: true } } },
+          include: { assignees: { include: { user: { select: { id: true, name: true } } } } },
           orderBy: { position: "asc" },
         },
       },
     }),
   ]);
 
-  if (!order) return { order: null, phases, teamMembers, parts: [], availableFilaments: [], customerCredit: null, printJob: null, partPhases, activeMachines, milestones: [] };
+  if (!order) return { order: null, phases, teamMembers, parts: [], availableFilaments: [], customerCredit: null, partPhases, activeMachines, milestones: [] };
 
   // Look up customer credit by email
   const customerCreditRaw = await prisma.customer.findUnique({
@@ -163,15 +151,6 @@ async function getData(id: string) {
     ? { id: customerCreditRaw.id, balance: customerCreditRaw.creditBalance }
     : null;
 
-  const printJob = printJobPart
-    ? {
-        id: printJobPart.printJob.id,
-        status: printJobPart.printJob.status as "PLANNED" | "IN_PROGRESS" | "DONE" | "CANCELLED",
-        plannedAt: printJobPart.printJob.plannedAt ? printJobPart.printJob.plannedAt.toISOString() : null,
-        machine: printJobPart.printJob.machine,
-      }
-    : null;
-
   const serializedMilestones = milestones.map((m) => ({
     ...m,
     dueAt: m.dueAt ? m.dueAt.toISOString() : null,
@@ -186,13 +165,13 @@ async function getData(id: string) {
     })),
   }));
 
-  return { order: serialized, phases, teamMembers, parts: serializedParts, availableFilaments, customerCredit, printJob, partPhases, activeMachines, milestones: serializedMilestones };
+  return { order: serialized, phases, teamMembers, parts: serializedParts, availableFilaments, customerCredit, partPhases, activeMachines, milestones: serializedMilestones };
 }
 
 export default async function OrderDetailPage({ params }: PageProps) {
   const { id } = await params;
   const session = await auth();
-  const { order, phases, teamMembers, parts, availableFilaments, customerCredit, printJob, partPhases, activeMachines, milestones } = await getData(id);
+  const { order, phases, teamMembers, parts, availableFilaments, customerCredit, partPhases, activeMachines, milestones } = await getData(id);
 
   if (!order) notFound();
 
@@ -208,7 +187,6 @@ export default async function OrderDetailPage({ params }: PageProps) {
       parts={parts}
       availableFilaments={availableFilaments}
       customerCredit={customerCredit}
-      printJob={printJob}
       partPhases={partPhases}
       machines={activeMachines}
       initialMilestones={milestones}

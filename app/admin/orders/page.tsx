@@ -35,7 +35,13 @@ async function getData(
     ...(deadlineFilter === "today" ? [{ deadline: { gte: startOfToday, lte: endOfToday } }] : []),
     ...(deadlineFilter === "week" ? [{ deadline: { gte: now, lte: endOfWeek } }] : []),
     ...(assigneeIds && assigneeIds.length > 0
-      ? [{ assignees: { some: { userId: { in: assigneeIds } } } }]
+      ? [{
+          OR: [
+            { assignees: { some: { userId: { in: assigneeIds } } } },
+            { parts: { some: { assignees: { some: { userId: { in: assigneeIds } } } } } },
+            { milestones: { some: { tasks: { some: { assignees: { some: { userId: { in: assigneeIds } } } } } } } },
+          ],
+        }]
       : []),
     ...(prototype ? [{ isPrototype: true }] : []),
     ...(internal ? [{ isInternal: true }] : []),
@@ -62,7 +68,13 @@ async function getData(
         verificationRequests: { where: { status: "PENDING" }, select: { id: true } },
         milestones: {
           orderBy: { position: "asc" as const },
-          select: { id: true, name: true, dueAt: true, completedAt: true, color: true, position: true },
+          select: {
+            id: true, name: true, dueAt: true, completedAt: true, color: true, position: true,
+            tasks: { select: { assignees: { select: { user: { select: { id: true, name: true } } } } } },
+          },
+        },
+        parts: {
+          select: { assignees: { include: { user: { select: { id: true, name: true } } } } },
         },
       },
       orderBy: [
@@ -78,24 +90,41 @@ async function getData(
     }),
   ]);
 
-  const serializedOrders = orders.map((o) => ({
-    ...o,
-    createdAt: o.createdAt.toISOString(),
-    updatedAt: o.updatedAt.toISOString(),
-    archivedAt: o.archivedAt ? o.archivedAt.toISOString() : null,
-    deadline: o.deadline ? o.deadline.toISOString() : null,
-    priceEstimate: o.priceEstimate ? Number(o.priceEstimate) : null,
-    assignees: o.assignees.map((a) => a.user),
-    milestones: o.milestones.map((m) => ({
-      ...m,
-      dueAt: m.dueAt ? m.dueAt.toISOString() : null,
-      completedAt: m.completedAt ? m.completedAt.toISOString() : null,
-    })),
-    pendingVerification: o.verificationRequests.length > 0,
-    isPrototype: o.isPrototype,
-    iterationCount: o.iterationCount,
-    phaseOrder: o.phaseOrder,
-  }));
+  const serializedOrders = orders.map((o) => {
+    const topAssignees = o.assignees.map((a) => a.user);
+    const topAssigneeIds = new Set(topAssignees.map((u) => u.id));
+    const partAssigneeUsers = o.parts.flatMap((p) => p.assignees.map((a) => a.user));
+    const taskAssigneeUsers = o.milestones.flatMap((m) =>
+      (m.tasks ?? []).flatMap((t) => t.assignees.map((a) => a.user))
+    );
+    const allAssigneeMap = new Map<string, { id: string; name: string }>();
+    [...topAssignees, ...partAssigneeUsers, ...taskAssigneeUsers].forEach((u) =>
+      allAssigneeMap.set(u.id, u)
+    );
+
+    return {
+      ...o,
+      createdAt: o.createdAt.toISOString(),
+      updatedAt: o.updatedAt.toISOString(),
+      archivedAt: o.archivedAt ? o.archivedAt.toISOString() : null,
+      deadline: o.deadline ? o.deadline.toISOString() : null,
+      priceEstimate: o.priceEstimate ? Number(o.priceEstimate) : null,
+      assignees: topAssignees,
+      allAssignees: [...allAssigneeMap.values()].map((u) => ({
+        ...u,
+        isTopLevel: topAssigneeIds.has(u.id),
+      })),
+      milestones: o.milestones.map((m) => ({
+        ...m,
+        dueAt: m.dueAt ? m.dueAt.toISOString() : null,
+        completedAt: m.completedAt ? m.completedAt.toISOString() : null,
+      })),
+      pendingVerification: o.verificationRequests.length > 0,
+      isPrototype: o.isPrototype,
+      iterationCount: o.iterationCount,
+      phaseOrder: o.phaseOrder,
+    };
+  });
 
   return { phases, orders: serializedOrders, archiveCount, users };
 }

@@ -42,6 +42,7 @@ interface JobTimelineProps {
   onJobCreated: (job: PrintJob) => void;
   onJobUpdated: (job: PrintJob) => void;
   onJobDeleted: (id: string) => void;
+  teamMembers?: Array<{ id: string; name: string; email: string }>;
 }
 
 type ViewMode = "day" | "week" | "month";
@@ -126,7 +127,7 @@ function getHourStep(pixelsPerHour: number): number | null {
   return null;
 }
 
-export function JobTimeline({ machines, jobs, onJobCreated, onJobUpdated, onJobDeleted }: JobTimelineProps) {
+export function JobTimeline({ machines, jobs, onJobCreated, onJobUpdated, onJobDeleted, teamMembers = [] }: JobTimelineProps) {
   const [viewMode, setViewMode] = useState<ViewMode>("week");
   const [originMs, setOriginMs] = useState(() => Date.now() - 24 * 3_600_000);
   const [pxH, setPxH] = useState(DEFAULT_PX_H_BY_VIEW.week);
@@ -169,6 +170,22 @@ export function JobTimeline({ machines, jobs, onJobCreated, onJobUpdated, onJobD
   useEffect(() => { setMounted(true); }, []);
   useEffect(() => { machinesRef.current = machines; }, [machines]);
   useEffect(() => { jobsRef.current = jobs; }, [jobs]);
+
+  // Auto-open job detail when ?jobId= URL param is present (e.g. deep-link from Order Detail part badge)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const jobId = params.get("jobId");
+    if (!jobId) return;
+    const job = jobs.find((j) => j.id === jobId);
+    if (job) {
+      setSelectedJob(job);
+      setDetailOpen(true);
+    }
+    const url = new URL(window.location.href);
+    url.searchParams.delete("jobId");
+    window.history.replaceState({}, "", url.toString());
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   useEffect(() => { pixelsPerHourRef.current = pxH; }, [pxH]);
   useEffect(() => { originMsRef.current = originMs; }, [originMs]);
 
@@ -876,7 +893,8 @@ export function JobTimeline({ machines, jobs, onJobCreated, onJobUpdated, onJobD
       if (x >= -1) lines.push(x);
     }
     return lines.map((x, i) => (
-      <div key={i} className="absolute top-0 bottom-0 border-r border-border/40 pointer-events-none" style={{ left: x }} />
+      // suppressHydrationWarning: left is computed from Date.now() which differs between SSR and client
+      <div key={i} className="absolute top-0 bottom-0 border-r border-border/40 pointer-events-none" style={{ left: x }} suppressHydrationWarning />
     ));
   }
 
@@ -1147,6 +1165,7 @@ export function JobTimeline({ machines, jobs, onJobCreated, onJobUpdated, onJobD
         onOpenChange={setDetailOpen}
         onUpdated={handleJobUpdated}
         onDeleted={handleJobDeleted}
+        teamMembers={teamMembers}
       />
 
       <CreateJobDialog

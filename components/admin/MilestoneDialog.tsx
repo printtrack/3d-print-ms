@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Trash2, Plus } from "lucide-react";
 import { toast } from "sonner";
+import { AssigneePicker } from "@/components/admin/AssigneePicker";
 
 const MILESTONE_COLORS = [
   "#6366f1", "#f59e0b", "#10b981", "#ef4444", "#3b82f6", "#8b5cf6",
@@ -19,8 +20,7 @@ interface MilestoneTask {
   title: string;
   completed: boolean;
   completedAt: string | null;
-  assigneeId: string | null;
-  assignee: { id: string; name: string } | null;
+  assignees: { user: { id: string; name: string } }[];
   position: number;
 }
 
@@ -176,6 +176,25 @@ export function MilestoneDialog({
     }
   }
 
+  async function handleTaskAssignees(task: MilestoneTask, assigneeIds: string[]) {
+    if (!isEdit) return;
+    try {
+      const res = await fetch(
+        `/api/admin/milestones/${milestone!.id}/tasks/${task.id}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ assigneeIds }),
+        }
+      );
+      if (!res.ok) return;
+      const updated = await res.json();
+      setTasks((prev) => prev.map((t) => (t.id === task.id ? updated : t)));
+    } catch {
+      toast.error("Fehler beim Speichern der Zuweisung");
+    }
+  }
+
   async function handleDeleteTask(task: MilestoneTask) {
     if (!isEdit) return;
     try {
@@ -300,6 +319,14 @@ export function MilestoneDialog({
                     <span className={task.completed ? "line-through text-muted-foreground text-sm flex-1" : "text-sm flex-1"}>
                       {task.title}
                     </span>
+                    {users.length > 0 && (
+                      <AssigneePicker
+                        users={users}
+                        value={task.assignees.map((a) => a.user.id)}
+                        onChange={(ids) => handleTaskAssignees(task, ids)}
+                        compact
+                      />
+                    )}
                     <Button
                       variant="ghost"
                       size="icon"

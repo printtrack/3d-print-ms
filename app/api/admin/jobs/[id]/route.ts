@@ -14,6 +14,7 @@ const patchSchema = z.object({
   completedAt: z.string().datetime().nullable().optional(),
   printTimeMinutes: z.number().int().positive().nullable().optional(),
   notes: z.string().nullable().optional(),
+  assigneeIds: z.array(z.string()).optional(),
 });
 
 const jobInclude = {
@@ -34,6 +35,7 @@ const jobInclude = {
     },
   },
   files: { orderBy: { createdAt: "desc" as const } },
+  assignees: { include: { user: { select: { id: true, name: true, email: true } } } },
 } as const;
 
 export async function GET(
@@ -75,6 +77,15 @@ export async function PATCH(
       select: { status: true, printTimeFromGcode: true, machineId: true, plannedAt: true, printTimeMinutes: true },
     });
     const previousStatus = current?.status ?? null;
+
+    if (data.assigneeIds !== undefined) {
+      await prisma.printJobAssignee.deleteMany({ where: { printJobId: id } });
+      if (data.assigneeIds.length > 0) {
+        await prisma.printJobAssignee.createMany({
+          data: data.assigneeIds.map((userId) => ({ printJobId: id, userId })),
+        });
+      }
+    }
 
     if (data.machineId !== undefined) updateData.machineId = data.machineId;
     if (data.queuePosition !== undefined) updateData.queuePosition = data.queuePosition;

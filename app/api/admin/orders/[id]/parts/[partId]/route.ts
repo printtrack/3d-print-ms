@@ -10,7 +10,15 @@ const patchSchema = z.object({
   gramsEstimated: z.number().int().positive().nullable().optional(),
   quantity: z.number().int().min(1).optional(),
   partPhaseId: z.string().nullable().optional(),
+  assigneeIds: z.array(z.string()).optional(),
 });
+
+const partInclude = {
+  filament: { select: { id: true, name: true, material: true, color: true, colorHex: true, brand: true } },
+  partPhase: { select: { id: true, name: true, color: true, isPrintReady: true } },
+  files: true,
+  assignees: { include: { user: { select: { id: true, name: true, email: true } } } },
+} as const;
 
 export async function PATCH(
   req: NextRequest,
@@ -25,6 +33,21 @@ export async function PATCH(
     const body = await req.json();
     const data = patchSchema.parse(body);
 
+    const currentPart = await prisma.orderPart.findUnique({
+      where: { id: partId, orderId: id },
+      include: { assignees: { select: { userId: true } } },
+    });
+    if (!currentPart) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
+
+    if (data.assigneeIds !== undefined) {
+      await prisma.orderPartAssignee.deleteMany({ where: { orderPartId: partId } });
+      if (data.assigneeIds.length > 0) {
+        await prisma.orderPartAssignee.createMany({
+          data: data.assigneeIds.map((userId) => ({ orderPartId: partId, userId })),
+        });
+      }
+    }
+
     const part = await prisma.orderPart.update({
       where: { id: partId, orderId: id },
       data: {
@@ -35,21 +58,44 @@ export async function PATCH(
         ...(data.quantity !== undefined ? { quantity: data.quantity } : {}),
         ...(data.partPhaseId !== undefined ? { partPhaseId: data.partPhaseId } : {}),
       },
-      include: {
-        filament: { select: { id: true, name: true, material: true, color: true, colorHex: true, brand: true } },
-        partPhase: { select: { id: true, name: true, color: true, isPrintReady: true } },
-        files: true,
-      },
+      include: partInclude,
     });
 
-    await prisma.auditLog.create({
-      data: {
-        orderId: id,
-        userId: (session.user as { id?: string })?.id ?? null,
-        action: "PART_UPDATED",
-        details: `Teil "${part.name}" aktualisiert`,
-      },
-    });
+    const userId = (session.user as { id?: string })?.id ?? null;
+
+    if (data.assigneeIds !== undefined) {
+      const oldIds = new Set(currentPart.assignees.map((a) => a.userId));
+      const newIds = new Set(data.assigneeIds);
+      const added = data.assigneeIds.filter((uid) => !oldIds.has(uid));
+      const removed = [...oldIds].filter((uid) => !newIds.has(uid));
+
+      if (added.length > 0 || removed.length > 0) {
+        const addedUsers = await prisma.user.findMany({ where: { id: { in: added } }, select: { name: true } });
+        const removedUsers = await prisma.user.findMany({ where: { id: { in: removed } }, select: { name: true } });
+        const parts: string[] = [];
+        if (addedUsers.length > 0) parts.push(`Hinzugefügt: ${addedUsers.map((u) => u.name).join(", ")}`);
+        if (removedUsers.length > 0) parts.push(`Entfernt: ${removedUsers.map((u) => u.name).join(", ")}`);
+        if (newIds.size === 0) { parts.length = 0; parts.push("Zuweisung entfernt"); }
+
+        await prisma.auditLog.create({
+          data: {
+            orderId: id,
+            userId,
+            action: "PART_ASSIGNED",
+            details: `Teil "${part.name}": ${parts.join("; ")}`,
+          },
+        });
+      }
+    } else {
+      await prisma.auditLog.create({
+        data: {
+          orderId: id,
+          userId,
+          action: "PART_UPDATED",
+          details: `Teil "${part.name}" aktualisiert`,
+        },
+      });
+    }
 
     return NextResponse.json(part);
   } catch (err) {
