@@ -43,7 +43,9 @@ test("customer can reject DESIGN_REVIEW", async ({ seed, page }) => {
   const vr = await createTestVerification(order.id, "DESIGN_REVIEW");
 
   await page.goto(`/track/${order.trackingToken}`);
-  await page.getByRole("button", { name: /Ablehnen/i }).click();
+  await page.getByRole("button", { name: /^Ablehnen$/i }).click();
+  // Two-step: first click opens textarea, then confirm
+  await page.getByRole("button", { name: /Ablehnen bestätigen/i }).click();
   await expect(page.getByText("Abgelehnt").first()).toBeVisible({ timeout: 5000 });
 
   const updated = await prismaTest.verificationRequest.findUnique({ where: { id: vr.id } });

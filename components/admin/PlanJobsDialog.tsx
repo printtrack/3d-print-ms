@@ -73,7 +73,13 @@ export function PlanJobsDialog({ open, onOpenChange, onJobsCreated }: PlanJobsDi
     if (!result) return;
     const jobs = result.proposed
       .filter((_, i) => selected.has(i))
-      .map((j) => ({ machineId: j.machineId, partIds: j.parts.map((p) => p.orderPartId) }));
+      .map((j) => {
+        const partIds = j.parts.map((p) => p.orderPartId);
+        if (j.type === "extend") {
+          return { type: "extend" as const, existingJobId: j.existingJobId, partIds };
+        }
+        return { type: "new" as const, machineId: j.machineId, partIds };
+      });
 
     if (jobs.length === 0) return;
 
@@ -148,14 +154,19 @@ export function PlanJobsDialog({ open, onOpenChange, onJobsCreated }: PlanJobsDi
                   />
                   <div className="flex-1 min-w-0 space-y-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-medium text-sm">{job.machineName}</span>
+                      {job.type === "extend" ? (
+                        <span className="font-medium text-sm text-blue-700">↳ {job.machineName} <span className="text-xs font-normal text-muted-foreground">(bestehender Job)</span></span>
+                      ) : (
+                        <span className="font-medium text-sm">{job.machineName}</span>
+                      )}
                       <span className="text-muted-foreground text-xs">·</span>
                       <span className="text-sm">{job.filamentLabel}</span>
                       <span className="text-muted-foreground text-xs">·</span>
                       <span className="text-xs text-muted-foreground">
-                        {job.utilizationPct} % Auslastung
-                        {job.estimatedGramsTotal !== null ? ` · ~${job.estimatedGramsTotal} g` : ""}
-                        {` · ${job.parts.length} ${job.parts.length === 1 ? "Teil" : "Teile"}`}
+                        {job.type === "new" ? `${job.utilizationPct} % Auslastung · ` : ""}
+                        {job.type === "new" && job.estimatedGramsTotal !== null ? `~${job.estimatedGramsTotal} g · ` : ""}
+                        {job.type === "extend" && job.addedGramsTotal !== null ? `+~${job.addedGramsTotal} g · ` : ""}
+                        {`${job.parts.length} ${job.parts.length === 1 ? "Teil" : "Teile"}`}
                       </span>
                     </div>
                     <div className="text-xs text-muted-foreground truncate">

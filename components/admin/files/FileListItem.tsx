@@ -18,7 +18,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { formatFileSize, is3DModel } from "@/lib/utils";
+import { is3DModel } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import { CATEGORY_LABELS, type OrderFileData, type FileCategory } from "./types";
 
@@ -65,7 +65,12 @@ export function FileListItem({
       <div className="flex items-center gap-2 text-sm">
         <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
         <span className="flex-1 truncate font-medium">{file.originalName}</span>
-        {file.orderPartId && partNameById[file.orderPartId] && (
+        {isCurrent && (
+          <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-primary/15 text-primary uppercase tracking-wide shrink-0">
+            Aktuell
+          </span>
+        )}
+        {file.orderPartId && partNameById[file.orderPartId] && file.orderPartId !== currentPartId && (
           <span className="text-xs text-muted-foreground shrink-0 bg-muted px-1.5 py-0.5 rounded">
             {partNameById[file.orderPartId]}
           </span>
@@ -75,9 +80,6 @@ export function FileListItem({
             Team
           </Badge>
         )}
-        <span className="text-muted-foreground text-xs shrink-0">
-          {formatFileSize(file.size)}
-        </span>
         <a
           href={fileUrl}
           download={file.originalName}

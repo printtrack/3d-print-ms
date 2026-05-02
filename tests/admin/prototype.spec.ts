@@ -143,7 +143,10 @@ test.describe("Prototype mode", () => {
     });
 
     await page.goto(`/admin/orders/${order.id}`);
-    await expect(page.getByText("Aktuelles Design").first()).toBeVisible();
+    // Expand part section (collapsed by default)
+    const partSection = page.locator('[data-testid="part-section"]').first();
+    await partSection.locator("div.border-b").first().click();
+    await expect(page.getByText("AKTUELL").first()).toBeVisible({ timeout: 3000 });
     await expect(page.getByText("design_v2.stl").first()).toBeVisible();
     await expect(page.getByText(/Frühere Designs/).first()).toBeVisible();
   });

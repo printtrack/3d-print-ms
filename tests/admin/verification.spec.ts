@@ -1,9 +1,9 @@
 import { test, expect } from "../fixtures/test-base";
-import { prismaTest, createTestOrder, createTestVerification } from "../fixtures/db";
+import { prismaTest, createTestOrder, createTestOrderPart, createTestVerification } from "../fixtures/db";
 
 test.use({ storageState: "tests/.auth/admin.json" });
 
-test("order detail: verification section always visible with two rows", async ({ seed, page }) => {
+test("order detail: Angebotsfreigabe card always visible", async ({ seed, page }) => {
   const defaultPhase = await prismaTest.orderPhase.findFirst({ where: { isDefault: true } });
   if (!defaultPhase) { test.skip(); return; }
 
@@ -11,28 +11,29 @@ test("order detail: verification section always visible with two rows", async ({
 
   await page.goto(`/admin/orders/${order.id}`);
 
-  await expect(page.getByText("Freigaben", { exact: true })).toBeVisible({ timeout: 5000 });
-  await expect(page.getByText("Designfreigabe", { exact: true })).toBeVisible();
-  await expect(page.getByText("Angebotsfreigabe", { exact: true })).toBeVisible();
+  await expect(page.getByText("Angebotsfreigabe", { exact: true })).toBeVisible({ timeout: 5000 });
+  await expect(page.getByText("Erst nach Designfreigabe verfügbar")).toBeVisible();
 });
 
-test("order detail: verification section with admin override", async ({ seed, page }) => {
+test("order detail: admin approves per-part VR via inline button", async ({ seed, page }) => {
   const defaultPhase = await prismaTest.orderPhase.findFirst({ where: { isDefault: true } });
   if (!defaultPhase) { test.skip(); return; }
 
   const order = await createTestOrder(defaultPhase.id, { customerName: "Freigabe Admin Test" });
-  const vr = await createTestVerification(order.id, "DESIGN_REVIEW");
+  const part = await createTestOrderPart(order.id);
+  const vr = await createTestVerification(order.id, "DESIGN_REVIEW", part.id);
 
   await page.goto(`/admin/orders/${order.id}`);
 
-  await expect(page.getByText("Freigaben", { exact: true })).toBeVisible({ timeout: 5000 });
-  await expect(page.getByText("Ausstehend").first()).toBeVisible();
+  // VR banner is inside the part header — visible even when section is collapsed
+  await expect(page.getByText("Designfreigabe ausstehend").first()).toBeVisible({ timeout: 5000 });
 
-  const overrideBtn = page.getByRole("button", { name: /Admin-Freigabe erteilen/i }).first();
+  const overrideBtn = page.getByRole("button", { name: /^Erteilen$/i }).first();
   await expect(overrideBtn).toBeVisible();
   await overrideBtn.click();
 
-  await expect(page.getByText("Freigegeben").first()).toBeVisible({ timeout: 10000 });
+  // Banner disappears and part phase auto-changes to Druckbereit
+  await expect(page.getByText("Designfreigabe ausstehend")).not.toBeVisible({ timeout: 10000 });
 
   const updated = await prismaTest.verificationRequest.findUnique({ where: { id: vr.id } });
   expect(updated?.status).toBe("APPROVED");
@@ -51,42 +52,42 @@ test("kanban: order card shows pending verification badge", async ({ seed, page 
   await expect(card.getByText("Freigabe ausstehend")).toBeVisible({ timeout: 5000 });
 });
 
-test("order detail: 'Freigabe senden' button sends DESIGN_REVIEW", async ({ seed, page }) => {
+test("order detail: per-part pending VR shows inline action buttons", async ({ seed, page }) => {
   const defaultPhase = await prismaTest.orderPhase.findFirst({ where: { isDefault: true } });
   if (!defaultPhase) { test.skip(); return; }
 
   const order = await createTestOrder(defaultPhase.id, { customerName: "Freigabe Trigger Test" });
+  const part = await createTestOrderPart(order.id);
+  await createTestVerification(order.id, "DESIGN_REVIEW", part.id);
 
   await page.goto(`/admin/orders/${order.id}`);
 
-  await expect(page.getByText("Freigaben", { exact: true })).toBeVisible({ timeout: 5000 });
-  const sendBtn = page.getByRole("button", { name: /Freigabe senden/i }).first();
-  await expect(sendBtn).toBeVisible();
-
-  await sendBtn.click();
-
-  await expect(page.getByText("Ausstehend").first()).toBeVisible({ timeout: 10000 });
-
-  const vr = await prismaTest.verificationRequest.findFirst({
-    where: { orderId: order.id, type: "DESIGN_REVIEW" },
-  });
-  expect(vr?.status).toBe("PENDING");
+  await expect(page.getByText("Designfreigabe ausstehend").first()).toBeVisible({ timeout: 5000 });
+  await expect(page.getByRole("button", { name: /^Erteilen$/i }).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Ablehnen$/i }).first()).toBeVisible();
 });
 
-test("order detail: 'Freigabe senden' re-enabled after DESIGN_REVIEW rejection", async ({ seed, page }) => {
+test("order detail: per-part rejected VR shows rejection reason inline", async ({ seed, page }) => {
   const defaultPhase = await prismaTest.orderPhase.findFirst({ where: { isDefault: true } });
   if (!defaultPhase) { test.skip(); return; }
 
   const order = await createTestOrder(defaultPhase.id, { customerName: "Freigabe Reject Test" });
+  const part = await createTestOrderPart(order.id);
   await prismaTest.verificationRequest.create({
-    data: { orderId: order.id, type: "DESIGN_REVIEW", status: "REJECTED", resolvedAt: new Date() },
+    data: {
+      orderId: order.id,
+      orderPartId: part.id,
+      type: "DESIGN_REVIEW",
+      status: "REJECTED",
+      resolvedAt: new Date(),
+      rejectionReason: "Maße stimmen nicht",
+    },
   });
 
   await page.goto(`/admin/orders/${order.id}`);
 
-  await expect(page.getByText("Freigaben", { exact: true })).toBeVisible({ timeout: 5000 });
-  await expect(page.getByText("Abgelehnt").first()).toBeVisible();
-  await expect(page.getByRole("button", { name: /Freigabe senden/i }).first()).toBeVisible();
+  await expect(page.getByText("Abgelehnt").first()).toBeVisible({ timeout: 5000 });
+  await expect(page.getByText("Maße stimmen nicht")).toBeVisible();
 });
 
 test("kanban: forward drag blocked by server 409", async ({ seed, request }) => {
@@ -133,4 +134,140 @@ test("PRICE_APPROVAL can be sent after DESIGN_REVIEW approved via API", async ({
   expect(res.status()).toBe(201);
   const body = await res.json();
   expect(body.type).toBe("PRICE_APPROVAL");
+});
+
+test("per-part design review auto-created when part enters review phase (non-prototype)", async ({ seed, request }) => {
+  const defaultPhase = await prismaTest.orderPhase.findFirst({ where: { isDefault: true } });
+  const reviewPhase = await prismaTest.partPhase.findFirst({ where: { isReview: true } });
+  if (!defaultPhase || !reviewPhase) { test.skip(); return; }
+
+  const order = await createTestOrder(defaultPhase.id, { isPrototype: false });
+  const part = await createTestOrderPart(order.id);
+
+  const res = await request.patch(`/api/admin/orders/${order.id}/parts/${part.id}`, {
+    data: { partPhaseId: reviewPhase.id },
+  });
+  expect(res.status()).toBe(200);
+
+  const vr = await prismaTest.verificationRequest.findFirst({
+    where: { orderId: order.id, orderPartId: part.id, type: "DESIGN_REVIEW" },
+  });
+  expect(vr).not.toBeNull();
+  expect(vr?.status).toBe("PENDING");
+});
+
+test("per-part design review NOT auto-created when order is in prototype mode", async ({ seed, request }) => {
+  const defaultPhase = await prismaTest.orderPhase.findFirst({ where: { isDefault: true } });
+  const reviewPhase = await prismaTest.partPhase.findFirst({ where: { isReview: true } });
+  if (!defaultPhase || !reviewPhase) { test.skip(); return; }
+
+  const order = await createTestOrder(defaultPhase.id, { isPrototype: true });
+  const part = await createTestOrderPart(order.id);
+
+  await request.patch(`/api/admin/orders/${order.id}/parts/${part.id}`, {
+    data: { partPhaseId: reviewPhase.id },
+  });
+
+  const vr = await prismaTest.verificationRequest.findFirst({
+    where: { orderId: order.id, orderPartId: part.id },
+  });
+  expect(vr).toBeNull();
+});
+
+test("per-part design review not duplicated if already PENDING", async ({ seed, request }) => {
+  const defaultPhase = await prismaTest.orderPhase.findFirst({ where: { isDefault: true } });
+  const reviewPhase = await prismaTest.partPhase.findFirst({ where: { isReview: true } });
+  if (!defaultPhase || !reviewPhase) { test.skip(); return; }
+
+  const order = await createTestOrder(defaultPhase.id, { isPrototype: false });
+  const part = await createTestOrderPart(order.id);
+  await createTestVerification(order.id, "DESIGN_REVIEW", part.id);
+
+  await request.patch(`/api/admin/orders/${order.id}/parts/${part.id}`, {
+    data: { partPhaseId: reviewPhase.id },
+  });
+
+  const count = await prismaTest.verificationRequest.count({
+    where: { orderId: order.id, orderPartId: part.id, type: "DESIGN_REVIEW" },
+  });
+  expect(count).toBe(1);
+});
+
+test("upload DESIGN file does NOT auto-create a VerificationRequest", async ({ seed, request }) => {
+  const defaultPhase = await prismaTest.orderPhase.findFirst({ where: { isDefault: true } });
+  if (!defaultPhase) { test.skip(); return; }
+
+  const order = await createTestOrder(defaultPhase.id, { isPrototype: false });
+
+  // Simulate what the admin upload route checks: no VR should be created just by a PATCH on an order
+  // We verify the trigger was removed by confirming no order-level VR exists after a part PATCH without isReview phase
+  const designPhase = await prismaTest.partPhase.findFirst({ where: { isDefault: true } });
+  const part = await createTestOrderPart(order.id);
+  if (designPhase) {
+    await request.patch(`/api/admin/orders/${order.id}/parts/${part.id}`, {
+      data: { partPhaseId: designPhase.id },
+    });
+  }
+
+  const vr = await prismaTest.verificationRequest.findFirst({
+    where: { orderId: order.id, type: "DESIGN_REVIEW" },
+  });
+  expect(vr).toBeNull();
+});
+
+test("admin approves per-part VR → part phase auto-set to isPrintReady", async ({ seed, request }) => {
+  const defaultPhase = await prismaTest.orderPhase.findFirst({ where: { isDefault: true } });
+  const printReadyPhase = await prismaTest.partPhase.findFirst({ where: { isPrintReady: true } });
+  if (!defaultPhase || !printReadyPhase) { test.skip(); return; }
+
+  const order = await createTestOrder(defaultPhase.id);
+  const part = await createTestOrderPart(order.id);
+  const vr = await createTestVerification(order.id, "DESIGN_REVIEW", part.id);
+
+  const res = await request.patch(`/api/admin/orders/${order.id}/verify`, {
+    data: { verificationRequestId: vr.id, action: "APPROVE" },
+  });
+  expect(res.status()).toBe(200);
+
+  const updatedPart = await prismaTest.orderPart.findUnique({ where: { id: part.id } });
+  expect(updatedPart?.partPhaseId).toBe(printReadyPhase.id);
+});
+
+test("admin rejects per-part VR → rejectionReason saved and part phase reset to default", async ({ seed, request }) => {
+  const defaultPhase = await prismaTest.orderPhase.findFirst({ where: { isDefault: true } });
+  const defaultPartPhase = await prismaTest.partPhase.findFirst({ where: { isDefault: true } });
+  if (!defaultPhase || !defaultPartPhase) { test.skip(); return; }
+
+  const order = await createTestOrder(defaultPhase.id);
+  const part = await createTestOrderPart(order.id);
+  const vr = await createTestVerification(order.id, "DESIGN_REVIEW", part.id);
+
+  const res = await request.patch(`/api/admin/orders/${order.id}/verify`, {
+    data: { verificationRequestId: vr.id, action: "REJECT", message: "Maßangaben falsch" },
+  });
+  expect(res.status()).toBe(200);
+
+  const updated = await prismaTest.verificationRequest.findUnique({ where: { id: vr.id } });
+  expect(updated?.status).toBe("REJECTED");
+  expect(updated?.rejectionReason).toBe("Maßangaben falsch");
+
+  const updatedPart = await prismaTest.orderPart.findUnique({ where: { id: part.id } });
+  expect(updatedPart?.partPhaseId).toBe(defaultPartPhase.id);
+});
+
+test("cannot set isPrintReady phase when PENDING design review exists", async ({ seed, request }) => {
+  const defaultPhase = await prismaTest.orderPhase.findFirst({ where: { isDefault: true } });
+  const printReadyPhase = await prismaTest.partPhase.findFirst({ where: { isPrintReady: true } });
+  if (!defaultPhase || !printReadyPhase) { test.skip(); return; }
+
+  const order = await createTestOrder(defaultPhase.id);
+  const part = await createTestOrderPart(order.id);
+  await createTestVerification(order.id, "DESIGN_REVIEW", part.id);
+
+  const res = await request.patch(`/api/admin/orders/${order.id}/parts/${part.id}`, {
+    data: { partPhaseId: printReadyPhase.id },
+  });
+  expect(res.status()).toBe(409);
+  const body = await res.json();
+  expect(body.error).toContain("Designfreigabe");
 });

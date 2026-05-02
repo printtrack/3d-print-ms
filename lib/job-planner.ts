@@ -4,7 +4,8 @@ import { prisma } from "./db";
 import { computeBbox, pickPrintOrientation } from "./stl-bbox";
 import { getUploadDir } from "./uploads";
 
-export interface ProposedJob {
+export interface ProposedNewJob {
+  type: "new";
   machineId: string;
   machineName: string;
   filamentId: string;
@@ -18,6 +19,24 @@ export interface ProposedJob {
   utilizationPct: number;
   estimatedGramsTotal: number | null;
 }
+
+export interface ProposedExtendJob {
+  type: "extend";
+  existingJobId: string;
+  machineId: string;
+  machineName: string;
+  filamentId: string;
+  filamentLabel: string;
+  parts: {
+    orderPartId: string;
+    partName: string;
+    orderId: string;
+    quantity: number;
+  }[];
+  addedGramsTotal: number | null;
+}
+
+export type ProposedJob = ProposedNewJob | ProposedExtendJob;
 
 export interface SkippedPart {
   orderPartId: string;
@@ -43,7 +62,6 @@ async function getPrintReadyParts() {
 }
 
 async function findStlFile(part: PartWithRelations) {
-  // Find any STL file linked to this part or order (check mimeType and filename extension)
   const allFiles = await prisma.orderFile.findMany({
     where: {
       orderId: part.orderId,
@@ -91,13 +109,15 @@ function materialKey(filament: { material: string; colorHex: string | null; colo
 function packGroup(
   parts: Array<{ part: PartWithRelations; bbox: { x: number; y: number; z: number } }>,
   machine: { id: string; name: string; buildVolumeX: number; buildVolumeY: number; buildVolumeZ: number },
-  skipped: SkippedPart[]
-): ProposedJob[] {
+  skipped: SkippedPart[],
+  existingUsedArea = 0
+): Array<{ batch: typeof parts; usedArea: number; gramsTotal: number | null }> {
   const build = { x: machine.buildVolumeX, y: machine.buildVolumeY, z: machine.buildVolumeZ };
   const bedArea = build.x * build.y;
 
   const eligible: Array<{
     part: PartWithRelations;
+    bbox: { x: number; y: number; z: number };
     orientation: { width: number; depth: number; height: number };
     footprint: number;
   }> = [];
@@ -112,17 +132,17 @@ function packGroup(
       });
       continue;
     }
-    eligible.push({ part, orientation, footprint: orientation.width * orientation.depth });
+    eligible.push({ part, bbox, orientation, footprint: orientation.width * orientation.depth });
   }
 
-  // Sort largest footprint first for a greedy shelf-fill
   eligible.sort((a, b) => b.footprint - a.footprint);
 
-  const jobs: ProposedJob[] = [];
+  const batches: Array<{ batch: typeof eligible; usedArea: number; gramsTotal: number | null }> = [];
   let remaining = [...eligible];
+  let firstBatch = true;
 
   while (remaining.length > 0) {
-    let usedArea = 0;
+    let usedArea = firstBatch ? existingUsedArea : 0;
     let maxHeight = 0;
     const batch: typeof eligible = [];
     const leftover: typeof eligible = [];
@@ -139,7 +159,6 @@ function packGroup(
     }
 
     if (batch.length === 0) {
-      // Prevent infinite loop: remaining items all exceed capacity individually
       for (const item of remaining) {
         skipped.push({
           orderPartId: item.part.id,
@@ -150,33 +169,18 @@ function packGroup(
       break;
     }
 
-    const firstPart = batch[0].part;
-    const filament = firstPart.filament!;
     let gramsTotal: number | null = 0;
     for (const { part } of batch) {
       if (part.gramsEstimated === null) { gramsTotal = null; break; }
       gramsTotal += part.gramsEstimated * part.quantity;
     }
 
-    jobs.push({
-      machineId: machine.id,
-      machineName: machine.name,
-      filamentId: filament.id,
-      filamentLabel: `${filament.material} ${filament.color}${filament.name ? ` (${filament.name})` : ""}`,
-      parts: batch.map(({ part }) => ({
-        orderPartId: part.id,
-        partName: part.name,
-        orderId: part.order.id,
-        quantity: part.quantity,
-      })),
-      utilizationPct: Math.round((usedArea / bedArea) * 100),
-      estimatedGramsTotal: gramsTotal,
-    });
-
+    batches.push({ batch, usedArea: usedArea - (firstBatch ? existingUsedArea : 0), gramsTotal });
     remaining = leftover;
+    firstBatch = false;
   }
 
-  return jobs;
+  return batches;
 }
 
 export async function plan(): Promise<{ proposed: ProposedJob[]; skipped: SkippedPart[] }> {
@@ -186,6 +190,37 @@ export async function plan(): Promise<{ proposed: ProposedJob[]; skipped: Skippe
   ]);
 
   if (machines.length === 0) return { proposed: [], skipped: [] };
+
+  // Load existing PLANNED jobs with no plannedAt (not yet scheduled)
+  const existingPlannedJobs = await prisma.printJob.findMany({
+    where: { status: "PLANNED", plannedAt: null },
+    include: {
+      machine: true,
+      parts: {
+        include: {
+          orderPart: {
+            select: { id: true, bboxXmm: true, bboxYmm: true, bboxZmm: true, gramsEstimated: true, quantity: true, filamentId: true },
+          },
+        },
+      },
+    },
+  });
+
+  // Compute used bed area per existing job (keyed by jobId)
+  const existingJobUsedArea = new Map<string, number>();
+  for (const job of existingPlannedJobs) {
+    const machine = machines.find((m) => m.id === job.machineId);
+    if (!machine) continue;
+    const bedArea = machine.buildVolumeX * machine.buildVolumeY;
+    let used = 0;
+    for (const pjp of job.parts) {
+      const p = pjp.orderPart;
+      if (p.bboxXmm && p.bboxYmm) {
+        used += p.bboxXmm * p.bboxYmm * p.quantity;
+      }
+    }
+    existingJobUsedArea.set(job.id, Math.min(used, bedArea * 0.7));
+  }
 
   const skipped: SkippedPart[] = [];
   const proposed: ProposedJob[] = [];
@@ -210,14 +245,87 @@ export async function plan(): Promise<{ proposed: ProposedJob[]; skipped: Skippe
     })
   );
 
-  // Round-robin over machines per material group
   let machineIdx = 0;
 
   for (const groupParts of groups.values()) {
     const machine = machines[machineIdx % machines.length];
     machineIdx++;
-    const jobs = packGroup(groupParts, machine, skipped);
-    proposed.push(...jobs);
+
+    const filament = groupParts[0].part.filament!;
+    const build = { x: machine.buildVolumeX, y: machine.buildVolumeY, z: machine.buildVolumeZ };
+    const bedArea = build.x * build.y;
+
+    // Find an existing PLANNED job on this machine with matching filament
+    const matchingExistingJob = existingPlannedJobs.find(
+      (j) =>
+        j.machineId === machine.id &&
+        j.parts.some((pjp) => pjp.orderPart.filamentId === filament.id)
+    );
+
+    if (matchingExistingJob) {
+      const usedArea = existingJobUsedArea.get(matchingExistingJob.id) ?? 0;
+      const batches = packGroup(groupParts, machine, skipped, usedArea);
+
+      if (batches.length > 0) {
+        const [firstBatch, ...rest] = batches;
+        const filamentLabel = `${filament.material} ${filament.color}${filament.name ? ` (${filament.name})` : ""}`;
+
+        proposed.push({
+          type: "extend",
+          existingJobId: matchingExistingJob.id,
+          machineId: machine.id,
+          machineName: machine.name,
+          filamentId: filament.id,
+          filamentLabel,
+          parts: firstBatch.batch.map(({ part }) => ({
+            orderPartId: part.id,
+            partName: part.name,
+            orderId: part.order.id,
+            quantity: part.quantity,
+          })),
+          addedGramsTotal: firstBatch.gramsTotal,
+        });
+
+        for (const batch of rest) {
+          proposed.push({
+            type: "new",
+            machineId: machine.id,
+            machineName: machine.name,
+            filamentId: filament.id,
+            filamentLabel,
+            parts: batch.batch.map(({ part }) => ({
+              orderPartId: part.id,
+              partName: part.name,
+              orderId: part.order.id,
+              quantity: part.quantity,
+            })),
+            utilizationPct: Math.round((batch.usedArea / bedArea) * 100),
+            estimatedGramsTotal: batch.gramsTotal,
+          });
+        }
+      }
+    } else {
+      const batches = packGroup(groupParts, machine, skipped, 0);
+      const filamentLabel = `${filament.material} ${filament.color}${filament.name ? ` (${filament.name})` : ""}`;
+
+      for (const batch of batches) {
+        proposed.push({
+          type: "new",
+          machineId: machine.id,
+          machineName: machine.name,
+          filamentId: filament.id,
+          filamentLabel,
+          parts: batch.batch.map(({ part }) => ({
+            orderPartId: part.id,
+            partName: part.name,
+            orderId: part.order.id,
+            quantity: part.quantity,
+          })),
+          utilizationPct: Math.round((batch.usedArea / bedArea) * 100),
+          estimatedGramsTotal: batch.gramsTotal,
+        });
+      }
+    }
   }
 
   return { proposed, skipped };

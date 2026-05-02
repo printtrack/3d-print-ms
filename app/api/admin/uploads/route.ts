@@ -4,7 +4,6 @@ import { prisma } from "@/lib/db";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import { randomUUID } from "crypto";
-import { sendVerificationEmail } from "@/lib/email";
 import { getUploadDir } from "@/lib/uploads";
 import { validateFileContent } from "@/lib/file-validation";
 
@@ -103,32 +102,6 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      // Auto-trigger DESIGN_REVIEW verification if not already pending (suppressed for prototype orders)
-      if (!order.isPrototype) {
-        const existingDesignReview = await prisma.verificationRequest.findFirst({
-          where: { orderId, type: "DESIGN_REVIEW", status: "PENDING" },
-        });
-        if (!existingDesignReview) {
-          const vr = await prisma.verificationRequest.create({
-            data: { orderId, type: "DESIGN_REVIEW" },
-          });
-          await prisma.auditLog.create({
-            data: {
-              orderId,
-              userId: session.user.id as string,
-              action: "VERIFICATION_SENT",
-              details: "Designfreigabe Anfrage automatisch versandt",
-            },
-          });
-          sendVerificationEmail({
-            customerEmail: order.customerEmail,
-            customerName: order.customerName,
-            verificationToken: vr.token,
-            type: "DESIGN_REVIEW",
-            trackingToken: order.trackingToken,
-          }).catch((err) => console.error("[email] Verification email failed:", err));
-        }
-      }
     }
 
     return NextResponse.json({ files: savedFiles }, { status: 201 });

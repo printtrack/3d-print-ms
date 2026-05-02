@@ -134,9 +134,10 @@ export async function seedDb() {
 
   await prismaTest.partPhase.createMany({
     data: [
-      { name: "Design", color: "#6366f1", position: 0, isDefault: true },
-      { name: "Überprüfung", color: "#f59e0b", position: 1 },
-      { name: "Druckbereit", color: "#10b981", position: 2, isPrintReady: true },
+      { name: "Design",      color: "#6366f1", position: 0, isDefault: true,  isPrintReady: false, isReview: false, isPrinted: false },
+      { name: "Überprüfung", color: "#f59e0b", position: 1, isDefault: false, isPrintReady: false, isReview: true,  isPrinted: false },
+      { name: "Druckbereit", color: "#10b981", position: 2, isDefault: false, isPrintReady: true,  isReview: false, isPrinted: false },
+      { name: "Gedruckt",    color: "#3b82f6", position: 3, isDefault: false, isPrintReady: false, isReview: false, isPrinted: true  },
     ],
   });
   const partPhases = await prismaTest.partPhase.findMany({ orderBy: { position: "asc" } });
@@ -157,10 +158,11 @@ export async function seedDb() {
 
 export async function createTestVerification(
   orderId: string,
-  type: "DESIGN_REVIEW" | "PRICE_APPROVAL" = "DESIGN_REVIEW"
+  type: "DESIGN_REVIEW" | "PRICE_APPROVAL" = "DESIGN_REVIEW",
+  orderPartId?: string
 ) {
   return prismaTest.verificationRequest.create({
-    data: { orderId, type },
+    data: { orderId, type, ...(orderPartId ? { orderPartId } : {}) },
   });
 }
 
@@ -267,6 +269,8 @@ export async function createTestPartPhase(
     position: number;
     isDefault: boolean;
     isPrintReady: boolean;
+    isReview: boolean;
+    isPrinted: boolean;
   }> = {}
 ) {
   const last = await prismaTest.partPhase.findFirst({ orderBy: { position: "desc" } });
@@ -277,6 +281,8 @@ export async function createTestPartPhase(
       position: overrides.position ?? (last?.position ?? -1) + 1,
       isDefault: overrides.isDefault ?? false,
       isPrintReady: overrides.isPrintReady ?? false,
+      isReview: overrides.isReview ?? false,
+      isPrinted: overrides.isPrinted ?? false,
     },
   });
 }

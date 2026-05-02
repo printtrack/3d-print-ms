@@ -54,20 +54,25 @@ async function main() {
     console.log("Project phases already exist, skipping");
   }
 
-  // Create default part phases only if none exist
-  const existingPartPhases = await prisma.partPhase.count();
-  if (existingPartPhases === 0) {
-    await prisma.partPhase.createMany({
-      data: [
-        { name: "Design", color: "#6366f1", position: 0, isDefault: true },
-        { name: "Überprüfung", color: "#f59e0b", position: 1 },
-        { name: "Druckbereit", color: "#10b981", position: 2, isPrintReady: true },
-      ],
-    });
-    console.log("Created default part phases");
-  } else {
-    console.log("Part phases already exist, skipping");
+  // Create/update default part phases idempotently (by name)
+  const partPhaseDefs = [
+    { name: "Design",       color: "#6366f1", position: 0, isDefault: true,  isPrintReady: false, isReview: false, isPrinted: false },
+    { name: "Überprüfung",  color: "#f59e0b", position: 1, isDefault: false, isPrintReady: false, isReview: true,  isPrinted: false },
+    { name: "Druckbereit",  color: "#10b981", position: 2, isDefault: false, isPrintReady: true,  isReview: false, isPrinted: false },
+    { name: "Gedruckt",     color: "#3b82f6", position: 3, isDefault: false, isPrintReady: false, isReview: false, isPrinted: true  },
+  ];
+  for (const def of partPhaseDefs) {
+    const existing = await prisma.partPhase.findFirst({ where: { name: def.name } });
+    if (existing) {
+      await prisma.partPhase.update({
+        where: { id: existing.id },
+        data: { color: def.color, position: def.position, isPrintReady: def.isPrintReady, isReview: def.isReview, isPrinted: def.isPrinted },
+      });
+    } else {
+      await prisma.partPhase.create({ data: def });
+    }
   }
+  console.log("Part phases seeded (idempotent)");
 
   // Seed default settings
   const defaultSettings = [

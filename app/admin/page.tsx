@@ -7,12 +7,15 @@ async function getDashboardData() {
   const now = new Date();
   const startOfWeek = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
+  const threshold48h = new Date(now.getTime() + 48 * 60 * 60 * 1000);
+
   const [
     openOrdersCount,
     overdueOrdersCount,
     ordersThisWeek,
     activeJobsCount,
     overdueMilestonesCount,
+    unslicedSoonCount,
     phasesWithCounts,
     recentActivityRaw,
   ] = await Promise.all([
@@ -21,6 +24,7 @@ async function getDashboardData() {
     prisma.order.count({ where: { createdAt: { gte: startOfWeek } } }),
     prisma.printJob.count({ where: { status: { in: ["PLANNED", "IN_PROGRESS"] } } }),
     prisma.milestone.count({ where: { dueAt: { lt: now }, completedAt: null } }),
+    prisma.printJob.count({ where: { status: "PLANNED", plannedAt: { not: null, lte: threshold48h } } }),
     prisma.orderPhase.findMany({
       orderBy: { position: "asc" },
       include: {
@@ -60,6 +64,7 @@ async function getDashboardData() {
     ordersThisWeek,
     activeJobsCount,
     overdueMilestonesCount,
+    unslicedSoonCount,
     phaseBreakdown,
     recentActivity,
   };

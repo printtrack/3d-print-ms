@@ -39,6 +39,7 @@ interface DashboardHomeProps {
   activeJobsCount: number;
   ordersThisWeek: number;
   overdueMilestonesCount: number;
+  unslicedSoonCount: number;
   phaseBreakdown: PhaseCount[];
   recentActivity: ActivityEntry[];
 }
@@ -92,6 +93,7 @@ export function DashboardHome({
   activeJobsCount,
   ordersThisWeek,
   overdueMilestonesCount,
+  unslicedSoonCount,
   phaseBreakdown,
   recentActivity,
 }: DashboardHomeProps) {
@@ -129,7 +131,7 @@ export function DashboardHome({
       </div>
 
       {/* Alert row */}
-      {(overdueOrdersCount > 0 || overdueMilestonesCount > 0) && (
+      {(overdueOrdersCount > 0 || overdueMilestonesCount > 0 || unslicedSoonCount > 0) && (
         <div className="flex flex-wrap gap-3">
           {overdueOrdersCount > 0 && (
             <Link
@@ -149,6 +151,16 @@ export function DashboardHome({
               <AlertTriangle className="h-4 w-4" />
               {overdueMilestonesCount} offene{" "}
               {overdueMilestonesCount === 1 ? "Meilenstein" : "Meilensteine"} überfällig
+            </Link>
+          )}
+          {unslicedSoonCount > 0 && (
+            <Link
+              href="/admin/jobs"
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-amber-500/10 text-amber-700 text-sm font-medium hover:bg-amber-500/15 transition-colors"
+            >
+              <AlertTriangle className="h-4 w-4" />
+              {unslicedSoonCount}{" "}
+              {unslicedSoonCount === 1 ? "Job" : "Jobs"} in 48h noch nicht gesliced
             </Link>
           )}
         </div>

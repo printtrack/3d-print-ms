@@ -11,6 +11,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { FileIcon, FileText, Clock, Download, Upload, X, ShieldCheck, ShieldAlert, XCircle, Image as ImageIcon } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import { is3DModel, formatFileSize } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -54,6 +55,8 @@ interface VerificationRequest {
   sentAt: string;
   resolvedAt: string | null;
   type: string;
+  orderPartId?: string | null;
+  rejectionReason?: string | null;
 }
 
 interface SurveyResponse {
@@ -86,6 +89,8 @@ export function PortalOrderDetail({ order }: { order: Order }) {
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
   const [verifyingToken, setVerifyingToken] = useState<string | null>(null);
+  const [rejectingToken, setRejectingToken] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
   const [verificationRequests, setVerificationRequests] = useState(order.verificationRequests);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
@@ -127,13 +132,13 @@ export function PortalOrderDetail({ order }: { order: Order }) {
     }
   }
 
-  async function handleVerify(verificationToken: string, action: "APPROVE" | "REJECT") {
+  async function handleVerify(verificationToken: string, action: "APPROVE" | "REJECT", rejectionReason?: string) {
     setVerifyingToken(verificationToken);
     try {
       const res = await fetch(`/api/orders/${order.trackingToken}/verify`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ verificationToken, action }),
+        body: JSON.stringify({ verificationToken, action, ...(rejectionReason ? { rejectionReason } : {}) }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -142,9 +147,11 @@ export function PortalOrderDetail({ order }: { order: Order }) {
       }
       const newStatus = action === "APPROVE" ? "APPROVED" : "REJECTED";
       setVerificationRequests((prev) =>
-        prev.map((vr) => (vr.token === verificationToken ? { ...vr, status: newStatus } : vr))
+        prev.map((vr) => (vr.token === verificationToken ? { ...vr, status: newStatus, rejectionReason: rejectionReason ?? null } : vr))
       );
       toast.success(action === "APPROVE" ? "Freigabe erteilt" : "Freigabe abgelehnt");
+      setRejectingToken(null);
+      setRejectReason("");
       router.refresh();
     } catch {
       toast.error("Freigabe fehlgeschlagen");
@@ -348,40 +355,74 @@ export function PortalOrderDetail({ order }: { order: Order }) {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {pendingVerifications.map((vr) => (
-              <div key={vr.token} className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium">
-                    {vr.type === "DESIGN_REVIEW" ? "Designfreigabe" : "Angebotsfreigabe"}
-                  </span>
-                  <span className="flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-amber-100 text-amber-700">
-                    <ShieldAlert className="h-3 w-3" />
-                    Ihre Freigabe ist erforderlich
-                  </span>
+            {pendingVerifications.map((vr) => {
+              const isRejecting = rejectingToken === vr.token;
+              return (
+                <div key={vr.token} className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium">
+                      {vr.type === "DESIGN_REVIEW" ? "Designfreigabe" : "Angebotsfreigabe"}
+                    </span>
+                    <span className="flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-amber-100 text-amber-700">
+                      <ShieldAlert className="h-3 w-3" />
+                      Ihre Freigabe ist erforderlich
+                    </span>
+                  </div>
+                  {isRejecting ? (
+                    <div className="space-y-2">
+                      <Textarea
+                        placeholder="Grund für Ablehnung (optional)"
+                        value={rejectReason}
+                        onChange={(e) => setRejectReason(e.target.value)}
+                        className="text-sm min-h-[80px] resize-none"
+                      />
+                      <div className="flex gap-2">
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => handleVerify(vr.token, "REJECT", rejectReason)}
+                          disabled={verifyingToken === vr.token}
+                          className="flex-1"
+                        >
+                          <XCircle className="h-3.5 w-3.5 mr-1.5" />
+                          {verifyingToken === vr.token ? "..." : "Ablehnen bestätigen"}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => { setRejectingToken(null); setRejectReason(""); }}
+                          className="flex-1"
+                        >
+                          Abbrechen
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        onClick={() => handleVerify(vr.token, "APPROVE")}
+                        disabled={verifyingToken === vr.token}
+                        className="flex-1"
+                      >
+                        <ShieldCheck className="h-3.5 w-3.5 mr-1.5" />
+                        Freigabe erteilen
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setRejectingToken(vr.token)}
+                        disabled={verifyingToken === vr.token}
+                        className="flex-1 text-destructive hover:text-destructive"
+                      >
+                        <XCircle className="h-3.5 w-3.5 mr-1.5" />
+                        Ablehnen
+                      </Button>
+                    </div>
+                  )}
                 </div>
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    onClick={() => handleVerify(vr.token, "APPROVE")}
-                    disabled={verifyingToken === vr.token}
-                    className="flex-1"
-                  >
-                    <ShieldCheck className="h-3.5 w-3.5 mr-1.5" />
-                    Freigabe erteilen
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleVerify(vr.token, "REJECT")}
-                    disabled={verifyingToken === vr.token}
-                    className="flex-1 text-destructive hover:text-destructive"
-                  >
-                    <XCircle className="h-3.5 w-3.5 mr-1.5" />
-                    Ablehnen
-                  </Button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </CardContent>
         </Card>
       )}

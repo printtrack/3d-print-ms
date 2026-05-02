@@ -160,7 +160,7 @@ test.describe("Teile section on order detail", () => {
 
     page.on("dialog", (d) => d.accept());
     const partSection = page.locator('[data-testid="part-section"]').filter({ hasText: "Deckel Teil" });
-    await partSection.locator('button[aria-haspopup="menu"]').last().click();
+    await partSection.getByTitle("Teil-Optionen").click();
     await page.getByRole("menuitem", { name: /Löschen/ }).click();
 
     await expect(page.getByText("Teil gelöscht").first()).toBeVisible({ timeout: 5000 });

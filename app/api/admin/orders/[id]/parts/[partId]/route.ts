@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
+import { maybeAutoSendPartDesignVerification } from "@/lib/design-verification";
 
 const patchSchema = z.object({
   name: z.string().min(1).optional(),
@@ -15,8 +16,11 @@ const patchSchema = z.object({
 
 const partInclude = {
   filament: { select: { id: true, name: true, material: true, color: true, colorHex: true, brand: true } },
-  partPhase: { select: { id: true, name: true, color: true, isPrintReady: true } },
+  partPhase: { select: { id: true, name: true, color: true, isPrintReady: true, isReview: true, isPrinted: true } },
   files: true,
+  printJobParts: {
+    include: { printJob: { select: { id: true, status: true, machine: { select: { name: true } } } } },
+  },
   assignees: { include: { user: { select: { id: true, name: true, email: true } } } },
 } as const;
 
@@ -48,6 +52,22 @@ export async function PATCH(
       }
     }
 
+    // Block transition to isPrintReady phase if there's a pending design review for this part
+    if (data.partPhaseId) {
+      const newPhase = await prisma.partPhase.findUnique({ where: { id: data.partPhaseId } });
+      if (newPhase?.isPrintReady) {
+        const pendingReview = await prisma.verificationRequest.findFirst({
+          where: { orderId: id, orderPartId: partId, type: "DESIGN_REVIEW", status: "PENDING" },
+        });
+        if (pendingReview) {
+          return NextResponse.json(
+            { error: "Designfreigabe muss erst erteilt werden" },
+            { status: 409 }
+          );
+        }
+      }
+    }
+
     const part = await prisma.orderPart.update({
       where: { id: partId, orderId: id },
       data: {
@@ -60,6 +80,14 @@ export async function PATCH(
       },
       include: partInclude,
     });
+
+    // Auto-send per-part design verification when entering review phase (non-prototype only)
+    if (data.partPhaseId && part.partPhase?.isReview) {
+      const order = await prisma.order.findUnique({ where: { id }, select: { isPrototype: true } });
+      if (!order?.isPrototype) {
+        await maybeAutoSendPartDesignVerification(id, partId);
+      }
+    }
 
     const userId = (session.user as { id?: string })?.id ?? null;
 

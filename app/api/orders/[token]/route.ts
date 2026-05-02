@@ -30,9 +30,26 @@ export async function GET(
             size: true,
             source: true,
             category: true,
+            orderPartId: true,
             createdAt: true,
           },
           orderBy: { createdAt: "asc" },
+        },
+        parts: {
+          select: {
+            id: true,
+            name: true,
+            files: {
+              select: {
+                filename: true,
+                originalName: true,
+                category: true,
+                orderPartId: true,
+                createdAt: true,
+              },
+              orderBy: { createdAt: "desc" },
+            },
+          },
         },
         auditLogs: {
           select: {
@@ -55,6 +72,8 @@ export async function GET(
             type: true,
             resolvedAt: true,
             resolvedBy: true,
+            orderPartId: true,
+            rejectionReason: true,
           },
           orderBy: { sentAt: "desc" },
         },
@@ -75,6 +94,8 @@ export async function GET(
         type: vr.type,
         resolvedAt: vr.resolvedAt,
         resolvedBy: vr.resolvedBy,
+        orderPartId: vr.orderPartId ?? null,
+        rejectionReason: vr.rejectionReason ?? null,
       })),
     };
 

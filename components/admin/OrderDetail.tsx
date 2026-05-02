@@ -148,6 +148,8 @@ interface OrderDetailProps {
       status: "PENDING" | "APPROVED" | "REJECTED";
       sentAt: string;
       resolvedAt: string | null;
+      orderPartId: string | null;
+      rejectionReason?: string | null;
     }>;
   };
   phases: Array<{ id: string; name: string; color: string; isPrototype?: boolean }>;
@@ -157,7 +159,7 @@ interface OrderDetailProps {
   parts: OrderPartData[];
   availableFilaments: FilamentOption[];
   customerCredit: { id: string; balance: number } | null;
-  partPhases: Array<{ id: string; name: string; color: string; isPrintReady: boolean }>;
+  partPhases: Array<{ id: string; name: string; color: string; isPrintReady: boolean; isReview: boolean; isPrinted: boolean }>;
   machines: Array<{ id: string; name: string }>;
   initialMilestones: MilestoneData[];
 }
@@ -257,11 +259,8 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
   const currentPhase = phases.find((p) => p.id === selectedPhaseId);
   const currentPhaseIsPrototype = !!currentPhase?.isPrototype;
 
-  const hasPendingVerification = verificationRequests.some((vr) => vr.status === "PENDING");
-  const designRequest = verificationRequests.find((vr) => vr.type === "DESIGN_REVIEW");
+  const designApproved = verificationRequests.some((vr) => vr.type === "DESIGN_REVIEW" && vr.status === "APPROVED");
   const priceRequest = verificationRequests.find((vr) => vr.type === "PRICE_APPROVAL");
-  const designApproved = designRequest?.status === "APPROVED";
-  const hasPendingDesign = designRequest?.status === "PENDING";
   const hasPendingPrice = priceRequest?.status === "PENDING";
 
   async function handleDeductCredit() {
@@ -541,7 +540,7 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
       const res = await fetch(`/api/admin/orders/${order.id}/verify`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ verificationRequestId }),
+        body: JSON.stringify({ verificationRequestId, action: "APPROVE" }),
       });
       if (!res.ok) throw new Error();
       setVerificationRequests((prev) =>
@@ -558,6 +557,16 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
     } finally {
       setOverridingVerification(null);
     }
+  }
+
+  function handleVerificationUpdated(vrId: string, status: "APPROVED" | "REJECTED", reason?: string | null) {
+    setVerificationRequests((prev) =>
+      prev.map((vr) =>
+        vr.id === vrId
+          ? { ...vr, status, rejectionReason: reason ?? null }
+          : vr
+      )
+    );
   }
 
   function handlePartUpdated(updated: OrderPartData) {
@@ -633,6 +642,8 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
             iterationCount={iterationCount}
             onIterationChange={setIterationCount}
             teamMembers={teamMembers}
+            verificationRequests={verificationRequests}
+            onVerificationUpdated={handleVerificationUpdated}
           />
 
           {/* Comments */}
@@ -1085,111 +1096,59 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
             </CardContent>
           </Card>
 
-          {/* Verifications */}
+          {/* Angebotsfreigabe */}
           <Card>
             <CardHeader>
               <CardTitle className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
                 <ShieldCheck className="h-4 w-4" />
-                Freigaben
+                Angebotsfreigabe
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-3 text-sm">
-              {/* Design Review row */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-medium text-xs">Designfreigabe</span>
-                  {!designRequest && (
-                    <span className="text-xs text-muted-foreground shrink-0">—</span>
-                  )}
-                  {designRequest?.status === "PENDING" && (
-                    <span className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 shrink-0">
-                      <ShieldAlert className="h-3 w-3" />
-                      Ausstehend
-                    </span>
-                  )}
-                  {designRequest?.status === "APPROVED" && (
-                    <span className="text-xs px-1.5 py-0.5 rounded bg-green-100 text-green-700 shrink-0">Freigegeben</span>
-                  )}
-                  {designRequest?.status === "REJECTED" && (
-                    <span className="text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-700 shrink-0">Abgelehnt</span>
-                  )}
-                </div>
-                {!hasPendingDesign && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="w-full h-7 text-xs"
-                    onClick={() => handleSendVerification("DESIGN_REVIEW")}
-                    disabled={sendingVerification}
-                  >
-                    <Send className="h-3 w-3 mr-1" />
-                    {sendingVerification ? "Wird gesendet..." : "Freigabe senden"}
-                  </Button>
+            <CardContent className="space-y-2 text-sm">
+              <div className="flex items-center justify-between gap-2">
+                {!priceRequest && (
+                  <span className="text-xs text-muted-foreground">—</span>
                 )}
-                {hasPendingDesign && isAdmin && designRequest && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="w-full h-7 text-xs"
-                    onClick={() => handleOverrideVerification(designRequest.id)}
-                    disabled={overridingVerification === designRequest.id}
-                  >
-                    <ShieldCheck className="h-3 w-3 mr-1" />
-                    {overridingVerification === designRequest.id ? "Wird erteilt..." : "Admin-Freigabe erteilen"}
-                  </Button>
+                {priceRequest?.status === "PENDING" && (
+                  <span className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">
+                    <ShieldAlert className="h-3 w-3" />
+                    Ausstehend
+                  </span>
+                )}
+                {priceRequest?.status === "APPROVED" && (
+                  <span className="text-xs px-1.5 py-0.5 rounded bg-green-100 text-green-700">Freigegeben</span>
+                )}
+                {priceRequest?.status === "REJECTED" && (
+                  <span className="text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-700">Abgelehnt</span>
                 )}
               </div>
-
-              <Separator />
-
-              {/* Price Approval row */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-medium text-xs">Angebotsfreigabe</span>
-                  {!priceRequest && (
-                    <span className="text-xs text-muted-foreground shrink-0">—</span>
-                  )}
-                  {priceRequest?.status === "PENDING" && (
-                    <span className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 shrink-0">
-                      <ShieldAlert className="h-3 w-3" />
-                      Ausstehend
-                    </span>
-                  )}
-                  {priceRequest?.status === "APPROVED" && (
-                    <span className="text-xs px-1.5 py-0.5 rounded bg-green-100 text-green-700 shrink-0">Freigegeben</span>
-                  )}
-                  {priceRequest?.status === "REJECTED" && (
-                    <span className="text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-700 shrink-0">Abgelehnt</span>
-                  )}
-                </div>
-                {designApproved && !hasPendingPrice && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="w-full h-7 text-xs"
-                    onClick={() => handleSendVerification("PRICE_APPROVAL")}
-                    disabled={sendingVerification}
-                  >
-                    <Send className="h-3 w-3 mr-1" />
-                    {sendingVerification ? "Wird gesendet..." : "Freigabe senden"}
-                  </Button>
-                )}
-                {!designApproved && !priceRequest && (
-                  <p className="text-xs text-muted-foreground">Erst nach Designfreigabe verfügbar</p>
-                )}
-                {hasPendingPrice && isAdmin && priceRequest && (
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="w-full h-7 text-xs"
-                    onClick={() => handleOverrideVerification(priceRequest.id)}
-                    disabled={overridingVerification === priceRequest.id}
-                  >
-                    <ShieldCheck className="h-3 w-3 mr-1" />
-                    {overridingVerification === priceRequest.id ? "Wird erteilt..." : "Admin-Freigabe erteilen"}
-                  </Button>
-                )}
-              </div>
+              {designApproved && !hasPendingPrice && !priceRequest && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="w-full h-7 text-xs"
+                  onClick={() => handleSendVerification("PRICE_APPROVAL")}
+                  disabled={sendingVerification}
+                >
+                  <Send className="h-3 w-3 mr-1" />
+                  {sendingVerification ? "Wird gesendet..." : "Freigabe senden"}
+                </Button>
+              )}
+              {!designApproved && !priceRequest && (
+                <p className="text-xs text-muted-foreground">Erst nach Designfreigabe verfügbar</p>
+              )}
+              {hasPendingPrice && isAdmin && priceRequest && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="w-full h-7 text-xs"
+                  onClick={() => handleOverrideVerification(priceRequest.id)}
+                  disabled={overridingVerification === priceRequest.id}
+                >
+                  <ShieldCheck className="h-3 w-3 mr-1" />
+                  {overridingVerification === priceRequest.id ? "Wird erteilt..." : "Admin-Freigabe erteilen"}
+                </Button>
+              )}
             </CardContent>
           </Card>
 

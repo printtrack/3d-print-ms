@@ -13,6 +13,7 @@ import {
   DialogContent,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
 import { formatDateTime, formatFileSize, is3DModel } from "@/lib/utils";
 import { toast } from "sonner";
 import { CheckCircle2, Clock, Download, FileText, Image as ImageIcon, MessageSquare, Package, ShieldAlert, ShieldCheck, Star, Upload, X, XCircle } from "lucide-react";
@@ -48,7 +49,13 @@ interface TrackingData {
     size: number;
     source: "CUSTOMER" | "TEAM";
     category: "REFERENCE" | "DESIGN" | "RESULT" | "OTHER";
+    orderPartId: string | null;
     createdAt: string;
+  }>;
+  parts?: Array<{
+    id: string;
+    name: string;
+    files: Array<{ filename: string; originalName: string; category: string; orderPartId: string | null; createdAt: string }>;
   }>;
   auditLogs: Array<{
     id: string;
@@ -69,6 +76,8 @@ interface TrackingData {
     type: string;
     resolvedAt?: string | null;
     resolvedBy?: string | null;
+    orderPartId?: string | null;
+    rejectionReason?: string | null;
   }>;
 }
 
@@ -87,6 +96,8 @@ export function TrackingView({ order, trackingToken }: { order: TrackingData; tr
     order.verificationRequests ?? []
   );
   const [verifyingToken, setVerifyingToken] = useState<string | null>(null);
+  const [rejectingToken, setRejectingToken] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -125,13 +136,13 @@ export function TrackingView({ order, trackingToken }: { order: TrackingData; tr
     }
   }
 
-  async function handleVerify(verificationToken: string, action: "APPROVE" | "REJECT") {
+  async function handleVerify(verificationToken: string, action: "APPROVE" | "REJECT", rejectionReason?: string) {
     setVerifyingToken(verificationToken);
     try {
       const res = await fetch(`/api/orders/${trackingToken}/verify`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ verificationToken, action }),
+        body: JSON.stringify({ verificationToken, action, ...(rejectionReason ? { rejectionReason } : {}) }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
@@ -143,6 +154,8 @@ export function TrackingView({ order, trackingToken }: { order: TrackingData; tr
         prev.map((vr) => (vr.token === verificationToken ? { ...vr, status: newStatus } : vr))
       );
       toast.success(action === "APPROVE" ? "Freigabe erteilt" : "Freigabe abgelehnt");
+      setRejectingToken(null);
+      setRejectReason("");
       router.refresh();
     } catch {
       toast.error("Freigabe fehlgeschlagen");
@@ -361,60 +374,107 @@ export function TrackingView({ order, trackingToken }: { order: TrackingData; tr
       </Card>
 
       {/* Verification Requests — pending ones rendered as prominent CTA */}
-      {verificationRequests.filter((vr) => vr.status === "PENDING").map((vr) => (
-        <Card key={vr.token} className="border-amber-400 bg-amber-50 dark:bg-amber-950/20">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2 text-amber-800 dark:text-amber-300">
-              <ShieldAlert className="h-5 w-5 shrink-0" />
-              Handlung erforderlich:{" "}
-              {vr.type === "DESIGN_REVIEW"
-                ? "Bitte geben Sie das Design frei"
-                : "Bitte bestätigen Sie das Angebot"}
-            </CardTitle>
-            <CardDescription className="text-amber-700 dark:text-amber-400">
-              {vr.type === "DESIGN_REVIEW"
-                ? "Wir benötigen Ihre Freigabe des Designs, bevor wir mit dem Druck beginnen können."
-                : "Wir benötigen Ihre Zustimmung zum Angebot, bevor wir mit dem Druck beginnen können."}
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {vr.type === "DESIGN_REVIEW" && (
-              <p className="text-sm text-amber-800 dark:text-amber-300">
-                Bitte überprüfen Sie die Designdateien im Abschnitt &ldquo;Dateien&rdquo; oben und erteilen Sie anschließend Ihre Freigabe.
+      {verificationRequests.filter((vr) => vr.status === "PENDING").map((vr) => {
+        const partName = vr.orderPartId ? (order.parts ?? []).find((p) => p.id === vr.orderPartId)?.name : null;
+        const latestDesignFile = vr.orderPartId
+          ? (order.parts ?? []).find((p) => p.id === vr.orderPartId)?.files
+              .filter((f) => f.category === "DESIGN")
+              .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0]
+          : null;
+        const isRejecting = rejectingToken === vr.token;
+        return (
+          <Card key={vr.token} className="border-amber-400 bg-amber-50 dark:bg-amber-950/20">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base flex items-center gap-2 text-amber-800 dark:text-amber-300">
+                <ShieldAlert className="h-5 w-5 shrink-0" />
+                Handlung erforderlich:{" "}
+                {vr.type === "DESIGN_REVIEW"
+                  ? partName ? `Designfreigabe für „${partName}"` : "Bitte geben Sie das Design frei"
+                  : "Bitte bestätigen Sie das Angebot"}
+              </CardTitle>
+              <CardDescription className="text-amber-700 dark:text-amber-400">
+                {vr.type === "DESIGN_REVIEW"
+                  ? "Wir benötigen Ihre Freigabe des Designs, bevor wir mit dem Druck beginnen können."
+                  : "Wir benötigen Ihre Zustimmung zum Angebot, bevor wir mit dem Druck beginnen können."}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {latestDesignFile && (
+                <div className="flex items-center gap-3 px-3 py-2 bg-white dark:bg-amber-900/20 rounded-lg border border-amber-200">
+                  <FileText className="h-4 w-4 text-amber-700 shrink-0" />
+                  <span className="text-sm font-medium text-amber-800 flex-1 truncate">{latestDesignFile.originalName}</span>
+                  <a
+                    href={`/api/files/${order.id}/${latestDesignFile.filename}`}
+                    download={latestDesignFile.originalName}
+                    className="text-amber-700 hover:text-amber-900 shrink-0"
+                    title="Herunterladen"
+                  >
+                    <Download className="h-4 w-4" />
+                  </a>
+                </div>
+              )}
+              {vr.type === "PRICE_APPROVAL" && order.priceEstimate != null && (
+                <p className="text-sm text-amber-800 dark:text-amber-300">
+                  Angebotspreis:{" "}
+                  <strong className="text-lg">{order.priceEstimate.toFixed(2)} €</strong>
+                </p>
+              )}
+              <p className="text-xs text-amber-600 dark:text-amber-500 flex items-center gap-1">
+                <Clock className="h-3 w-3" />
+                Anfrage gestellt {formatRelativeTime(vr.sentAt)}
               </p>
-            )}
-            {vr.type === "PRICE_APPROVAL" && order.priceEstimate != null && (
-              <p className="text-sm text-amber-800 dark:text-amber-300">
-                Angebotspreis:{" "}
-                <strong className="text-lg">{order.priceEstimate.toFixed(2)} €</strong>
-              </p>
-            )}
-            <p className="text-xs text-amber-600 dark:text-amber-500 flex items-center gap-1">
-              <Clock className="h-3 w-3" />
-              Anfrage gestellt {formatRelativeTime(vr.sentAt)}
-            </p>
-            <div className="flex gap-3">
-              <Button
-                onClick={() => handleVerify(vr.token, "APPROVE")}
-                disabled={verifyingToken === vr.token}
-                className="flex-1"
-              >
-                <ShieldCheck className="h-4 w-4 mr-2" />
-                {verifyingToken === vr.token ? "Wird verarbeitet…" : "Freigabe erteilen"}
-              </Button>
-              <Button
-                variant="destructive"
-                onClick={() => handleVerify(vr.token, "REJECT")}
-                disabled={verifyingToken === vr.token}
-                className="flex-1"
-              >
-                <XCircle className="h-4 w-4 mr-2" />
-                Ablehnen
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      ))}
+              {isRejecting ? (
+                <div className="space-y-2">
+                  <Textarea
+                    placeholder="Grund für Ablehnung (optional)"
+                    value={rejectReason}
+                    onChange={(e) => setRejectReason(e.target.value)}
+                    className="text-sm min-h-[80px] resize-none bg-white"
+                  />
+                  <div className="flex gap-3">
+                    <Button
+                      variant="destructive"
+                      onClick={() => handleVerify(vr.token, "REJECT", rejectReason)}
+                      disabled={verifyingToken === vr.token}
+                      className="flex-1"
+                    >
+                      <XCircle className="h-4 w-4 mr-2" />
+                      {verifyingToken === vr.token ? "Wird verarbeitet…" : "Ablehnen bestätigen"}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => { setRejectingToken(null); setRejectReason(""); }}
+                      className="flex-1"
+                    >
+                      Abbrechen
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex gap-3">
+                  <Button
+                    onClick={() => handleVerify(vr.token, "APPROVE")}
+                    disabled={verifyingToken === vr.token}
+                    className="flex-1"
+                  >
+                    <ShieldCheck className="h-4 w-4 mr-2" />
+                    {verifyingToken === vr.token ? "Wird verarbeitet…" : "Freigabe erteilen"}
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={() => setRejectingToken(vr.token)}
+                    disabled={verifyingToken === vr.token}
+                    className="flex-1"
+                  >
+                    <XCircle className="h-4 w-4 mr-2" />
+                    Ablehnen
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        );
+      })}
 
       {/* Resolved verification requests */}
       {verificationRequests.some((vr) => vr.status !== "PENDING") && (
@@ -437,9 +497,13 @@ export function TrackingView({ order, trackingToken }: { order: TrackingData; tr
                   </p>
                   {vr.resolvedAt && (
                     <p className="text-xs text-muted-foreground">
-                      {vr.status === "APPROVED" ? "Freigegeben" : "Abgelehnt"}
-                      {vr.resolvedBy ? ` von ${vr.resolvedBy}` : ""} am{" "}
+                      {vr.status === "APPROVED" ? "Freigegeben" : "Abgelehnt"} am{" "}
                       {formatDateTime(vr.resolvedAt)}
+                    </p>
+                  )}
+                  {vr.status === "REJECTED" && vr.rejectionReason && (
+                    <p className="text-xs text-muted-foreground bg-muted rounded px-2 py-1 mt-1">
+                      „{vr.rejectionReason}"
                     </p>
                   )}
                 </div>

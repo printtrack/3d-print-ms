@@ -2,7 +2,7 @@
 
 import { useRef, useState, type DragEvent } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, ChevronRight, MoreHorizontal, Pencil, Printer, Trash2, Plus, Link2 } from "lucide-react";
+import { ChevronDown, ChevronRight, MoreHorizontal, Pencil, Printer, ShieldAlert, ShieldCheck, Trash2, Plus, Link2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -10,9 +10,11 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Textarea } from "@/components/ui/textarea";
 import { FileDropZone } from "./FileDropZone";
 import { FileVersionGroup } from "./FileVersionGroup";
 import { FileListItem } from "./FileListItem";
@@ -33,7 +35,7 @@ export interface OrderPartData {
   quantity: number;
   iterationCount: number;
   partPhaseId: string | null;
-  partPhase: { id: string; name: string; color: string; isPrintReady: boolean } | null;
+  partPhase: { id: string; name: string; color: string; isPrintReady: boolean; isReview: boolean; isPrinted: boolean } | null;
   createdAt: string;
   updatedAt: string;
   filament: {
@@ -77,6 +79,8 @@ export interface PartPhaseOption {
   name: string;
   color: string;
   isPrintReady: boolean;
+  isReview: boolean;
+  isPrinted: boolean;
 }
 
 interface PartControlData {
@@ -115,6 +119,13 @@ interface PartFileSectionProps {
   variant?: "orphan";
   isPrototype?: boolean;
   teamMembers?: AssigneeUser[];
+  verificationRequest?: {
+    id: string;
+    status: "PENDING" | "APPROVED" | "REJECTED";
+    rejectionReason?: string | null;
+  };
+  onApproveVerification?: (vrId: string) => void;
+  onRejectVerification?: (vrId: string, reason: string | null) => void;
 }
 
 export function PartFileSection({
@@ -143,6 +154,9 @@ export function PartFileSection({
   variant,
   isPrototype = false,
   teamMembers = [],
+  verificationRequest,
+  onApproveVerification,
+  onRejectVerification,
 }: PartFileSectionProps) {
   const router = useRouter();
   const isOrphan = variant === "orphan";
@@ -171,6 +185,60 @@ export function PartFileSection({
     } catch {
       toast.error("Zuweisung konnte nicht gespeichert werden");
       setPartAssigneeIds(part.assignees?.map((a) => a.user.id) ?? []);
+    }
+  }
+
+  const hasPendingVerification = verificationRequest?.status === "PENDING";
+
+  // VR inline approve/reject state
+  const [approvingVr, setApprovingVr] = useState(false);
+  const [rejectingVr, setRejectingVr] = useState(false);
+  const [showRejectVrInput, setShowRejectVrInput] = useState(false);
+  const [rejectVrMessage, setRejectVrMessage] = useState("");
+
+  async function handleApproveVr() {
+    if (!verificationRequest) return;
+    setApprovingVr(true);
+    try {
+      const res = await fetch(`/api/admin/orders/${orderId}/verify`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ verificationRequestId: verificationRequest.id, action: "APPROVE" }),
+      });
+      if (!res.ok) throw new Error();
+      onApproveVerification?.(verificationRequest.id);
+      toast.success("Designfreigabe erteilt");
+      router.refresh();
+    } catch {
+      toast.error("Freigabe fehlgeschlagen");
+    } finally {
+      setApprovingVr(false);
+    }
+  }
+
+  async function handleRejectVr() {
+    if (!verificationRequest) return;
+    setRejectingVr(true);
+    try {
+      const res = await fetch(`/api/admin/orders/${orderId}/verify`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          verificationRequestId: verificationRequest.id,
+          action: "REJECT",
+          message: rejectVrMessage || undefined,
+        }),
+      });
+      if (!res.ok) throw new Error();
+      onRejectVerification?.(verificationRequest.id, rejectVrMessage || null);
+      setShowRejectVrInput(false);
+      setRejectVrMessage("");
+      toast.success("Freigabe abgelehnt");
+      router.refresh();
+    } catch {
+      toast.error("Ablehnen fehlgeschlagen");
+    } finally {
+      setRejectingVr(false);
     }
   }
 
@@ -204,9 +272,6 @@ export function PartFileSection({
 
   const sectionGroupPrefix = label ?? "__order__";
 
-  const fileCountLabel = files.length > 0
-    ? `${files.length} Datei${files.length !== 1 ? "en" : ""}`
-    : "Keine Dateien";
 
   // Drag-and-drop: whole section acts as a drop target, auto-expands on drag
   function handleDragEnter(e: DragEvent) {
@@ -267,6 +332,22 @@ export function PartFileSection({
     }
   }
 
+  async function handleFilamentChange(filamentId: string | null) {
+    if (!partData) return;
+    try {
+      const res = await fetch(`/api/admin/orders/${orderId}/parts/${partData.part.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filamentId }),
+      });
+      if (!res.ok) throw new Error();
+      const updated = await res.json();
+      partData.onPartUpdated(updated);
+    } catch {
+      toast.error("Fehler beim Speichern des Filaments");
+    }
+  }
+
   async function handlePartDelete() {
     if (!partData) return;
     if (!confirm(`Teil "${partData.part.name}" wirklich löschen?`)) return;
@@ -292,8 +373,6 @@ export function PartFileSection({
       return (
         <div className="flex items-center gap-2 px-3 py-1.5 text-[11px] text-muted-foreground border-b border-dashed">
           <span className="font-medium uppercase tracking-wide">{label}</span>
-          <span>·</span>
-          <span>{fileCountLabel}</span>
         </div>
       );
     }
@@ -391,25 +470,32 @@ export function PartFileSection({
                   </button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="w-48">
-                  {partData.availablePartPhases.map((pp) => (
-                    <DropdownMenuItem
-                      key={pp.id}
-                      onClick={() => handlePhaseChange(pp.id)}
-                      className={cn(
-                        "gap-2",
-                        part.partPhaseId === pp.id && "bg-accent"
-                      )}
-                    >
-                      <span
-                        className="w-2.5 h-2.5 rounded-full shrink-0"
-                        style={{ backgroundColor: pp.color }}
-                      />
-                      <span className="flex-1">{pp.name}</span>
-                      {pp.isPrintReady && (
-                        <Printer className="h-3 w-3 text-muted-foreground" />
-                      )}
-                    </DropdownMenuItem>
-                  ))}
+                  {partData.availablePartPhases.map((pp) => {
+                    const blocked = pp.isPrintReady && hasPendingVerification;
+                    return (
+                      <DropdownMenuItem
+                        key={pp.id}
+                        onClick={blocked ? undefined : () => handlePhaseChange(pp.id)}
+                        disabled={blocked}
+                        title={blocked ? "Erst Designfreigabe einholen" : undefined}
+                        className={cn(
+                          "gap-2",
+                          part.partPhaseId === pp.id && "bg-accent"
+                        )}
+                      >
+                        <span
+                          className="w-2.5 h-2.5 rounded-full shrink-0"
+                          style={{ backgroundColor: pp.color }}
+                        />
+                        <span className="flex-1">{pp.name}</span>
+                        {blocked ? (
+                          <ShieldAlert className="h-3 w-3 text-amber-500" />
+                        ) : pp.isPrintReady ? (
+                          <Printer className="h-3 w-3 text-muted-foreground" />
+                        ) : null}
+                      </DropdownMenuItem>
+                    );
+                  })}
                   {part.partPhase && (
                     <>
                       <DropdownMenuSeparator />
@@ -428,7 +514,7 @@ export function PartFileSection({
 
           <div className="flex-1" />
 
-          {/* Part assignee picker — only shown when partData is present and admin */}
+          {/* Part assignee picker — only when partData present and admin */}
           {isAdmin && partData && teamMembers.length > 0 && (
             <div onClick={(e) => e.stopPropagation()}>
               <AssigneePicker
@@ -439,8 +525,6 @@ export function PartFileSection({
               />
             </div>
           )}
-
-          <span className="text-xs text-muted-foreground shrink-0">{fileCountLabel}</span>
 
           {/* Linked job badge */}
           {part && part.printJobParts && (() => {
@@ -510,7 +594,7 @@ export function PartFileSection({
             <div onClick={(e) => e.stopPropagation()}>
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="icon" className="h-6 w-6">
+                  <Button variant="ghost" size="icon" className="h-6 w-6" title="Teil-Optionen">
                     <MoreHorizontal className="h-4 w-4" />
                   </Button>
                 </DropdownMenuTrigger>
@@ -534,9 +618,81 @@ export function PartFileSection({
         </div>
 
         {/* Secondary line — filament chip + iteration + description */}
-        {part && (part.filament || (isPrototype && part.iterationCount > 0) || part.description) && (
+        {part && (part.filament || (isAdmin && partData) || (isPrototype && part.iterationCount > 0) || part.description) && (
           <div className="flex items-center gap-2 px-3 pb-2 text-[11px] text-muted-foreground">
-            {part.filament && (
+            {isAdmin && partData ? (() => {
+              const materials = [...new Set(partData.availableFilaments.map((f) => f.material))].sort();
+              return (
+                <div onClick={(e) => e.stopPropagation()}>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button
+                        type="button"
+                        className={cn(
+                          "flex items-center gap-1.5 text-[11px] px-1.5 py-0.5 rounded border transition-colors",
+                          part.filament
+                            ? "border-transparent hover:bg-muted/60 text-muted-foreground"
+                            : "border-dashed border-muted-foreground/40 text-muted-foreground/70 hover:bg-muted/40"
+                        )}
+                        title="Filament auswählen"
+                      >
+                        {part.filament ? (
+                          <>
+                            {part.filament.colorHex && (
+                              <span
+                                className="w-2 h-2 rounded-full border border-border shrink-0"
+                                style={{ backgroundColor: part.filament.colorHex }}
+                              />
+                            )}
+                            {part.filament.name}
+                          </>
+                        ) : (
+                          "Filament wählen"
+                        )}
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="start" className="w-56">
+                      {materials.map((mat) => (
+                        <div key={mat}>
+                          <DropdownMenuLabel className="text-[10px] uppercase tracking-wide text-muted-foreground py-1">
+                            {mat}
+                          </DropdownMenuLabel>
+                          {partData.availableFilaments
+                            .filter((f) => f.material === mat)
+                            .map((f) => (
+                              <DropdownMenuItem
+                                key={f.id}
+                                onClick={() => handleFilamentChange(f.id)}
+                                className={cn("gap-2", part.filamentId === f.id && "bg-accent")}
+                              >
+                                {f.colorHex && (
+                                  <span
+                                    className="w-2.5 h-2.5 rounded-full shrink-0 border border-border"
+                                    style={{ backgroundColor: f.colorHex }}
+                                  />
+                                )}
+                                <span className="flex-1 truncate">{f.name}</span>
+                                <span className="text-[10px] text-muted-foreground shrink-0">{f.remainingGrams} g</span>
+                              </DropdownMenuItem>
+                            ))}
+                        </div>
+                      ))}
+                      {part.filament && (
+                        <>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => handleFilamentChange(null)}
+                            className="text-muted-foreground"
+                          >
+                            Kein Filament
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+              );
+            })() : part.filament ? (
               <span className="flex items-center gap-1.5">
                 {part.filament.colorHex && (
                   <span
@@ -546,7 +702,7 @@ export function PartFileSection({
                 )}
                 {part.filament.name}
               </span>
-            )}
+            ) : null}
             {isPrototype && part.iterationCount > 0 && (
               <span className="text-purple-600">Iter. #{part.iterationCount}</span>
             )}
@@ -554,6 +710,85 @@ export function PartFileSection({
               <span className="truncate" title={part.description}>
                 · {part.description}
               </span>
+            )}
+          </div>
+        )}
+
+        {/* Inline design-review banner — always visible in header regardless of collapse */}
+        {verificationRequest && (
+          <div className="px-3 pb-2" onClick={(e) => e.stopPropagation()}>
+            {verificationRequest.status === "PENDING" && (
+              <div className="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2 space-y-1.5">
+                <div className="flex items-center gap-2">
+                  <ShieldAlert className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                  <span className="text-xs font-medium text-amber-800 flex-1">Designfreigabe ausstehend</span>
+                  {isAdmin && !showRejectVrInput && (
+                    <>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-6 text-xs px-2 border-green-300 text-green-700 hover:bg-green-50"
+                        onClick={handleApproveVr}
+                        disabled={approvingVr}
+                      >
+                        <ShieldCheck className="h-3 w-3 mr-1" />
+                        {approvingVr ? "..." : "Erteilen"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-6 text-xs px-2 text-destructive border-destructive/30 hover:bg-destructive/5"
+                        onClick={() => setShowRejectVrInput(true)}
+                      >
+                        Ablehnen
+                      </Button>
+                    </>
+                  )}
+                </div>
+                {isAdmin && showRejectVrInput && (
+                  <div className="space-y-1.5">
+                    <Textarea
+                      placeholder="Ablehnungsgrund (optional)"
+                      value={rejectVrMessage}
+                      onChange={(e) => setRejectVrMessage(e.target.value)}
+                      className="text-xs min-h-[60px] resize-none"
+                      onClick={(e) => e.stopPropagation()}
+                    />
+                    <div className="flex gap-1.5">
+                      <Button
+                        size="sm"
+                        variant="destructive"
+                        className="flex-1 h-7 text-xs"
+                        onClick={handleRejectVr}
+                        disabled={rejectingVr}
+                      >
+                        {rejectingVr ? "..." : "Ablehnen bestätigen"}
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="flex-1 h-7 text-xs"
+                        onClick={() => { setShowRejectVrInput(false); setRejectVrMessage(""); }}
+                      >
+                        Abbrechen
+                      </Button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+            {verificationRequest.status === "REJECTED" && (
+              <div className="space-y-1">
+                <div className="flex items-center gap-1.5 rounded-md border border-destructive/20 bg-destructive/5 px-2.5 py-1.5 text-xs font-medium text-destructive">
+                  <X className="h-3.5 w-3.5 shrink-0" />
+                  Abgelehnt
+                </div>
+                {verificationRequest.rejectionReason && (
+                  <p className="text-xs text-muted-foreground bg-muted rounded px-2 py-1">
+                    „{verificationRequest.rejectionReason}"
+                  </p>
+                )}
+              </div>
             )}
           </div>
         )}
@@ -605,35 +840,20 @@ export function PartFileSection({
               {isDesignForPart ? (
                 filteredFiles.length > 0 ? (
                   <div className="space-y-3">
-                    {/* Current design — highlighted */}
-                    <div className="rounded-lg border-2 border-primary/40 bg-primary/5 p-3 space-y-2">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] uppercase font-semibold text-primary tracking-wider">
-                          Aktuelles Design
-                        </span>
-                        <span className="text-[10px] text-muted-foreground">
-                          ·{" "}
-                          {new Date(filteredFiles[0].createdAt).toLocaleDateString("de", {
-                            day: "2-digit",
-                            month: "2-digit",
-                            year: "numeric",
-                          })}
-                        </span>
-                      </div>
-                      <FileListItem
-                        file={filteredFiles[0]}
-                        orderId={orderId}
-                        partNameById={partNameById}
-                        isAdmin={isAdmin}
-                        isCurrent={true}
-                        onRecategorize={onRecategorize}
-                        onDelete={onDelete}
-                        onMove={onMove}
-                        moveTargets={moveTargets}
-                        currentPartId={partData?.part.id ?? null}
-                        onPreview={onPreview}
-                      />
-                    </div>
+                    {/* Current design */}
+                    <FileListItem
+                      file={filteredFiles[0]}
+                      orderId={orderId}
+                      partNameById={partNameById}
+                      isAdmin={isAdmin}
+                      isCurrent={true}
+                      onRecategorize={onRecategorize}
+                      onDelete={onDelete}
+                      onMove={onMove}
+                      moveTargets={moveTargets}
+                      currentPartId={partData?.part.id ?? null}
+                      onPreview={onPreview}
+                    />
 
                     {/* Past designs */}
                     {filteredFiles.length > 1 && (

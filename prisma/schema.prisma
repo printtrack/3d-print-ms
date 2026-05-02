@@ -94,6 +94,8 @@ model PartPhase {
   position     Int
   isDefault    Boolean     @default(false)
   isPrintReady Boolean     @default(false)
+  isReview     Boolean     @default(false)
+  isPrinted    Boolean     @default(false)
   orderParts   OrderPart[]
 }
 
@@ -228,9 +230,10 @@ model OrderPart {
   partPhaseId    String?
   createdAt      DateTime            @default(now())
   updatedAt      DateTime            @updatedAt
-  files          OrderFile[]
-  printJobParts  PrintJobPart[]
-  assignees      OrderPartAssignee[]
+  files                 OrderFile[]
+  printJobParts         PrintJobPart[]
+  assignees             OrderPartAssignee[]
+  verificationRequests  VerificationRequest[]
 }
 
 model OrderAssignee {
@@ -341,15 +344,18 @@ model SurveyResponse {
 }
 
 model VerificationRequest {
-  id         String             @id @default(cuid())
-  order      Order              @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  orderId    String
-  type       VerificationType   @default(DESIGN_REVIEW)
-  token      String             @unique @default(cuid())
-  status     VerificationStatus @default(PENDING)
-  sentAt     DateTime           @default(now())
-  resolvedAt DateTime?
-  resolvedBy String?
+  id          String             @id @default(cuid())
+  order       Order              @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId     String
+  orderPart   OrderPart?         @relation(fields: [orderPartId], references: [id], onDelete: Cascade)
+  orderPartId String?
+  type        VerificationType   @default(DESIGN_REVIEW)
+  token       String             @unique @default(cuid())
+  status      VerificationStatus @default(PENDING)
+  sentAt          DateTime           @default(now())
+  resolvedAt      DateTime?
+  resolvedBy      String?
+  rejectionReason String?            @db.Text
 }
 
 model Milestone {

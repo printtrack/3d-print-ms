@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { OrderDetail } from "@/components/admin/OrderDetail";
+import { runJobAutoTransition } from "@/lib/jobs-auto-transition";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -34,7 +35,7 @@ async function getData(id: string) {
           select: { token: true, sentAt: true, submittedAt: true, answers: true, comment: true },
         },
         verificationRequests: {
-          select: { id: true, type: true, status: true, sentAt: true, resolvedAt: true },
+          select: { id: true, type: true, status: true, sentAt: true, resolvedAt: true, orderPartId: true, rejectionReason: true },
           orderBy: { sentAt: "desc" },
         },
       },
@@ -50,7 +51,7 @@ async function getData(id: string) {
         filament: {
           select: { id: true, name: true, material: true, color: true, colorHex: true, brand: true },
         },
-        partPhase: { select: { id: true, name: true, color: true, isPrintReady: true } },
+        partPhase: { select: { id: true, name: true, color: true, isPrintReady: true, isReview: true, isPrinted: true } },
         files: true,
         printJobParts: {
           include: { printJob: { select: { id: true, status: true, machine: { select: { name: true } } } } },
@@ -130,6 +131,8 @@ async function getData(id: string) {
       status: vr.status as "PENDING" | "APPROVED" | "REJECTED",
       sentAt: vr.sentAt.toISOString(),
       resolvedAt: vr.resolvedAt ? vr.resolvedAt.toISOString() : null,
+      orderPartId: vr.orderPartId ?? null,
+      rejectionReason: vr.rejectionReason ?? null,
     })),
   };
 
@@ -171,6 +174,8 @@ async function getData(id: string) {
 export default async function OrderDetailPage({ params }: PageProps) {
   const { id } = await params;
   const session = await auth();
+  // Run before fetching so part phases + job links are current
+  await runJobAutoTransition().catch(() => null);
   const { order, phases, teamMembers, parts, availableFilaments, customerCredit, partPhases, activeMachines, milestones } = await getData(id);
 
   if (!order) notFound();

@@ -14,6 +14,10 @@ test.describe("Per-part iteration tracking", () => {
     await page.goto(`/admin/orders/${order.id}`);
     await expect(page.getByText("Hauptteil").first()).toBeVisible();
 
+    // Expand the part section (collapsed by default when parts exist)
+    const partSection = page.locator('[data-testid="part-section"]').first();
+    await partSection.locator("div.border-b").first().click();
+
     const uploadDone = page.waitForResponse(
       (r) => r.url().includes("/api/admin/uploads") && r.request().method() === "POST"
     );
@@ -38,6 +42,9 @@ test.describe("Per-part iteration tracking", () => {
     await page.goto(`/admin/orders/${order.id}`);
     await expect(page.getByText("Referenzteil").first()).toBeVisible();
 
+    // Expand the part section, then switch to Referenz tab
+    const partSection = page.locator('[data-testid="part-section"]').first();
+    await partSection.locator("div.border-b").first().click();
     await page.getByRole("button", { name: /Referenz/i }).click();
 
     const uploadDone = page.waitForResponse(

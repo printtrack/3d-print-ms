@@ -821,3 +821,51 @@ test("auto-transition: deducts filament inventory when job auto-completes", asyn
   const updated = await prismaTest.filament.findUnique({ where: { id: filament.id } });
   expect(updated?.remainingGrams).toBe(170); // 200 - 30
 });
+
+test("auto-transition: completed job sets linked parts to 'Gedruckt' phase", async ({ seed, request }) => {
+  const machine = await createTestMachine();
+  const defaultPhase = await prismaTest.orderPhase.findFirst({ where: { isDefault: true } });
+  const printedPhase = await prismaTest.partPhase.findFirst({ where: { isPrinted: true } });
+  if (!defaultPhase || !printedPhase) { test.skip(); return; }
+
+  const order = await createTestOrder(defaultPhase.id);
+  const part = await createTestOrderPart(order.id);
+  const pastTime = new Date(Date.now() - 3 * 60 * 60 * 1000); // 3h ago
+  const job = await createTestPrintJob(machine.id, {
+    status: "IN_PROGRESS",
+    plannedAt: pastTime,
+    startedAt: pastTime,
+    printTimeMinutes: 60,
+  });
+  await createTestPrintJobPart(job.id, part.id);
+
+  const res = await request.post("/api/admin/jobs/auto-transition");
+  expect(res.ok()).toBeTruthy();
+  expect((await res.json()).completed).toContain(job.id);
+
+  const updatedPart = await prismaTest.orderPart.findUnique({ where: { id: part.id } });
+  expect(updatedPart?.partPhaseId).toBe(printedPhase.id);
+
+  const auditLog = await prismaTest.auditLog.findFirst({
+    where: { orderId: order.id, action: "PART_PRINTED" },
+  });
+  expect(auditLog).not.toBeNull();
+});
+
+test("re-assignment allowed after job reaches DONE status", async ({ seed, request }) => {
+  const machine = await createTestMachine();
+  const machine2 = await createTestMachine({ name: "Drucker Zwei" });
+  const defaultPhase = await prismaTest.orderPhase.findFirst({ where: { isDefault: true } });
+  if (!defaultPhase) { test.skip(); return; }
+
+  const order = await createTestOrder(defaultPhase.id);
+  const part = await createTestOrderPart(order.id);
+  const doneJob = await createTestPrintJob(machine.id, { status: "DONE" });
+  await createTestPrintJobPart(doneJob.id, part.id);
+  const newJob = await createTestPrintJob(machine2.id);
+
+  const res = await request.post(`/api/admin/jobs/${newJob.id}/parts`, {
+    data: { orderPartId: part.id },
+  });
+  expect(res.status()).toBe(201);
+});

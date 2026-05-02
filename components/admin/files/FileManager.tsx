@@ -32,6 +32,14 @@ interface FileManagerProps {
   iterationCount?: number;
   onIterationChange?: (newCount: number) => void;
   teamMembers?: Array<{ id: string; name: string; email?: string }>;
+  verificationRequests?: Array<{
+    id: string;
+    type: string;
+    status: string;
+    orderPartId: string | null;
+    rejectionReason?: string | null;
+  }>;
+  onVerificationUpdated?: (vrId: string, status: "APPROVED" | "REJECTED", reason?: string | null) => void;
 }
 
 export function FileManager({
@@ -51,6 +59,8 @@ export function FileManager({
   iterationCount = 1,
   onIterationChange,
   teamMembers = [],
+  verificationRequests = [],
+  onVerificationUpdated,
 }: FileManagerProps) {
   const router = useRouter();
   const [uploading, setUploading] = useState(false);
@@ -292,11 +302,6 @@ export function FileManager({
           <div className="flex items-center gap-2">
             <Paperclip className="h-4 w-4 text-muted-foreground shrink-0" />
             <CardTitle className="text-base">{cardTitle}</CardTitle>
-            {files.length > 0 && (
-              <span className="text-xs font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
-                {files.length}
-              </span>
-            )}
             <div className="ml-auto flex items-center gap-2">
               {isAdmin && !addingPart && (
                 <Button
@@ -395,47 +400,64 @@ export function FileManager({
             </div>
           )}
 
-          {sections.map(({ key, label, files: sectionFiles, part, variant }) => (
-            <PartFileSection
-              key={key}
-              label={label}
-              files={sectionFiles}
-              orderId={orderId}
-              partNameById={partNameById}
-              isAdmin={isAdmin}
-              uploading={uploading}
-              activeCategory={activeCategory}
-              onUpload={(picked, cat) => uploadFiles(picked, cat, key)}
-              onRecategorize={handleRecategorize}
-              onDelete={handleDeleteFile}
-              onMove={handleMoveFile}
-              moveTargets={parts.map((p) => ({ id: p.id, name: p.name }))}
-              onPreview={setPreviewUrl}
-              collapsedGroups={collapsedGroups}
-              onToggleExpand={toggleExpand}
-              selectedFileIds={selectedFileIds}
-              onBulkRecategorize={handleBulkRecategorize}
-              onBulkDelete={handleBulkDelete}
-              onClearSelection={() => setSelectedFileIds(new Set())}
-              variant={variant}
-              isPrototype={isPrototype}
-              collapsible={parts.length > 0 && variant !== "orphan"}
-              defaultExpanded={part !== null || sectionFiles.length > 0 || parts.length === 0}
-              partData={
-                part && onPartUpdated && onPartDeleted
-                  ? {
-                      part,
-                      availableFilaments,
-                      availablePartPhases,
-                      machines,
-                      onPartUpdated,
-                      onPartDeleted,
-                    }
-                  : undefined
-              }
-              teamMembers={teamMembers}
-            />
-          ))}
+          {sections.map(({ key, label, files: sectionFiles, part, variant }) => {
+            const partDesignVr = part
+              ? verificationRequests.find(
+                  (vr) => vr.type === "DESIGN_REVIEW" && vr.orderPartId === part.id
+                )
+              : undefined;
+            return (
+              <PartFileSection
+                key={key}
+                label={label}
+                files={sectionFiles}
+                orderId={orderId}
+                partNameById={partNameById}
+                isAdmin={isAdmin}
+                uploading={uploading}
+                activeCategory={activeCategory}
+                onUpload={(picked, cat) => uploadFiles(picked, cat, key)}
+                onRecategorize={handleRecategorize}
+                onDelete={handleDeleteFile}
+                onMove={handleMoveFile}
+                moveTargets={parts.map((p) => ({ id: p.id, name: p.name }))}
+                onPreview={setPreviewUrl}
+                collapsedGroups={collapsedGroups}
+                onToggleExpand={toggleExpand}
+                selectedFileIds={selectedFileIds}
+                onBulkRecategorize={handleBulkRecategorize}
+                onBulkDelete={handleBulkDelete}
+                onClearSelection={() => setSelectedFileIds(new Set())}
+                variant={variant}
+                isPrototype={isPrototype}
+                collapsible={parts.length > 0 && variant !== "orphan"}
+                defaultExpanded={part === null || parts.length === 0}
+                partData={
+                  part && onPartUpdated && onPartDeleted
+                    ? {
+                        part,
+                        availableFilaments,
+                        availablePartPhases,
+                        machines,
+                        onPartUpdated,
+                        onPartDeleted,
+                      }
+                    : undefined
+                }
+                teamMembers={teamMembers}
+                verificationRequest={partDesignVr ? {
+                  id: partDesignVr.id,
+                  status: partDesignVr.status as "PENDING" | "APPROVED" | "REJECTED",
+                  rejectionReason: partDesignVr.rejectionReason,
+                } : undefined}
+                onApproveVerification={(vrId) => {
+                  onVerificationUpdated?.(vrId, "APPROVED");
+                  onPartsRefresh();
+                }}
+                onRejectVerification={(vrId, reason) => onVerificationUpdated?.(vrId, "REJECTED", reason ?? undefined)}
+              />
+            );
+          })}
 
         </CardContent>
       </Card>

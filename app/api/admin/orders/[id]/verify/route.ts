@@ -10,6 +10,8 @@ const postSchema = z.object({
 
 const patchSchema = z.object({
   verificationRequestId: z.string(),
+  action: z.enum(["APPROVE", "REJECT"]).default("APPROVE"),
+  message: z.string().optional(),
 });
 
 export async function POST(
@@ -89,6 +91,8 @@ export async function POST(
         status: vr.status,
         sentAt: vr.sentAt.toISOString(),
         resolvedAt: null,
+        orderPartId: null,
+        rejectionReason: null,
       },
       { status: 201 }
     );
@@ -125,17 +129,54 @@ export async function PATCH(
       return NextResponse.json({ error: "Freigabe bereits verarbeitet" }, { status: 409 });
     }
 
+    const isApprove = data.action === "APPROVE";
+
     await prisma.verificationRequest.update({
       where: { id: vr.id },
-      data: { status: "APPROVED", resolvedAt: new Date(), resolvedBy: userId ?? null },
+      data: {
+        status: isApprove ? "APPROVED" : "REJECTED",
+        resolvedAt: new Date(),
+        resolvedBy: userId ?? null,
+        rejectionReason: isApprove ? null : (data.message ?? null),
+      },
     });
+
+    if (vr.orderPartId) {
+      if (isApprove) {
+        const printReadyPhase = await prisma.partPhase.findFirst({ where: { isPrintReady: true } });
+        if (printReadyPhase) {
+          await prisma.orderPart.update({
+            where: { id: vr.orderPartId },
+            data: { partPhaseId: printReadyPhase.id },
+          });
+          await prisma.auditLog.create({
+            data: {
+              orderId: id,
+              userId: userId ?? null,
+              action: "PART_APPROVED",
+              details: `Designfreigabe genehmigt – Teil auf Phase "${printReadyPhase.name}" gesetzt`,
+            },
+          });
+        }
+      } else {
+        const defaultPhase = await prisma.partPhase.findFirst({ where: { isDefault: true } });
+        if (defaultPhase) {
+          await prisma.orderPart.update({
+            where: { id: vr.orderPartId },
+            data: { partPhaseId: defaultPhase.id },
+          });
+        }
+      }
+    }
 
     await prisma.auditLog.create({
       data: {
         orderId: id,
         userId: userId ?? null,
-        action: "VERIFICATION_OVERRIDDEN",
-        details: "Freigabe durch Admin erteilt",
+        action: isApprove ? "VERIFICATION_OVERRIDDEN" : "VERIFICATION_REJECTED",
+        details: isApprove
+          ? "Freigabe durch Admin erteilt"
+          : `Freigabe durch Admin abgelehnt${data.message ? `: ${data.message}` : ""}`,
       },
     });
 
