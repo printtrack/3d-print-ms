@@ -12,7 +12,7 @@ test("parts are collapsed by default when multiple parts exist", async ({ seed, 
   const part2 = await createTestOrderPart(order.id, { name: "Deckel" });
 
   await page.goto(`/admin/orders/${order.id}`);
-  await page.waitForLoadState("networkidle");
+  await page.waitForLoadState("domcontentloaded");
 
   // Part headers are visible
   await expect(page.getByText("Gehäuse")).toBeVisible();
@@ -36,7 +36,7 @@ test("part expands on header click", async ({ seed, page }) => {
   await createTestOrderPart(order.id, { name: "Basis" });
 
   await page.goto(`/admin/orders/${order.id}`);
-  await page.waitForLoadState("networkidle");
+  await page.waitForLoadState("domcontentloaded");
 
   const section = page.locator('[data-testid="part-section"]').first();
   await section.locator("div.border-b").first().click();
@@ -53,7 +53,7 @@ test("filament picker dropdown opens and updates part", async ({ seed, page }) =
   await createTestOrderPart(order.id, { name: "Nocke2" });
 
   await page.goto(`/admin/orders/${order.id}`);
-  await page.waitForLoadState("networkidle");
+  await page.waitForLoadState("domcontentloaded");
 
   // Click "Filament wählen" chip in the first part header
   await expect(page.getByText("Filament wählen").first()).toBeVisible();
@@ -61,7 +61,11 @@ test("filament picker dropdown opens and updates part", async ({ seed, page }) =
 
   // Dropdown should show the filament
   await expect(page.getByRole("menuitem", { name: /Test PLA Rot/i }).first()).toBeVisible({ timeout: 3000 });
+
+  // Wait for the PATCH response before checking DB (avoids race between optimistic UI and DB commit)
+  const patchDone = page.waitForResponse((r) => r.url().includes("/api/admin/orders/") && r.request().method() === "PATCH");
   await page.getByRole("menuitem", { name: /Test PLA Rot/i }).first().click();
+  await patchDone;
 
   // Chip should now show filament name
   await expect(page.getByText("Test PLA Rot").first()).toBeVisible({ timeout: 5000 });

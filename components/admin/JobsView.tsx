@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Kanban, GanttChart, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -8,6 +9,7 @@ import { JobQueueBoard } from "./JobQueueBoard";
 import { JobTimeline } from "./JobTimeline";
 import { PlanJobsDialog } from "./PlanJobsDialog";
 import type { PrintJob } from "./JobCard";
+import { useLiveEvents } from "@/lib/use-live-events";
 
 
 interface Machine {
@@ -32,6 +34,24 @@ export function JobsView({ machines, initialJobs, teamMembers = [] }: JobsViewPr
   const [view, setView] = useState<"timeline" | "queue">("timeline");
   const [jobs, setJobs] = useState<PrintJob[]>(initialJobs);
   const [plannerOpen, setPlannerOpen] = useState(false);
+  const router = useRouter();
+
+  // Sync initialJobs into local state when props change after router.refresh()
+  useEffect(() => {
+    setJobs(initialJobs);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialJobs]);
+
+  useLiveEvents(
+    useCallback(
+      (event) => {
+        if (event.type === "job.changed") {
+          router.refresh();
+        }
+      },
+      [router]
+    )
+  );
 
   useEffect(() => {
     async function runAutoTransition() {
@@ -64,7 +84,18 @@ export function JobsView({ machines, initialJobs, teamMembers = [] }: JobsViewPr
   }
 
   function handleJobsCreated(newJobs: PrintJob[]) {
-    setJobs((prev) => [...prev, ...newJobs]);
+    setJobs((prev) => {
+      const result = [...prev];
+      for (const job of newJobs) {
+        const idx = result.findIndex((j) => j.id === job.id);
+        if (idx >= 0) {
+          result[idx] = job; // extend: update existing job in place
+        } else {
+          result.push(job); // new: append
+        }
+      }
+      return result;
+    });
   }
 
   function handleJobUpdated(job: PrintJob) {

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
+import { publish } from "@/lib/event-bus";
 
 const createSchema = z.object({
   orderId: z.string(),
@@ -37,6 +38,9 @@ export async function POST(req: NextRequest) {
         details: `Kommentar von ${session.user.name}`,
       },
     });
+
+    publish({ type: "comment.added", orderId: data.orderId });
+    publish({ type: "order.changed", orderId: data.orderId });
 
     return NextResponse.json(comment, { status: 201 });
   } catch (err) {

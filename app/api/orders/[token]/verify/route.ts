@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
+import { publish } from "@/lib/event-bus";
 
 const bodySchema = z.object({
   verificationToken: z.string(),
@@ -81,6 +82,9 @@ export async function POST(
           : `Freigabe durch Kunden abgelehnt${data.rejectionReason ? `: ${data.rejectionReason}` : ""}`,
       },
     });
+
+    publish({ type: "verification.changed", orderId: order.id, verificationId: vr.id });
+    publish({ type: "order.changed", orderId: order.id });
 
     return NextResponse.json({ success: true, status: isApprove ? "APPROVED" : "REJECTED" });
   } catch (err) {

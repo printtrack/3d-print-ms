@@ -199,7 +199,16 @@ export async function plan(): Promise<{ proposed: ProposedJob[]; skipped: Skippe
       parts: {
         include: {
           orderPart: {
-            select: { id: true, bboxXmm: true, bboxYmm: true, bboxZmm: true, gramsEstimated: true, quantity: true, filamentId: true },
+            select: {
+              id: true,
+              bboxXmm: true,
+              bboxYmm: true,
+              bboxZmm: true,
+              gramsEstimated: true,
+              quantity: true,
+              filamentId: true,
+              filament: { select: { material: true, color: true, colorHex: true } },
+            },
           },
         },
       },
@@ -245,22 +254,47 @@ export async function plan(): Promise<{ proposed: ProposedJob[]; skipped: Skippe
     })
   );
 
+  // Build a map from materialKey → first existing PLANNED job that contains that material.
+  // This lets us prefer the machine of an existing job rather than round-robining to a different one.
+  const existingJobByMaterialKey = new Map<string, typeof existingPlannedJobs[number]>();
+  for (const job of existingPlannedJobs) {
+    if (!machines.some((m) => m.id === job.machineId)) continue;
+    for (const pjp of job.parts) {
+      const fil = pjp.orderPart.filament;
+      if (!fil) continue;
+      const key = materialKey(fil);
+      if (!existingJobByMaterialKey.has(key)) {
+        existingJobByMaterialKey.set(key, job);
+      }
+    }
+  }
+
   let machineIdx = 0;
 
-  for (const groupParts of groups.values()) {
-    const machine = machines[machineIdx % machines.length];
-    machineIdx++;
+  for (const [groupKey, groupParts] of groups.entries()) {
+    // Prefer the machine of an existing PLANNED job for this material over round-robin.
+    const existingJobForMaterial = existingJobByMaterialKey.get(groupKey);
+    let machine: typeof machines[number];
+    if (existingJobForMaterial) {
+      machine = machines.find((m) => m.id === existingJobForMaterial.machineId)!;
+    } else {
+      machine = machines[machineIdx % machines.length];
+      machineIdx++;
+    }
 
     const filament = groupParts[0].part.filament!;
     const build = { x: machine.buildVolumeX, y: machine.buildVolumeY, z: machine.buildVolumeZ };
     const bedArea = build.x * build.y;
 
-    // Find an existing PLANNED job on this machine with matching filament
-    const matchingExistingJob = existingPlannedJobs.find(
-      (j) =>
-        j.machineId === machine.id &&
-        j.parts.some((pjp) => pjp.orderPart.filamentId === filament.id)
-    );
+    // Find an existing PLANNED job on this machine matching by materialKey (not filamentId),
+    // so that different filament entries with the same material+color are treated as the same group.
+    const matchingExistingJob = existingPlannedJobs.find((j) => {
+      if (j.machineId !== machine.id) return false;
+      return j.parts.some((pjp) => {
+        const fil = pjp.orderPart.filament;
+        return fil ? materialKey(fil) === groupKey : false;
+      });
+    });
 
     if (matchingExistingJob) {
       const usedArea = existingJobUsedArea.get(matchingExistingJob.id) ?? 0;

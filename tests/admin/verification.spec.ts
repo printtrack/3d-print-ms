@@ -271,3 +271,68 @@ test("cannot set isPrintReady phase when PENDING design review exists", async ({
   const body = await res.json();
   expect(body.error).toContain("Designfreigabe");
 });
+
+test("customer approves design → admin order detail updates part phase live (SSE)", async ({ seed, page }) => {
+  const defaultOrderPhase = await prismaTest.orderPhase.findFirst({ where: { isDefault: true } });
+  const printReadyPhase = await prismaTest.partPhase.findFirst({ where: { isPrintReady: true } });
+  const reviewPhase = await prismaTest.partPhase.findFirst({ where: { isReview: true } });
+  if (!defaultOrderPhase || !printReadyPhase || !reviewPhase) { test.skip(); return; }
+
+  const order = await createTestOrder(defaultOrderPhase.id, { customerName: "SSE Approval Test" });
+  const part = await createTestOrderPart(order.id, { partPhaseId: reviewPhase.id });
+  const vr = await createTestVerification(order.id, "DESIGN_REVIEW", part.id);
+
+  // Wait for SSE connection to be established before navigating so we don't miss the event
+  const sseReady = page.waitForResponse(resp => resp.url().includes("/api/admin/events") && resp.status() === 200);
+  await page.goto(`/admin/orders/${order.id}`);
+  await sseReady;
+
+  await expect(page.getByText("Designfreigabe ausstehend").first()).toBeVisible({ timeout: 5000 });
+  await expect(page.getByText(printReadyPhase.name).first()).not.toBeVisible();
+
+  // Call verify from within the browser so the SSE event reaches the same EventSource
+  await page.evaluate(
+    async ({ trackingToken, vrToken }) => {
+      await fetch(`/api/orders/${trackingToken}/verify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ verificationToken: vrToken, action: "APPROVE" }),
+      });
+    },
+    { trackingToken: order.trackingToken, vrToken: vr.token }
+  );
+
+  // Part phase label must update without manual reload via SSE → router.refresh()
+  await expect(page.getByText(printReadyPhase.name).first()).toBeVisible({ timeout: 10000 });
+});
+
+test("customer rejects design → admin order detail updates VR status live (SSE)", async ({ seed, page }) => {
+  const defaultOrderPhase = await prismaTest.orderPhase.findFirst({ where: { isDefault: true } });
+  const reviewPhase = await prismaTest.partPhase.findFirst({ where: { isReview: true } });
+  if (!defaultOrderPhase || !reviewPhase) { test.skip(); return; }
+
+  const order = await createTestOrder(defaultOrderPhase.id, { customerName: "SSE Rejection Test" });
+  const part = await createTestOrderPart(order.id, { partPhaseId: reviewPhase.id });
+  const vr = await createTestVerification(order.id, "DESIGN_REVIEW", part.id);
+
+  const sseReady = page.waitForResponse(resp => resp.url().includes("/api/admin/events") && resp.status() === 200);
+  await page.goto(`/admin/orders/${order.id}`);
+  await sseReady;
+
+  await expect(page.getByText("Designfreigabe ausstehend").first()).toBeVisible({ timeout: 5000 });
+
+  await page.evaluate(
+    async ({ trackingToken, vrToken }) => {
+      await fetch(`/api/orders/${trackingToken}/verify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ verificationToken: vrToken, action: "REJECT", rejectionReason: "Maße stimmen nicht" }),
+      });
+    },
+    { trackingToken: order.trackingToken, vrToken: vr.token }
+  );
+
+  // VR status must update live without reload: banner disappears, rejected badge appears
+  await expect(page.getByText("Designfreigabe ausstehend")).not.toBeVisible({ timeout: 10000 });
+  await expect(page.getByText("Abgelehnt").first()).toBeVisible();
+});

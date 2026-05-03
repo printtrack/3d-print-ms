@@ -1,7 +1,8 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useLiveEvents } from "@/lib/use-live-events";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -255,6 +256,39 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
   const [savingCredit, setSavingCredit] = useState(false);
   const [milestones, setMilestones] = useState<MilestoneData[]>(initialMilestones);
   const [milestoneDialog, setMilestoneDialog] = useState<{ open: boolean; milestone: MilestoneData | null }>({ open: false, milestone: null });
+
+  const orderId = order.id;
+  useLiveEvents(
+    useCallback(
+      (event) => {
+        if (
+          (event.type === "order.changed" ||
+            event.type === "comment.added" ||
+            event.type === "verification.changed") &&
+          event.orderId === orderId
+        ) {
+          router.refresh();
+        }
+      },
+      [orderId, router]
+    )
+  );
+
+  // Sync server-provided lists from props when they change after router.refresh()
+  useEffect(() => {
+    setVerificationRequests(order.verificationRequests ?? []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [order.verificationRequests]);
+
+  useEffect(() => {
+    setComments(order.comments);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [order.comments]);
+
+  useEffect(() => {
+    setParts(initialParts);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialParts]);
 
   const currentPhase = phases.find((p) => p.id === selectedPhaseId);
   const currentPhaseIsPrototype = !!currentPhase?.isPrototype;

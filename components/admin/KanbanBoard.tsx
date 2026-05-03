@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import {
   DndContext,
@@ -20,6 +21,7 @@ import { toast } from "sonner";
 import Link from "next/link";
 import { formatDate } from "@/lib/utils";
 import { Archive } from "lucide-react";
+import { useLiveEvents } from "@/lib/use-live-events";
 
 interface Order {
   id: string;
@@ -126,6 +128,38 @@ export function KanbanBoard({ phases, initialOrders, searchQuery, archiveCount =
   const [activeOrder, setActiveOrder] = useState<Order | null>(null);
   const [activeTab, setActiveTab] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
+  const isDraggingRef = useRef(isDragging);
+  useEffect(() => { isDraggingRef.current = isDragging; }, [isDragging]);
+
+  const router = useRouter();
+
+  // Sync initialOrders into local state when props change (triggered by router.refresh())
+  // but never interrupt an active drag.
+  useEffect(() => {
+    if (isDraggingRef.current) return;
+    setOrders(initialOrders.map((o) => ({ ...o, phaseId: o.phase.id })));
+    setColumnOrders(
+      phases.reduce(
+        (acc, p) => ({
+          ...acc,
+          [p.id]: initialOrders.filter((o) => o.phase.id === p.id).map((o) => o.id),
+        }),
+        {} as Record<string, string[]>
+      )
+    );
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialOrders]);
+
+  useLiveEvents(
+    useCallback(
+      (event) => {
+        if (event.type === "order.changed" && !isDraggingRef.current) {
+          router.refresh();
+        }
+      },
+      [router]
+    )
+  );
 
   async function handleMobileMove(orderId: string, newPhaseId: string) {
     const order = orders.find((o) => o.id === orderId);

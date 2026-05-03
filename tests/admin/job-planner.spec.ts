@@ -201,3 +201,88 @@ test("schließt Teile aus die bereits in einem aktiven Job sind", async ({ seed,
 
   expect(allPartIds).not.toContain(part.id);
 });
+
+// ---------------------------------------------------------------------------
+// Extend-Matching — neues Teil wird an bestehenden PLANNED-Job angehängt
+// ---------------------------------------------------------------------------
+
+test("hängt neues Teil an bestehenden ungeplanten Job an (gleiche Material/Farbe, andere filamentId)", async ({ seed, page }) => {
+  const filamentA = await createTestFilament({ material: "PLA", color: "Rot", colorHex: "#FF0000" });
+  // Zweites Filament mit exakt gleicher Material/Farbe — früher war der Match auf filamentId beschränkt
+  const filamentB = await createTestFilament({ material: "PLA", color: "Rot", colorHex: "#FF0000", name: "PLA Rot 2" });
+  const machine = await createTestMachine({ name: "Drucker Gamma", buildVolumeX: 220, buildVolumeY: 220, buildVolumeZ: 250 });
+
+  // Bestehender PLANNED-Job (kein plannedAt) mit einem Teil aus filamentA
+  const { part: existingPart } = await createTestPrintReadyPart({ filamentId: filamentA.id, name: "Bestehendes Teil" });
+  const existingJob = await createTestPrintJob(machine.id, { status: "PLANNED" }); // plannedAt bleibt null
+  await createTestPrintJobPart(existingJob.id, existingPart.id);
+
+  // Neues druckbereites Teil mit filamentB (selbe Material/Farbe)
+  await createTestPrintReadyPart({ filamentId: filamentB.id, name: "Neues Teil" });
+
+  const res = await page.request.post("/api/admin/jobs/plan");
+  expect(res.ok()).toBeTruthy();
+  const { proposed } = await res.json();
+
+  // Erwartung: extend auf den bestehenden Job, kein neuer Job
+  const extendProposals = (proposed as { type: string; existingJobId?: string }[]).filter(
+    (p) => p.type === "extend"
+  );
+  const newProposals = (proposed as { type: string }[]).filter((p) => p.type === "new");
+
+  expect(extendProposals).toHaveLength(1);
+  expect(extendProposals[0].existingJobId).toBe(existingJob.id);
+  expect(newProposals).toHaveLength(0);
+});
+
+test("bevorzugt Maschine des bestehenden Jobs gegenüber Round-Robin", async ({ seed, page }) => {
+  const filament = await createTestFilament({ material: "PETG", color: "Schwarz", colorHex: "#000000" });
+  const machineA = await createTestMachine({ name: "Drucker A", buildVolumeX: 220, buildVolumeY: 220, buildVolumeZ: 250 });
+  // Zweite Maschine — Round-Robin würde hier landen
+  await createTestMachine({ name: "Drucker B", buildVolumeX: 220, buildVolumeY: 220, buildVolumeZ: 250 });
+
+  // Bestehender Job auf Maschine A
+  const { part: existingPart } = await createTestPrintReadyPart({ filamentId: filament.id, name: "Bereits auf A" });
+  const existingJob = await createTestPrintJob(machineA.id, { status: "PLANNED" });
+  await createTestPrintJobPart(existingJob.id, existingPart.id);
+
+  // Neues Teil gleiche Material/Farbe
+  await createTestPrintReadyPart({ filamentId: filament.id, name: "Neues Teil für A" });
+
+  const res = await page.request.post("/api/admin/jobs/plan");
+  expect(res.ok()).toBeTruthy();
+  const { proposed } = await res.json();
+
+  const extendProposals = (proposed as { type: string; machineId?: string; existingJobId?: string }[]).filter(
+    (p) => p.type === "extend"
+  );
+  expect(extendProposals).toHaveLength(1);
+  expect(extendProposals[0].machineId).toBe(machineA.id);
+  expect(extendProposals[0].existingJobId).toBe(existingJob.id);
+});
+
+test("erstellt neuen Job wenn Material des neuen Teils nicht zum bestehenden Job passt", async ({ seed, page }) => {
+  const pla = await createTestFilament({ material: "PLA", color: "Weiß", colorHex: "#FFFFFF" });
+  const petg = await createTestFilament({ material: "PETG", color: "Weiß", colorHex: "#FFFFFF" });
+  const machine = await createTestMachine({ name: "Drucker Delta" });
+
+  // Bestehender Job mit PLA
+  const { part: plaExistingPart } = await createTestPrintReadyPart({ filamentId: pla.id, name: "PLA Teil bestehend" });
+  const existingJob = await createTestPrintJob(machine.id, { status: "PLANNED" });
+  await createTestPrintJobPart(existingJob.id, plaExistingPart.id);
+
+  // Neues Teil mit PETG — anderes Material, muss eigenen Job bekommen
+  await createTestPrintReadyPart({ filamentId: petg.id, name: "PETG Teil neu" });
+
+  const res = await page.request.post("/api/admin/jobs/plan");
+  expect(res.ok()).toBeTruthy();
+  const { proposed } = await res.json();
+
+  const newProposals = (proposed as { type: string }[]).filter((p) => p.type === "new");
+  const extendProposals = (proposed as { type: string }[]).filter((p) => p.type === "extend");
+
+  // PETG-Gruppe bekommt neuen Job
+  expect(newProposals).toHaveLength(1);
+  // PLA-Gruppe hat keine neuen Teile → kein extend und kein new für PLA
+  expect(extendProposals).toHaveLength(0);
+});

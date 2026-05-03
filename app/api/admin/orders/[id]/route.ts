@@ -7,6 +7,7 @@ import path from "path";
 import { getUploadDir } from "@/lib/uploads";
 import { sendPhaseChangeEmail, sendSurveyEmail, sendVerificationEmail } from "@/lib/email";
 import { getSetting } from "@/lib/settings";
+import { publish } from "@/lib/event-bus";
 
 const patchSchema = z.object({
   phaseId: z.string().optional(),
@@ -333,6 +334,8 @@ export async function PATCH(
         },
       });
     }
+
+    publish({ type: "order.changed", orderId: id });
 
     return NextResponse.json(updated);
   } catch (err) {

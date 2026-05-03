@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { z } from "zod";
 import { deductFilamentInventory, restoreFilamentInventory } from "@/lib/filament-inventory";
 import { checkJobOverlap } from "@/lib/overlap-check";
+import { publish } from "@/lib/event-bus";
 
 const patchSchema = z.object({
   status: z.enum(["PLANNED", "SLICED", "IN_PROGRESS", "DONE", "CANCELLED"]).optional(),
@@ -170,6 +171,8 @@ export async function PATCH(
       await restoreFilamentInventory(id);
     }
 
+    publish({ type: "job.changed", jobId: id });
+
     return NextResponse.json({ job, warnings });
   } catch (err) {
     if (err instanceof z.ZodError) {
@@ -199,5 +202,6 @@ export async function DELETE(
   }
 
   await prisma.printJob.delete({ where: { id } });
+  publish({ type: "job.changed", jobId: id });
   return NextResponse.json({ success: true });
 }
