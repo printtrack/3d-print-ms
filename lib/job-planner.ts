@@ -49,7 +49,7 @@ type PartWithRelations = Awaited<ReturnType<typeof getPrintReadyParts>>[number];
 async function getPrintReadyParts() {
   return prisma.orderPart.findMany({
     where: {
-      partPhase: { isPrintReady: true },
+      partPhase: { OR: [{ isPrintReady: true }, { isMisprint: true }] },
       printJobParts: {
         none: { printJob: { status: { notIn: ["DONE", "CANCELLED"] } } },
       },

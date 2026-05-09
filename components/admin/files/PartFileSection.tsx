@@ -35,7 +35,7 @@ export interface OrderPartData {
   quantity: number;
   iterationCount: number;
   partPhaseId: string | null;
-  partPhase: { id: string; name: string; color: string; isPrintReady: boolean; isReview: boolean; isPrinted: boolean } | null;
+  partPhase: { id: string; name: string; color: string; isPrintReady: boolean; isReview: boolean; isPrinted: boolean; isMisprint: boolean } | null;
   createdAt: string;
   updatedAt: string;
   filament: {
@@ -81,6 +81,7 @@ export interface PartPhaseOption {
   isPrintReady: boolean;
   isReview: boolean;
   isPrinted: boolean;
+  isMisprint: boolean;
 }
 
 interface PartControlData {
@@ -557,7 +558,7 @@ export function PartFileSection({
             );
           })()}
 
-          {isAdmin && partData && part?.partPhase?.isPrintReady && (() => {
+          {isAdmin && partData && (part?.partPhase?.isPrintReady || part?.partPhase?.isMisprint) && (() => {
             const hasActiveJob = part.printJobParts?.some(
               (pjp) => pjp.printJob.status !== "DONE" && pjp.printJob.status !== "CANCELLED"
             );

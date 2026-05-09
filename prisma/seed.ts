@@ -56,17 +56,18 @@ async function main() {
 
   // Create/update default part phases idempotently (by name)
   const partPhaseDefs = [
-    { name: "Design",       color: "#6366f1", position: 0, isDefault: true,  isPrintReady: false, isReview: false, isPrinted: false },
-    { name: "Überprüfung",  color: "#f59e0b", position: 1, isDefault: false, isPrintReady: false, isReview: true,  isPrinted: false },
-    { name: "Druckbereit",  color: "#10b981", position: 2, isDefault: false, isPrintReady: true,  isReview: false, isPrinted: false },
-    { name: "Gedruckt",     color: "#3b82f6", position: 3, isDefault: false, isPrintReady: false, isReview: false, isPrinted: true  },
+    { name: "Design",      color: "#6366f1", position: 0, isDefault: true,  isPrintReady: false, isReview: false, isPrinted: false, isMisprint: false },
+    { name: "Überprüfung", color: "#f59e0b", position: 1, isDefault: false, isPrintReady: false, isReview: true,  isPrinted: false, isMisprint: false },
+    { name: "Druckbereit", color: "#10b981", position: 2, isDefault: false, isPrintReady: true,  isReview: false, isPrinted: false, isMisprint: false },
+    { name: "Gedruckt",    color: "#3b82f6", position: 3, isDefault: false, isPrintReady: false, isReview: false, isPrinted: true,  isMisprint: false },
+    { name: "Fehldruck",   color: "#ef4444", position: 4, isDefault: false, isPrintReady: false, isReview: false, isPrinted: false, isMisprint: true  },
   ];
   for (const def of partPhaseDefs) {
     const existing = await prisma.partPhase.findFirst({ where: { name: def.name } });
     if (existing) {
       await prisma.partPhase.update({
         where: { id: existing.id },
-        data: { color: def.color, position: def.position, isPrintReady: def.isPrintReady, isReview: def.isReview, isPrinted: def.isPrinted },
+        data: { color: def.color, position: def.position, isPrintReady: def.isPrintReady, isReview: def.isReview, isPrinted: def.isPrinted, isMisprint: def.isMisprint },
       });
     } else {
       await prisma.partPhase.create({ data: def });

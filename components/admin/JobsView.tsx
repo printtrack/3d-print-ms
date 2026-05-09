@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Kanban, GanttChart, Sparkles } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Kanban, GanttChart, Loader2, Sparkles, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 import { JobQueueBoard } from "./JobQueueBoard";
 import { JobTimeline } from "./JobTimeline";
 import { PlanJobsDialog } from "./PlanJobsDialog";
@@ -34,7 +36,12 @@ export function JobsView({ machines, initialJobs, teamMembers = [] }: JobsViewPr
   const [view, setView] = useState<"timeline" | "queue">("timeline");
   const [jobs, setJobs] = useState<PrintJob[]>(initialJobs);
   const [plannerOpen, setPlannerOpen] = useState(false);
+  const [shortCodeInput, setShortCodeInput] = useState("");
+  const [shortCodeSearching, setShortCodeSearching] = useState(false);
+  const [openJobTrigger, setOpenJobTrigger] = useState<{ id: string; nonce: number } | null>(null);
+  const openNonceRef = useRef(0);
   const router = useRouter();
+  const shortCodeInputRef = useRef<HTMLInputElement | null>(null);
 
   // Sync initialJobs into local state when props change after router.refresh()
   useEffect(() => {
@@ -64,7 +71,7 @@ export function JobsView({ machines, initialJobs, teamMembers = [] }: JobsViewPr
         const now = new Date().toISOString();
         setJobs((prev) =>
           prev.map((j) => {
-            if (completed.includes(j.id)) return { ...j, status: "DONE" as const, completedAt: now };
+            if (completed.includes(j.id)) return { ...j, status: "AWAITING_VERIFICATION" as const, completedAt: now };
             if (started.includes(j.id)) return { ...j, status: "IN_PROGRESS" as const, startedAt: now };
             return j;
           })
@@ -106,6 +113,37 @@ export function JobsView({ machines, initialJobs, teamMembers = [] }: JobsViewPr
     setJobs((prev) => prev.filter((j) => j.id !== id));
   }
 
+  async function handleShortCodeSearch(e: React.FormEvent) {
+    e.preventDefault();
+    const code = shortCodeInput.trim().toUpperCase();
+    if (!code) return;
+    setShortCodeSearching(true);
+    try {
+      // Check local state first — match shortCode or the ID-suffix fallback used by the label
+      const local = jobs.find((j) => (j.shortCode ?? j.id.slice(-6)).toUpperCase() === code);
+      if (local) {
+        setView("queue");
+        setOpenJobTrigger({ id: local.id, nonce: ++openNonceRef.current });
+        setShortCodeInput("");
+        return;
+      }
+      const res = await fetch(`/api/admin/jobs?shortCode=${encodeURIComponent(code)}`);
+      const data = await res.json();
+      const job = Array.isArray(data) ? data[0] : null;
+      if (!job) {
+        toast.error(`Kein Job mit ID „${code}" gefunden`);
+        return;
+      }
+      setView("queue");
+      setOpenJobTrigger({ id: job.id, nonce: ++openNonceRef.current });
+      setShortCodeInput("");
+    } catch {
+      toast.error("Fehler bei der Suche");
+    } finally {
+      setShortCodeSearching(false);
+    }
+  }
+
   return (
     <div className="flex flex-col flex-1 min-h-0">
       <div className="flex flex-wrap items-center justify-between gap-3 px-6 py-4 border-b flex-shrink-0">
@@ -115,7 +153,29 @@ export function JobsView({ machines, initialJobs, teamMembers = [] }: JobsViewPr
             {view === "timeline" ? "Gantt-Ansicht" : "Board-Ansicht"}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <form onSubmit={handleShortCodeSearch} className="flex items-center gap-1.5">
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+              <Input
+                ref={shortCodeInputRef}
+                value={shortCodeInput}
+                onChange={(e) => setShortCodeInput(e.target.value)}
+                placeholder="Job-ID (Etikett)"
+                className="pl-8 h-8 w-36 text-xs font-mono"
+                maxLength={6}
+              />
+            </div>
+            <Button
+              type="submit"
+              size="sm"
+              variant="outline"
+              className="h-8"
+              disabled={!shortCodeInput.trim() || shortCodeSearching}
+            >
+              {shortCodeSearching ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Suchen"}
+            </Button>
+          </form>
           <Button size="sm" className="gap-1.5" onClick={() => setPlannerOpen(true)}>
             <Sparkles className="h-4 w-4" />
             Druckjobs vorschlagen
@@ -167,6 +227,7 @@ export function JobsView({ machines, initialJobs, teamMembers = [] }: JobsViewPr
             onJobUpdated={handleJobUpdated}
             onJobDeleted={handleJobDeleted}
             teamMembers={teamMembers}
+            openJobTrigger={openJobTrigger}
           />
         )}
       </div>

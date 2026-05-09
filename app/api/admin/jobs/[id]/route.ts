@@ -7,7 +7,7 @@ import { checkJobOverlap } from "@/lib/overlap-check";
 import { publish } from "@/lib/event-bus";
 
 const patchSchema = z.object({
-  status: z.enum(["PLANNED", "SLICED", "IN_PROGRESS", "DONE", "CANCELLED"]).optional(),
+  status: z.enum(["PLANNED", "SLICED", "IN_PROGRESS", "AWAITING_VERIFICATION", "DONE", "CANCELLED"]).optional(),
   machineId: z.string().min(1).optional(),
   queuePosition: z.number().int().min(0).optional(),
   plannedAt: z.string().datetime().nullable().optional(),
@@ -26,6 +26,7 @@ const jobInclude = {
         include: {
           order: { select: { id: true, customerName: true, customerEmail: true, description: true } },
           filament: { select: { id: true, name: true, material: true, color: true, colorHex: true } },
+          files: { select: { id: true, filename: true, originalName: true, mimeType: true, orderId: true } },
         },
       },
     },
@@ -145,8 +146,8 @@ export async function PATCH(
     });
 
     // Write audit logs for status transitions
-    if (data.status && ["SLICED", "IN_PROGRESS", "DONE"].includes(data.status)) {
-      const action = data.status === "SLICED" ? "JOB_SLICED" : data.status === "IN_PROGRESS" ? "JOB_STARTED" : "JOB_COMPLETED";
+    if (data.status && ["SLICED", "IN_PROGRESS", "AWAITING_VERIFICATION", "DONE"].includes(data.status)) {
+      const action = data.status === "SLICED" ? "JOB_SLICED" : data.status === "IN_PROGRESS" ? "JOB_STARTED" : data.status === "AWAITING_VERIFICATION" ? "JOB_AWAITING_VERIFICATION" : "JOB_COMPLETED";
       const userId = (session.user as { id?: string })?.id ?? null;
 
       const orderIds = [...new Set(job.parts.map((p) => p.orderPart.orderId))];
@@ -162,12 +163,16 @@ export async function PATCH(
       }
     }
 
-    // Inventory management on DONE transitions
+    // Inventory management: deduct when print physically completes (AWAITING_VERIFICATION),
+    // restore if moving back from that point or DONE to an earlier status.
     const warnings: string[] = [];
-    if (data.status === "DONE" && previousStatus !== "DONE") {
+    const deductedStatuses = new Set(["AWAITING_VERIFICATION", "DONE"]);
+    const wasDeducted = previousStatus !== null && deductedStatuses.has(previousStatus);
+    const willBeDeducted = data.status !== undefined && deductedStatuses.has(data.status);
+    if (willBeDeducted && !wasDeducted) {
       const inventoryWarnings = await deductFilamentInventory(id);
       warnings.push(...inventoryWarnings);
-    } else if (data.status !== undefined && data.status !== "DONE" && previousStatus === "DONE") {
+    } else if (!willBeDeducted && wasDeducted && data.status !== undefined) {
       await restoreFilamentInventory(id);
     }
 
@@ -200,6 +205,7 @@ export async function DELETE(
       { status: 400 }
     );
   }
+  // AWAITING_VERIFICATION is implicitly blocked by the check above (not in allowed list)
 
   await prisma.printJob.delete({ where: { id } });
   publish({ type: "job.changed", jobId: id });

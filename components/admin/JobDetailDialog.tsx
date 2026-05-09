@@ -20,10 +20,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { AlertTriangle, Download, Loader2, Search, Trash2, Upload, X } from "lucide-react";
+import { AlertTriangle, Download, Loader2, Search, ShieldCheck, Trash2, Upload, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PrintJob } from "./JobCard";
 import { AssigneePicker } from "@/components/admin/AssigneePicker";
+import { JobVerificationDialog } from "./JobVerificationDialog";
 
 interface JobDetailDialogProps {
   job: PrintJob | null;
@@ -38,6 +39,7 @@ const STATUS_OPTIONS = [
   { value: "PLANNED", label: "Geplant" },
   { value: "SLICED", label: "Gesliced" },
   { value: "IN_PROGRESS", label: "Im Druck" },
+  { value: "AWAITING_VERIFICATION", label: "Verifikation ausstehend" },
   { value: "DONE", label: "Abgeschlossen" },
   { value: "CANCELLED", label: "Storniert" },
 ] as const;
@@ -58,6 +60,7 @@ const STATUS_COLORS: Record<PrintJob["status"], string> = {
   PLANNED: "bg-blue-100 text-blue-700",
   SLICED: "bg-purple-100 text-purple-700",
   IN_PROGRESS: "bg-amber-100 text-amber-700",
+  AWAITING_VERIFICATION: "bg-orange-100 text-orange-700",
   DONE: "bg-green-100 text-green-700",
   CANCELLED: "bg-muted text-muted-foreground",
 };
@@ -99,6 +102,7 @@ export function JobDetailDialog({
   const [deletingFileId, setDeletingFileId] = useState<string | null>(null);
   const [downloadingStl, setDownloadingStl] = useState(false);
   const [downloadingOrca, setDownloadingOrca] = useState(false);
+  const [verifyOpen, setVerifyOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const searchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -329,11 +333,16 @@ export function JobDetailDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg max-h-[90vh] flex flex-col">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+          <DialogTitle className="flex items-center gap-2 flex-wrap">
             Druckjob — {job.machine.name}
             <span className={cn("text-xs px-1.5 py-0.5 rounded font-medium", STATUS_COLORS[job.status])}>
               {STATUS_OPTIONS.find((s) => s.value === job.status)?.label}
             </span>
+            {job.shortCode && (
+              <span className="text-xs px-1.5 py-0.5 rounded font-mono bg-muted text-muted-foreground border">
+                {job.shortCode}
+              </span>
+            )}
           </DialogTitle>
         </DialogHeader>
 
@@ -632,7 +641,7 @@ export function JobDetailDialog({
 
         </div>
 
-        <DialogFooter className="flex-row items-center">
+        <DialogFooter className="flex-row items-center flex-wrap gap-2">
           {["PLANNED", "SLICED", "CANCELLED"].includes(job.status) && (
             <Button
               variant="ghost"
@@ -644,11 +653,32 @@ export function JobDetailDialog({
               <Trash2 className="h-4 w-4" />
             </Button>
           )}
+          {job.status === "AWAITING_VERIFICATION" && (
+            <Button
+              variant="default"
+              className="mr-auto bg-orange-600 hover:bg-orange-700 text-white"
+              onClick={() => setVerifyOpen(true)}
+            >
+              <ShieldCheck className="h-4 w-4 mr-2" />
+              Druck verifizieren
+            </Button>
+          )}
           <Button onClick={handleSave} disabled={saving}>
             {saving ? "Speichern..." : "Änderungen speichern"}
           </Button>
         </DialogFooter>
       </DialogContent>
+      {job.status === "AWAITING_VERIFICATION" && (
+        <JobVerificationDialog
+          job={job}
+          open={verifyOpen}
+          onOpenChange={setVerifyOpen}
+          onVerified={(updatedJob) => {
+            onUpdated(updatedJob);
+            onOpenChange(false);
+          }}
+        />
+      )}
     </Dialog>
   );
 }

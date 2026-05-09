@@ -31,15 +31,38 @@ const jobInclude = {
   assignees: { include: { user: { select: { id: true, name: true, email: true } } } },
 } as const;
 
+// Excludes I (looks like 1) and O (looks like 0) — same convention as IATA airline codes
+const SHORT_CODE_CHARS = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+
+function generateShortCode(): string {
+  let code = "";
+  for (let i = 0; i < 6; i++) {
+    code += SHORT_CODE_CHARS[Math.floor(Math.random() * SHORT_CODE_CHARS.length)];
+  }
+  return code;
+}
+
 export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
   const machineId = searchParams.get("machineId");
+  const shortCode = searchParams.get("shortCode");
+
+  const where: Record<string, unknown> = {};
+  if (machineId) where.machineId = machineId;
+  if (shortCode) {
+    const code = shortCode.toUpperCase();
+    // Match by shortCode, or fall back to the ID-suffix used on labels for jobs without a shortCode
+    where.OR = [
+      { shortCode: code },
+      { shortCode: null, id: { endsWith: code.toLowerCase() } },
+    ];
+  }
 
   const jobs = await prisma.printJob.findMany({
-    where: machineId ? { machineId } : undefined,
+    where: Object.keys(where).length > 0 ? where : undefined,
     orderBy: [{ machineId: "asc" }, { queuePosition: "asc" }],
     include: jobInclude,
   });
@@ -76,12 +99,21 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Generate a unique 6-char alphanumeric short code for plate labeling
+    let shortCode: string;
+    for (;;) {
+      shortCode = generateShortCode();
+      const existing = await prisma.printJob.findUnique({ where: { shortCode } });
+      if (!existing) break;
+    }
+
     const job = await prisma.printJob.create({
       data: {
         machineId: data.machineId,
         plannedAt: data.plannedAt ? new Date(data.plannedAt) : null,
         notes: data.notes ?? null,
         queuePosition,
+        shortCode,
         ...(data.assigneeIds && data.assigneeIds.length > 0
           ? { assignees: { create: data.assigneeIds.map((userId) => ({ userId })) } }
           : {}),

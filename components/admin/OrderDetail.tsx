@@ -160,7 +160,7 @@ interface OrderDetailProps {
   parts: OrderPartData[];
   availableFilaments: FilamentOption[];
   customerCredit: { id: string; balance: number } | null;
-  partPhases: Array<{ id: string; name: string; color: string; isPrintReady: boolean; isReview: boolean; isPrinted: boolean }>;
+  partPhases: Array<{ id: string; name: string; color: string; isPrintReady: boolean; isReview: boolean; isPrinted: boolean; isMisprint: boolean }>;
   machines: Array<{ id: string; name: string }>;
   initialMilestones: MilestoneData[];
 }

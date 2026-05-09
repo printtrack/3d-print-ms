@@ -20,7 +20,8 @@ export interface PrintJobFile {
 export interface PrintJob {
   id: string;
   machineId: string;
-  status: "PLANNED" | "SLICED" | "IN_PROGRESS" | "DONE" | "CANCELLED";
+  status: "PLANNED" | "SLICED" | "IN_PROGRESS" | "AWAITING_VERIFICATION" | "DONE" | "CANCELLED";
+  shortCode: string | null;
   queuePosition: number;
   plannedAt: string | null;
   startedAt: string | null;
@@ -56,6 +57,7 @@ const STATUS_LABELS: Record<PrintJob["status"], string> = {
   PLANNED: "Geplant",
   SLICED: "Gesliced",
   IN_PROGRESS: "Im Druck",
+  AWAITING_VERIFICATION: "Verifikation",
   DONE: "Abgeschlossen",
   CANCELLED: "Storniert",
 };
@@ -64,6 +66,7 @@ const STATUS_COLORS: Record<PrintJob["status"], string> = {
   PLANNED: "bg-blue-100 text-blue-700",
   SLICED: "bg-purple-100 text-purple-700",
   IN_PROGRESS: "bg-amber-100 text-amber-700",
+  AWAITING_VERIFICATION: "bg-orange-100 text-orange-700",
   DONE: "bg-green-100 text-green-700",
   CANCELLED: "bg-muted text-muted-foreground",
 };

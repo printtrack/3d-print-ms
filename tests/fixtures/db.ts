@@ -134,10 +134,11 @@ export async function seedDb() {
 
   await prismaTest.partPhase.createMany({
     data: [
-      { name: "Design",      color: "#6366f1", position: 0, isDefault: true,  isPrintReady: false, isReview: false, isPrinted: false },
-      { name: "Überprüfung", color: "#f59e0b", position: 1, isDefault: false, isPrintReady: false, isReview: true,  isPrinted: false },
-      { name: "Druckbereit", color: "#10b981", position: 2, isDefault: false, isPrintReady: true,  isReview: false, isPrinted: false },
-      { name: "Gedruckt",    color: "#3b82f6", position: 3, isDefault: false, isPrintReady: false, isReview: false, isPrinted: true  },
+      { name: "Design",      color: "#6366f1", position: 0, isDefault: true,  isPrintReady: false, isReview: false, isPrinted: false, isMisprint: false },
+      { name: "Überprüfung", color: "#f59e0b", position: 1, isDefault: false, isPrintReady: false, isReview: true,  isPrinted: false, isMisprint: false },
+      { name: "Druckbereit", color: "#10b981", position: 2, isDefault: false, isPrintReady: true,  isReview: false, isPrinted: false, isMisprint: false },
+      { name: "Gedruckt",    color: "#3b82f6", position: 3, isDefault: false, isPrintReady: false, isReview: false, isPrinted: true,  isMisprint: false },
+      { name: "Fehldruck",   color: "#ef4444", position: 4, isDefault: false, isPrintReady: false, isReview: false, isPrinted: false, isMisprint: true  },
     ],
   });
   const partPhases = await prismaTest.partPhase.findMany({ orderBy: { position: "asc" } });
@@ -209,7 +210,8 @@ export async function createTestPrintJobFile(
 export async function createTestPrintJob(
   machineId: string,
   overrides: Partial<{
-    status: "PLANNED" | "SLICED" | "IN_PROGRESS" | "DONE" | "CANCELLED";
+    status: "PLANNED" | "SLICED" | "IN_PROGRESS" | "AWAITING_VERIFICATION" | "DONE" | "CANCELLED";
+    shortCode: string;
     queuePosition: number;
     plannedAt: Date;
     startedAt: Date;
@@ -217,10 +219,12 @@ export async function createTestPrintJob(
     printTimeMinutes: number;
   }> = {}
 ) {
+  const shortCode = overrides.shortCode ?? Math.random().toString(36).slice(2, 8).toUpperCase();
   return prismaTest.printJob.create({
     data: {
       machineId,
       status: overrides.status ?? "PLANNED",
+      shortCode,
       queuePosition: overrides.queuePosition ?? 0,
       plannedAt: overrides.plannedAt,
       startedAt: overrides.startedAt,
@@ -271,6 +275,7 @@ export async function createTestPartPhase(
     isPrintReady: boolean;
     isReview: boolean;
     isPrinted: boolean;
+    isMisprint: boolean;
   }> = {}
 ) {
   const last = await prismaTest.partPhase.findFirst({ orderBy: { position: "desc" } });
@@ -283,6 +288,7 @@ export async function createTestPartPhase(
       isPrintReady: overrides.isPrintReady ?? false,
       isReview: overrides.isReview ?? false,
       isPrinted: overrides.isPrinted ?? false,
+      isMisprint: overrides.isMisprint ?? false,
     },
   });
 }

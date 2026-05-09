@@ -5,6 +5,7 @@ import { readFile } from "fs/promises";
 import path from "path";
 import { getUploadDir } from "@/lib/uploads";
 import JSZip from "jszip";
+import { buildLabelMesh, serializeStlBinary } from "@/lib/label-mesh";
 
 export async function GET(
   _req: NextRequest,
@@ -60,6 +61,11 @@ export async function GET(
       // Skip files that cannot be read
     }
   }
+
+  // Append a plate-label STL for identification
+  const labelText = job.shortCode ?? id.slice(-6).toUpperCase();
+  const labelMesh = buildLabelMesh(labelText);
+  zip.file(`label-${labelText}.stl`, serializeStlBinary(labelMesh));
 
   const zipBuffer = await zip.generateAsync({ type: "uint8array" });
 

@@ -42,7 +42,7 @@ async function loadModel(url: string, ext: string): Promise<THREE.Object3D> {
   throw new Error(`Unsupported format: ${ext}`);
 }
 
-interface ModelViewerProps {
+export interface ModelViewerProps {
   url: string;
   filename: string;
 }

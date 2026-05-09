@@ -19,6 +19,7 @@ enum PrintJobStatus {
   PLANNED
   SLICED
   IN_PROGRESS
+  AWAITING_VERIFICATION
   DONE
   CANCELLED
 }
@@ -96,6 +97,7 @@ model PartPhase {
   isPrintReady Boolean     @default(false)
   isReview     Boolean     @default(false)
   isPrinted    Boolean     @default(false)
+  isMisprint   Boolean     @default(false)
   orderParts   OrderPart[]
 }
 
@@ -166,6 +168,7 @@ model PrintJob {
   machineId        String
   machine          Machine            @relation(fields: [machineId], references: [id])
   status           PrintJobStatus     @default(PLANNED)
+  shortCode        String?            @unique
   queuePosition    Int                @default(0)
   plannedAt        DateTime?
   startedAt        DateTime?

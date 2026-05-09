@@ -32,7 +32,7 @@ export async function runJobAutoTransition(): Promise<{ started: string[]; compl
     }
   }
 
-  // 2. IN_PROGRESS → DONE: startedAt (or plannedAt) + printTimeMinutes has elapsed
+  // 2. IN_PROGRESS → AWAITING_VERIFICATION: startedAt (or plannedAt) + printTimeMinutes has elapsed
   const inProgress = await prisma.printJob.findMany({
     where: {
       status: "IN_PROGRESS",
@@ -48,25 +48,14 @@ export async function runJobAutoTransition(): Promise<{ started: string[]; compl
     return endMs <= now.getTime();
   });
 
-  // Find the "isPrinted" phase once, reuse for all parts
-  const printedPhase = await prisma.partPhase.findFirst({ where: { isPrinted: true } });
-
   for (const job of toComplete) {
     await prisma.printJob.update({
       where: { id: job.id },
-      data: { status: "DONE", completedAt: now },
+      data: { status: "AWAITING_VERIFICATION", completedAt: now },
     });
 
+    // Deduct filament now — the print physically completed regardless of verification outcome
     await deductFilamentInventory(job.id);
-
-    // Auto-transition linked parts to "Gedruckt" phase
-    if (printedPhase) {
-      const partIds = job.parts.map((p) => p.orderPartId);
-      await prisma.orderPart.updateMany({
-        where: { id: { in: partIds } },
-        data: { partPhaseId: printedPhase.id },
-      });
-    }
 
     const orderIds = [...new Set(job.parts.map((p) => p.orderPart.orderId))];
     if (orderIds.length > 0) {
@@ -74,20 +63,10 @@ export async function runJobAutoTransition(): Promise<{ started: string[]; compl
         data: orderIds.map((orderId) => ({
           orderId,
           userId: null,
-          action: "JOB_COMPLETED",
-          details: `Job ${job.id} auf ${job.machine.name} (automatisch abgeschlossen)`,
+          action: "JOB_AWAITING_VERIFICATION",
+          details: `Job ${job.id} auf ${job.machine.name} — Verifikation ausstehend`,
         })),
       });
-      if (printedPhase) {
-        await prisma.auditLog.createMany({
-          data: orderIds.map((orderId) => ({
-            orderId,
-            userId: null,
-            action: "PART_PRINTED",
-            details: `Teile auf Phase "${printedPhase.name}" gesetzt nach Abschluss von Job ${job.id}`,
-          })),
-        });
-      }
     }
   }
 

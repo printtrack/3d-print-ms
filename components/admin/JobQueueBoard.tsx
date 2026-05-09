@@ -34,9 +34,10 @@ interface JobQueueBoardProps {
   onJobUpdated?: (job: PrintJob) => void;
   onJobDeleted?: (id: string) => void;
   teamMembers?: Array<{ id: string; name: string; email: string }>;
+  openJobTrigger?: { id: string; nonce: number } | null;
 }
 
-export function JobQueueBoard({ machines, initialJobs, onJobCreated, onJobUpdated, onJobDeleted, teamMembers = [] }: JobQueueBoardProps) {
+export function JobQueueBoard({ machines, initialJobs, onJobCreated, onJobUpdated, onJobDeleted, teamMembers = [], openJobTrigger }: JobQueueBoardProps) {
   const [jobs, setJobs] = useState<PrintJob[]>(initialJobs);
 
   // Sync status-only updates pushed down from parent (e.g. auto-transition DONE)
@@ -71,6 +72,18 @@ export function JobQueueBoard({ machines, initialJobs, onJobCreated, onJobUpdate
     window.history.replaceState({}, "", url.toString());
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Open job detail from external trigger (e.g. shortCode lookup from JobsView).
+  // Uses a nonce so the same job can be re-opened if searched twice.
+  useEffect(() => {
+    if (!openJobTrigger) return;
+    const job = jobs.find((j) => j.id === openJobTrigger.id);
+    if (job) {
+      setSelectedJob(job);
+      setDetailOpen(true);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openJobTrigger]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),

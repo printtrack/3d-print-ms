@@ -7,6 +7,7 @@ import { getUploadDir } from "@/lib/uploads";
 import { parseStl } from "@/lib/stl-parser";
 import { buildThreeMF } from "@/lib/threemf-builder";
 import type { ThreeMFObject, ThreeMFMetadata } from "@/lib/threemf-builder";
+import { buildLabelMesh } from "@/lib/label-mesh";
 
 export async function GET(
   _req: NextRequest,
@@ -69,6 +70,15 @@ export async function GET(
   if (objects.length === 0) {
     return NextResponse.json({ error: "Keine STL-Dateien gefunden" }, { status: 404 });
   }
+
+  // Append a plate-label mesh with the job's short code for identification
+  const labelText = job.shortCode ?? id.slice(-6).toUpperCase();
+  objects.push({
+    id: objectId,
+    name: `Label-${labelText}`,
+    mesh: buildLabelMesh(labelText),
+    quantity: 1,
+  });
 
   // Collect unique filaments from parts
   const filamentMap = new Map<

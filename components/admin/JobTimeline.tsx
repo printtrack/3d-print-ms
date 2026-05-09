@@ -51,6 +51,7 @@ const STATUS_COLOR: Record<PrintJob["status"], string> = {
   PLANNED: "#2563eb",
   SLICED: "#9333ea",
   IN_PROGRESS: "#d97706",
+  AWAITING_VERIFICATION: "#ea580c",
   DONE: "#16a34a",
   CANCELLED: "#6b7280",
 };
@@ -59,6 +60,7 @@ const STATUS_CHIP: Record<PrintJob["status"], string> = {
   PLANNED: "bg-blue-100 text-blue-700 border-blue-200",
   SLICED: "bg-purple-100 text-purple-700 border-purple-200",
   IN_PROGRESS: "bg-amber-100 text-amber-700 border-amber-200",
+  AWAITING_VERIFICATION: "bg-orange-100 text-orange-700 border-orange-200",
   DONE: "bg-green-100 text-green-700 border-green-200",
   CANCELLED: "bg-muted text-muted-foreground border-border",
 };
@@ -67,6 +69,7 @@ const STATUS_LABELS: Record<PrintJob["status"], string> = {
   PLANNED: "Geplant",
   SLICED: "Gesliced",
   IN_PROGRESS: "Im Druck",
+  AWAITING_VERIFICATION: "Verifikation",
   DONE: "Fertig",
   CANCELLED: "Storniert",
 };

@@ -16,7 +16,7 @@ const patchSchema = z.object({
 
 const partInclude = {
   filament: { select: { id: true, name: true, material: true, color: true, colorHex: true, brand: true } },
-  partPhase: { select: { id: true, name: true, color: true, isPrintReady: true, isReview: true, isPrinted: true } },
+  partPhase: { select: { id: true, name: true, color: true, isPrintReady: true, isReview: true, isPrinted: true, isMisprint: true } },
   files: true,
   printJobParts: {
     include: { printJob: { select: { id: true, status: true, machine: { select: { name: true } } } } },

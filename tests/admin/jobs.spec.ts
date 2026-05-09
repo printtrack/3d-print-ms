@@ -123,7 +123,7 @@ test("auto-transition: PLANNED → IN_PROGRESS when plannedAt is in the past", a
   expect(updated?.startedAt).not.toBeNull();
 });
 
-test("auto-transition: IN_PROGRESS → DONE when print time has elapsed", async ({ request }) => {
+test("auto-transition: IN_PROGRESS → AWAITING_VERIFICATION when print time has elapsed", async ({ request }) => {
   const machine = await createTestMachine({ name: "Auto-Drucker 2" });
   const startedAt = new Date(Date.now() - 10 * 60_000); // started 10 minutes ago
   const job = await createTestPrintJob(machine.id, {
@@ -140,7 +140,7 @@ test("auto-transition: IN_PROGRESS → DONE when print time has elapsed", async 
   expect(body.completed).toContain(job.id);
 
   const updated = await prismaTest.printJob.findUnique({ where: { id: job.id } });
-  expect(updated?.status).toBe("DONE");
+  expect(updated?.status).toBe("AWAITING_VERIFICATION");
   expect(updated?.completedAt).not.toBeNull();
 });
 
@@ -822,14 +822,14 @@ test("auto-transition: deducts filament inventory when job auto-completes", asyn
   expect(updated?.remainingGrams).toBe(170); // 200 - 30
 });
 
-test("auto-transition: completed job sets linked parts to 'Gedruckt' phase", async ({ seed, request }) => {
+test("auto-transition: completed job goes to AWAITING_VERIFICATION — parts stay unchanged until manual verification", async ({ seed, request }) => {
   const machine = await createTestMachine();
   const defaultPhase = await prismaTest.orderPhase.findFirst({ where: { isDefault: true } });
-  const printedPhase = await prismaTest.partPhase.findFirst({ where: { isPrinted: true } });
-  if (!defaultPhase || !printedPhase) { test.skip(); return; }
+  const printReadyPhase = await prismaTest.partPhase.findFirst({ where: { isPrintReady: true } });
+  if (!defaultPhase || !printReadyPhase) { test.skip(); return; }
 
   const order = await createTestOrder(defaultPhase.id);
-  const part = await createTestOrderPart(order.id);
+  const part = await createTestOrderPart(order.id, { partPhaseId: printReadyPhase.id });
   const pastTime = new Date(Date.now() - 3 * 60 * 60 * 1000); // 3h ago
   const job = await createTestPrintJob(machine.id, {
     status: "IN_PROGRESS",
@@ -843,13 +843,13 @@ test("auto-transition: completed job sets linked parts to 'Gedruckt' phase", asy
   expect(res.ok()).toBeTruthy();
   expect((await res.json()).completed).toContain(job.id);
 
-  const updatedPart = await prismaTest.orderPart.findUnique({ where: { id: part.id } });
-  expect(updatedPart?.partPhaseId).toBe(printedPhase.id);
+  // Job moves to AWAITING_VERIFICATION — manual verification required before DONE
+  const updatedJob = await prismaTest.printJob.findUnique({ where: { id: job.id } });
+  expect(updatedJob?.status).toBe("AWAITING_VERIFICATION");
 
-  const auditLog = await prismaTest.auditLog.findFirst({
-    where: { orderId: order.id, action: "PART_PRINTED" },
-  });
-  expect(auditLog).not.toBeNull();
+  // Parts are NOT automatically promoted — they stay in their current phase
+  const updatedPart = await prismaTest.orderPart.findUnique({ where: { id: part.id } });
+  expect(updatedPart?.partPhaseId).toBe(printReadyPhase.id);
 });
 
 test("re-assignment allowed after job reaches DONE status", async ({ seed, request }) => {

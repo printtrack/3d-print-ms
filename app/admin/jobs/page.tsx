@@ -18,7 +18,7 @@ export default async function JobsPage() {
       orderBy: { name: "asc" },
     }),
     prisma.printJob.findMany({
-      where: { status: { in: ["PLANNED", "SLICED", "IN_PROGRESS"] } },
+      where: { status: { in: ["PLANNED", "SLICED", "IN_PROGRESS", "AWAITING_VERIFICATION"] } },
       orderBy: [{ machineId: "asc" }, { queuePosition: "asc" }],
       include: {
         machine: { select: { id: true, name: true } },
