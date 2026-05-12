@@ -19,14 +19,13 @@ import { toast } from "sonner";
 import { CheckCircle2, Clock, Download, FileText, Image as ImageIcon, MessageSquare, Package, ShieldAlert, ShieldCheck, Star, Upload, X, XCircle } from "lucide-react";
 import Link from "next/link";
 
-const ModelViewer = dynamic(
-  () => import("@/components/ModelViewer").then((m) => m.ModelViewer),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="w-full h-64 rounded-lg bg-muted animate-pulse" />
-    ),
-  }
+const ModelThumbnail = dynamic(
+  () => import("@/components/ModelThumbnail").then((m) => m.ModelThumbnail),
+  { ssr: false, loading: () => <div className="w-full h-32 rounded-lg bg-muted animate-pulse" /> }
+);
+const ModelViewerDialog = dynamic(
+  () => import("@/components/ModelViewerDialog").then((m) => m.ModelViewerDialog),
+  { ssr: false }
 );
 
 interface TrackingData {
@@ -51,6 +50,18 @@ interface TrackingData {
     category: "REFERENCE" | "DESIGN" | "RESULT" | "OTHER";
     orderPartId: string | null;
     createdAt: string;
+    notes: Array<{
+      id: string;
+      posX: number;
+      posY: number;
+      posZ: number;
+      normalX: number;
+      normalY: number;
+      normalZ: number;
+      body: string;
+      resolvedAt: string | null;
+      createdAt: string;
+    }>;
   }>;
   parts?: Array<{
     id: string;
@@ -99,6 +110,7 @@ export function TrackingView({ order, trackingToken }: { order: TrackingData; tr
   const [rejectingToken, setRejectingToken] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState("");
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [openModelFileId, setOpenModelFileId] = useState<string | null>(null);
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const picked = Array.from(e.target.files ?? []);
@@ -249,7 +261,17 @@ export function TrackingView({ order, trackingToken }: { order: TrackingData; tr
                           ) : (
                             <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
                           )}
-                          <span className="flex-1 truncate">{file.originalName}</span>
+                          {is3DModel(file.filename) ? (
+                            <button
+                              type="button"
+                              onClick={() => setOpenModelFileId(file.id)}
+                              className="flex-1 truncate text-left hover:underline cursor-pointer text-sm"
+                            >
+                              {file.originalName}
+                            </button>
+                          ) : (
+                            <span className="flex-1 truncate">{file.originalName}</span>
+                          )}
                           {file.source === "TEAM" ? (
                             <Badge variant="secondary" className="text-xs shrink-0">Team</Badge>
                           ) : (
@@ -281,10 +303,26 @@ export function TrackingView({ order, trackingToken }: { order: TrackingData; tr
                           </div>
                         )}
                         {is3DModel(file.filename) && (
-                          <ModelViewer
-                            url={`/api/files/${order.id}/${file.filename}`}
-                            filename={file.filename}
-                          />
+                          <>
+                            <div className="ml-6 border-l-2 border-muted pl-3 w-40">
+                              <ModelThumbnail
+                                url={`/api/files/${order.id}/${file.filename}`}
+                                filename={file.filename}
+                                noteCount={file.notes.length}
+                                onClick={() => setOpenModelFileId(file.id)}
+                                className="h-20"
+                              />
+                            </div>
+                            <ModelViewerDialog
+                              open={openModelFileId === file.id}
+                              onOpenChange={(open) => { if (!open) setOpenModelFileId(null); }}
+                              fileId={file.id}
+                              fileUrl={`/api/files/${order.id}/${file.filename}`}
+                              filename={file.originalName}
+                              mode="customer"
+                              initialNotes={file.notes}
+                            />
+                          </>
                         )}
                       </div>
                     ))}

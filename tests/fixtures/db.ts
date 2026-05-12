@@ -17,7 +17,7 @@ const ADMIN_HASH = "$2b$12$y2KSFIcuvvM4gjdMj9qAHuyZRS0XfB4KRW67T9Q5Pi9wP7ipk6HJG
 export async function resetDb() {
   await prismaTest.$executeRawUnsafe(`SET FOREIGN_KEY_CHECKS = 0`);
   for (const table of [
-    "AuditLog", "OrderComment", "OrderFile", "SurveyResponse", "VerificationRequest",
+    "AuditLog", "OrderComment", "OrderFileNote", "OrderFile", "SurveyResponse", "VerificationRequest",
     "PrintJobAssignee", "PrintJobFilament", "PrintJobPart", "PrintJobFile", "PrintJob",
     "OrderPartAssignee", "OrderPart", "OrderAssignee", "Machine",
     "MilestoneTaskAssignee", "MilestoneTask", "Milestone", "Order",
@@ -466,6 +466,38 @@ export async function createTestOrderWithStlFile() {
   });
 
   return { order, part, file };
+}
+
+export async function createTestFileNote(
+  orderFileId: string,
+  overrides: Partial<{
+    body: string;
+    posX: number;
+    posY: number;
+    posZ: number;
+    normalX: number;
+    normalY: number;
+    normalZ: number;
+    isCustomerVisible: boolean;
+    resolvedAt: Date | null;
+    authorId: string;
+  }> = {}
+) {
+  return prismaTest.orderFileNote.create({
+    data: {
+      orderFileId,
+      body: overrides.body ?? "Test Notiz",
+      posX: overrides.posX ?? 0,
+      posY: overrides.posY ?? 0,
+      posZ: overrides.posZ ?? 0,
+      normalX: overrides.normalX ?? 0,
+      normalY: overrides.normalY ?? 1,
+      normalZ: overrides.normalZ ?? 0,
+      isCustomerVisible: overrides.isCustomerVisible ?? true,
+      resolvedAt: overrides.resolvedAt ?? null,
+      authorId: overrides.authorId ?? null,
+    },
+  });
 }
 
 /**

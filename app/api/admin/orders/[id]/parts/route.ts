@@ -15,7 +15,14 @@ const createSchema = z.object({
 const partInclude = {
   filament: { select: { id: true, name: true, material: true, color: true, colorHex: true, brand: true } },
   partPhase: { select: { id: true, name: true, color: true, isPrintReady: true } },
-  files: true,
+  files: {
+    include: {
+      notes: {
+        include: { author: { select: { id: true, name: true } } },
+        orderBy: { createdAt: "asc" as const },
+      },
+    },
+  },
   printJobParts: {
     include: { printJob: { select: { id: true, status: true, machine: { select: { name: true } } } } },
   },

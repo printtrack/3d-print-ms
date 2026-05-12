@@ -22,11 +22,11 @@ import { is3DModel } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import { CATEGORY_LABELS, type OrderFileData, type FileCategory } from "./types";
 
-const ModelViewer = dynamic(
-  () => import("@/components/ModelViewer").then((m) => m.ModelViewer),
+const ModelThumbnail = dynamic(
+  () => import("@/components/ModelThumbnail").then((m) => m.ModelThumbnail),
   {
     ssr: false,
-    loading: () => <div className="w-full h-64 rounded-lg bg-muted animate-pulse" />,
+    loading: () => <div className="w-full h-20 rounded-lg bg-muted animate-pulse" />,
   }
 );
 
@@ -35,7 +35,6 @@ interface FileListItemProps {
   orderId: string;
   partNameById: Record<string, string>;
   isAdmin: boolean;
-  /** Whether this is the current (latest) version in the group */
   isCurrent: boolean;
   onRecategorize: (fileId: string, category: FileCategory) => void;
   onDelete: (fileId: string) => void;
@@ -43,6 +42,8 @@ interface FileListItemProps {
   moveTargets: Array<{ id: string; name: string }>;
   currentPartId: string | null;
   onPreview: (url: string) => void;
+  /** Called when the user clicks the thumbnail or filename to open the 3D viewer */
+  onOpenViewer?: (file: OrderFileData) => void;
 }
 
 export function FileListItem({
@@ -57,6 +58,7 @@ export function FileListItem({
   moveTargets,
   currentPartId,
   onPreview,
+  onOpenViewer,
 }: FileListItemProps) {
   const fileUrl = `/api/files/${orderId}/${file.filename}`;
 
@@ -64,7 +66,17 @@ export function FileListItem({
     <div className={cn("space-y-2", !isCurrent && "ml-4 mt-2")}>
       <div className="flex items-center gap-2 text-sm">
         <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
-        <span className="flex-1 truncate font-medium">{file.originalName}</span>
+        {is3DModel(file.filename) && onOpenViewer ? (
+          <button
+            type="button"
+            onClick={() => onOpenViewer(file)}
+            className="flex-1 truncate font-medium text-left hover:underline cursor-pointer"
+          >
+            {file.originalName}
+          </button>
+        ) : (
+          <span className="flex-1 truncate font-medium">{file.originalName}</span>
+        )}
         {isCurrent && (
           <span className="text-[10px] font-semibold px-1.5 py-0.5 rounded bg-primary/15 text-primary uppercase tracking-wide shrink-0">
             Aktuell
@@ -165,8 +177,16 @@ export function FileListItem({
           </div>
         </div>
       )}
-      {is3DModel(file.filename) && (
-        <ModelViewer url={fileUrl} filename={file.filename} />
+      {is3DModel(file.filename) && onOpenViewer && (
+        <div className="ml-6 border-l-2 border-muted pl-3 w-40">
+          <ModelThumbnail
+            url={fileUrl}
+            filename={file.filename}
+            noteCount={(file.notes ?? []).length}
+            onClick={() => onOpenViewer(file)}
+            className="h-20"
+          />
+        </div>
       )}
     </div>
   );

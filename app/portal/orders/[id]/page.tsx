@@ -19,7 +19,25 @@ export default async function PortalOrderDetailPage({ params }: PageProps) {
     where: { id },
     include: {
       phase: true,
-      files: true,
+      files: {
+        include: {
+          notes: {
+            select: {
+              id: true,
+              posX: true,
+              posY: true,
+              posZ: true,
+              normalX: true,
+              normalY: true,
+              normalZ: true,
+              body: true,
+              resolvedAt: true,
+              createdAt: true,
+            },
+            orderBy: { createdAt: "asc" },
+          },
+        },
+      },
       auditLogs: { orderBy: { createdAt: "desc" } },
       verificationRequests: { orderBy: { sentAt: "desc" } },
       surveyResponse: true,
@@ -37,7 +55,17 @@ export default async function PortalOrderDetailPage({ params }: PageProps) {
     updatedAt: order.updatedAt.toISOString(),
     archivedAt: order.archivedAt?.toISOString() ?? null,
     deadline: order.deadline?.toISOString() ?? null,
-    files: order.files.map((f) => ({ ...f, createdAt: f.createdAt.toISOString() })),
+    files: order.files.map((f) => ({
+      ...f,
+      createdAt: f.createdAt.toISOString(),
+      notes: order.isPrototype
+        ? []
+        : f.notes.map((n) => ({
+            ...n,
+            resolvedAt: n.resolvedAt?.toISOString() ?? null,
+            createdAt: n.createdAt.toISOString(),
+          })),
+    })),
     auditLogs: order.auditLogs.map((l) => ({ ...l, createdAt: l.createdAt.toISOString() })),
     verificationRequests: order.verificationRequests.map((vr) => ({
       token: vr.token,
