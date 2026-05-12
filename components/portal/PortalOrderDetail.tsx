@@ -15,14 +15,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { is3DModel, formatFileSize } from "@/lib/utils";
 import { toast } from "sonner";
 
-const ModelViewer = dynamic(
-  () => import("@/components/ModelViewer").then((m) => m.ModelViewer),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="w-full h-64 rounded-lg bg-muted animate-pulse" />
-    ),
-  }
+const ModelThumbnail = dynamic(
+  () => import("@/components/ModelThumbnail").then((m) => m.ModelThumbnail),
+  { ssr: false, loading: () => <div className="w-full h-32 rounded-lg bg-muted animate-pulse" /> }
+);
+const ModelViewerDialog = dynamic(
+  () => import("@/components/ModelViewerDialog").then((m) => m.ModelViewerDialog),
+  { ssr: false }
 );
 
 interface Phase {
@@ -40,6 +39,18 @@ interface OrderFile {
   source: string;
   category: "REFERENCE" | "DESIGN" | "RESULT" | "OTHER";
   createdAt: string;
+  notes: Array<{
+    id: string;
+    posX: number;
+    posY: number;
+    posZ: number;
+    normalX: number;
+    normalY: number;
+    normalZ: number;
+    body: string;
+    resolvedAt: string | null;
+    createdAt: string;
+  }>;
 }
 
 interface AuditLog {
@@ -93,6 +104,7 @@ export function PortalOrderDetail({ order }: { order: Order }) {
   const [rejectReason, setRejectReason] = useState("");
   const [verificationRequests, setVerificationRequests] = useState(order.verificationRequests);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [openModelFileId, setOpenModelFileId] = useState<string | null>(null);
 
   const pendingVerifications = verificationRequests.filter((vr) => vr.status === "PENDING");
 
@@ -226,7 +238,17 @@ export function PortalOrderDetail({ order }: { order: Order }) {
                           ) : (
                             <FileText className="h-4 w-4 text-muted-foreground shrink-0" />
                           )}
-                          <span className="flex-1 truncate">{file.originalName}</span>
+                          {is3DModel(file.filename) ? (
+                            <button
+                              type="button"
+                              onClick={() => setOpenModelFileId(file.id)}
+                              className="flex-1 truncate text-left hover:underline cursor-pointer text-sm"
+                            >
+                              {file.originalName}
+                            </button>
+                          ) : (
+                            <span className="flex-1 truncate">{file.originalName}</span>
+                          )}
                           {file.source === "TEAM" ? (
                             <Badge variant="secondary" className="text-xs shrink-0">Team</Badge>
                           ) : (
@@ -258,10 +280,26 @@ export function PortalOrderDetail({ order }: { order: Order }) {
                           </div>
                         )}
                         {is3DModel(file.filename) && (
-                          <ModelViewer
-                            url={`/api/files/${order.id}/${file.filename}`}
-                            filename={file.filename}
-                          />
+                          <>
+                            <div className="ml-6 border-l-2 border-muted pl-3 w-40">
+                            <ModelThumbnail
+                              url={`/api/files/${order.id}/${file.filename}`}
+                              filename={file.filename}
+                              noteCount={file.notes.length}
+                              onClick={() => setOpenModelFileId(file.id)}
+                              className="h-20"
+                            />
+                            </div>
+                            <ModelViewerDialog
+                              open={openModelFileId === file.id}
+                              onOpenChange={(open) => { if (!open) setOpenModelFileId(null); }}
+                              fileId={file.id}
+                              fileUrl={`/api/files/${order.id}/${file.filename}`}
+                              filename={file.originalName}
+                              mode="customer"
+                              initialNotes={file.notes}
+                            />
+                          </>
                         )}
                       </div>
                     ))}

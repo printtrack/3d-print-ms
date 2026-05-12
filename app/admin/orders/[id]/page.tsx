@@ -18,7 +18,14 @@ async function getData(id: string) {
         phase: true,
         project: { select: { id: true, name: true } },
         assignees: { include: { user: { select: { id: true, name: true, email: true } } } },
-        files: true,
+        files: {
+          include: {
+            notes: {
+              include: { author: { select: { id: true, name: true } } },
+              orderBy: { createdAt: "asc" },
+            },
+          },
+        },
         comments: {
           include: {
             author: { select: { id: true, name: true, email: true } },
@@ -52,7 +59,14 @@ async function getData(id: string) {
           select: { id: true, name: true, material: true, color: true, colorHex: true, brand: true },
         },
         partPhase: { select: { id: true, name: true, color: true, isPrintReady: true, isReview: true, isPrinted: true, isMisprint: true } },
-        files: true,
+        files: {
+          include: {
+            notes: {
+              include: { author: { select: { id: true, name: true } } },
+              orderBy: { createdAt: "asc" },
+            },
+          },
+        },
         printJobParts: {
           include: { printJob: { select: { id: true, status: true, machine: { select: { name: true } } } } },
         },
@@ -106,6 +120,12 @@ async function getData(id: string) {
     files: order.files.map((f) => ({
       ...f,
       createdAt: f.createdAt.toISOString(),
+      notes: f.notes.map((n) => ({
+        ...n,
+        createdAt: n.createdAt.toISOString(),
+        updatedAt: n.updatedAt.toISOString(),
+        resolvedAt: n.resolvedAt?.toISOString() ?? null,
+      })),
     })),
     comments: order.comments.map((c) => ({
       ...c,
@@ -143,6 +163,12 @@ async function getData(id: string) {
     files: p.files.map((f) => ({
       ...f,
       createdAt: f.createdAt.toISOString(),
+      notes: f.notes.map((n) => ({
+        ...n,
+        createdAt: n.createdAt.toISOString(),
+        updatedAt: n.updatedAt.toISOString(),
+        resolvedAt: n.resolvedAt?.toISOString() ?? null,
+      })),
     })),
     printJobParts: p.printJobParts.map((pjp) => ({
       printJobId: pjp.printJobId,

@@ -122,6 +122,7 @@ interface OrderDetailProps {
       category: "REFERENCE" | "DESIGN" | "RESULT" | "OTHER";
       orderPartId: string | null;
       createdAt: string;
+      notes: import("@/components/admin/files/types").NoteData[];
     }>;
     comments: Array<{
       id: string;

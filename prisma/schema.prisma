@@ -66,6 +66,7 @@ model User {
   partAssignees    OrderPartAssignee[]
   taskAssignees    MilestoneTaskAssignee[]
   jobAssignees     PrintJobAssignee[]
+  fileNotes        OrderFileNote[]
 }
 
 model ProjectPhase {
@@ -288,6 +289,28 @@ model OrderFile {
   source       FileSource   @default(CUSTOMER)
   category     FileCategory @default(DESIGN)
   createdAt    DateTime     @default(now())
+  notes        OrderFileNote[]
+}
+
+model OrderFileNote {
+  id                String    @id @default(cuid())
+  orderFile         OrderFile @relation(fields: [orderFileId], references: [id], onDelete: Cascade)
+  orderFileId       String
+  posX              Float
+  posY              Float
+  posZ              Float
+  normalX           Float
+  normalY           Float
+  normalZ           Float
+  body              String    @db.Text
+  isCustomerVisible Boolean   @default(true)
+  resolvedAt        DateTime?
+  author            User?     @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  authorId          String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([orderFileId])
 }
 
 model OrderComment {

@@ -21,6 +21,7 @@ export async function GET(
         phase: {
           select: { name: true, color: true },
         },
+        isPrototype: true,
         files: {
           select: {
             id: true,
@@ -32,6 +33,21 @@ export async function GET(
             category: true,
             orderPartId: true,
             createdAt: true,
+            notes: {
+              select: {
+                id: true,
+                posX: true,
+                posY: true,
+                posZ: true,
+                normalX: true,
+                normalY: true,
+                normalZ: true,
+                body: true,
+                resolvedAt: true,
+                createdAt: true,
+              },
+              orderBy: { createdAt: "asc" },
+            },
           },
           orderBy: { createdAt: "asc" },
         },
@@ -87,6 +103,10 @@ export async function GET(
     const response = {
       ...order,
       priceEstimate: order.priceEstimate ? Number(order.priceEstimate) : null,
+      files: order.files.map((f) => ({
+        ...f,
+        notes: order.isPrototype ? [] : f.notes,
+      })),
       verificationRequests: order.verificationRequests.map((vr) => ({
         token: vr.token,
         status: vr.status,

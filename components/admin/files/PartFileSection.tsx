@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, type DragEvent } from "react";
+import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronRight, MoreHorizontal, Pencil, Printer, ShieldAlert, ShieldCheck, Trash2, Plus, Link2, X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -22,7 +23,12 @@ import { BulkFileActions } from "./BulkFileActions";
 import { CreateJobDialog } from "@/components/admin/CreateJobDialog";
 import { PartEditDialog } from "./PartEditDialog";
 import { PartLinkJobDialog } from "./PartLinkJobDialog";
-import { type OrderFileData, type FileCategory } from "./types";
+import { type OrderFileData, type FileCategory, type NoteData } from "./types";
+
+const ModelViewerDialog = dynamic(
+  () => import("@/components/ModelViewerDialog").then((m) => m.ModelViewerDialog),
+  { ssr: false }
+);
 import { AssigneePicker, type AssigneeUser } from "@/components/admin/AssigneePicker";
 
 export interface OrderPartData {
@@ -56,6 +62,7 @@ export interface OrderPartData {
     category: string;
     orderPartId: string | null;
     createdAt: string;
+    notes: import("@/components/admin/files/types").NoteData[];
   }>;
   printJobParts: Array<{
     printJobId: string;
@@ -254,6 +261,9 @@ export function PartFileSection({
 
   // Past designs collapsible
   const [pastDesignsOpen, setPastDesignsOpen] = useState(false);
+  const [viewerFile, setViewerFile] = useState<OrderFileData | null>(null);
+  // Tracks note updates per file ID so they survive dialog close/reopen
+  const [noteUpdates, setNoteUpdates] = useState<Map<string, NoteData[]>>(new Map());
 
   // Parts: DESIGN category uses a "current + history" layout instead of grouped list
   const isDesignForPart = activeCategory === "DESIGN" && !!partData;
@@ -837,7 +847,7 @@ export function PartFileSection({
             )}
 
             {/* File list — Design gets a special "current + history" layout for parts */}
-            <div>
+            <div onClick={(e) => e.stopPropagation()}>
               {isDesignForPart ? (
                 filteredFiles.length > 0 ? (
                   <div className="space-y-3">
@@ -854,6 +864,7 @@ export function PartFileSection({
                       moveTargets={moveTargets}
                       currentPartId={partData?.part.id ?? null}
                       onPreview={onPreview}
+                      onOpenViewer={setViewerFile}
                     />
 
                     {/* Past designs */}
@@ -887,6 +898,7 @@ export function PartFileSection({
                                 moveTargets={moveTargets}
                                 currentPartId={partData?.part.id ?? null}
                                 onPreview={onPreview}
+                                onOpenViewer={setViewerFile}
                               />
                             ))}
                           </div>
@@ -922,6 +934,7 @@ export function PartFileSection({
                         moveTargets={moveTargets}
                         currentPartId={partData?.part.id ?? null}
                         onPreview={onPreview}
+                        onOpenViewer={setViewerFile}
                       />
                     );
                   })}
@@ -971,6 +984,22 @@ export function PartFileSection({
             }}
           />
         </>
+      )}
+      {/* 3D viewer dialog — rendered at PartFileSection level so it survives any part re-render */}
+      {viewerFile && (
+        <ModelViewerDialog
+          open={true}
+          onOpenChange={(open) => { if (!open) setViewerFile(null); }}
+          fileId={viewerFile.id}
+          fileUrl={`/api/files/${orderId}/${viewerFile.filename}`}
+          filename={viewerFile.originalName}
+          mode="admin"
+          initialNotes={noteUpdates.get(viewerFile.id) ?? viewerFile.notes ?? []}
+          onNotesChange={(updatedNotes) => {
+            setViewerFile((f) => f ? { ...f, notes: updatedNotes } : null);
+            setNoteUpdates((prev) => new Map(prev).set(viewerFile.id, updatedNotes));
+          }}
+        />
       )}
     </>
   );

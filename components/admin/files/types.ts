@@ -1,6 +1,22 @@
 export type FileCategory = "REFERENCE" | "DESIGN" | "RESULT" | "OTHER";
 export type FileSource = "CUSTOMER" | "TEAM";
 
+export interface NoteData {
+  id: string;
+  posX: number;
+  posY: number;
+  posZ: number;
+  normalX: number;
+  normalY: number;
+  normalZ: number;
+  body: string;
+  isCustomerVisible: boolean;
+  resolvedAt: string | null;
+  author: { id: string; name: string } | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface OrderFileData {
   id: string;
   filename: string;
@@ -11,6 +27,7 @@ export interface OrderFileData {
   category: FileCategory;
   orderPartId: string | null;
   createdAt: string;
+  notes: NoteData[];
 }
 
 export const CATEGORY_LABELS: Record<FileCategory, string> = {

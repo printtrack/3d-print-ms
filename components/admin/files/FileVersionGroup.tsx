@@ -19,6 +19,7 @@ interface FileVersionGroupProps {
   moveTargets: Array<{ id: string; name: string }>;
   currentPartId: string | null;
   onPreview: (url: string) => void;
+  onOpenViewer?: (file: OrderFileData) => void;
 }
 
 export function FileVersionGroup({
@@ -35,6 +36,7 @@ export function FileVersionGroup({
   moveTargets,
   currentPartId,
   onPreview,
+  onOpenViewer,
 }: FileVersionGroupProps) {
   const current = files[0];
   const older = files.slice(1);
@@ -60,6 +62,7 @@ export function FileVersionGroup({
         moveTargets={moveTargets}
         currentPartId={currentPartId}
         onPreview={onPreview}
+        onOpenViewer={onOpenViewer}
       />
       {older.length > 0 && (
         <>
@@ -91,6 +94,7 @@ export function FileVersionGroup({
                   moveTargets={moveTargets}
                   currentPartId={currentPartId}
                   onPreview={onPreview}
+                  onOpenViewer={onOpenViewer}
                 />
               ))}
             </div>
