@@ -17,13 +17,16 @@ export default async function CustomersPage() {
       name: true,
       email: true,
       creditBalance: true,
+      emailVerifiedAt: true,
       createdAt: true,
+      _count: { select: { orders: true } },
     },
     orderBy: { name: "asc" },
   });
 
   const serialized = customers.map((c) => ({
     ...c,
+    emailVerifiedAt: c.emailVerifiedAt?.toISOString() ?? null,
     createdAt: c.createdAt.toISOString(),
   }));
 
