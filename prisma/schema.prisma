@@ -107,6 +107,8 @@ model Order {
   trackingToken  String           @unique @default(cuid())
   customerName   String
   customerEmail  String
+  customerId     String?
+  customer       Customer?        @relation(fields: [customerId], references: [id], onDelete: SetNull)
   description    String           @db.Text
   phase          OrderPhase       @relation(fields: [phaseId], references: [id])
   phaseId        String
@@ -131,6 +133,8 @@ model Order {
   surveyResponse        SurveyResponse?
   verificationRequests  VerificationRequest[]
   milestones            Milestone[]
+
+  @@index([customerId])
 }
 
 model Filament {
@@ -466,14 +470,27 @@ model PasswordResetToken {
 }
 
 model Customer {
-  id            String           @id @default(cuid())
-  email         String           @unique
-  name          String
-  password      String
-  creditBalance Int              @default(0)
-  createdAt     DateTime         @default(now())
-  updatedAt     DateTime         @updatedAt
-  credits       FilamentCredit[]
+  id                 String                          @id @default(cuid())
+  email              String                          @unique
+  name               String
+  password           String
+  creditBalance      Int                             @default(0)
+  emailVerifiedAt    DateTime?
+  createdAt          DateTime                        @default(now())
+  updatedAt          DateTime                        @updatedAt
+  credits            FilamentCredit[]
+  orders             Order[]
+  verificationTokens CustomerEmailVerificationToken[]
+}
+
+model CustomerEmailVerificationToken {
+  token      String   @id @default(cuid())
+  customerId String
+  expires    DateTime
+  createdAt  DateTime @default(now())
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
 }
 
 model FilamentCredit {

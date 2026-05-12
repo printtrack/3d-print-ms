@@ -389,6 +389,55 @@ export async function sendCustomerPasswordResetEmail({
   });
 }
 
+export async function sendCustomerVerificationEmail({
+  email,
+  name,
+  verificationUrl,
+}: {
+  email: string;
+  name: string;
+  verificationUrl: string;
+}) {
+  const settings = await getSettings();
+  const companyName = settings.company_name ?? "3D Print CMS";
+  const signature = settings.company_signature ?? "Ihr 3D-Druck-Team";
+  const contactEmail = settings.contact_email ?? "noreply@3dprinting.local";
+
+  const vars = { name, verificationUrl, companyName };
+  const subject = renderTemplate(
+    settings.email_customer_verify_subject ?? "{{companyName}}: Konto bestätigen",
+    vars
+  );
+  const bodyText = renderTemplate(
+    settings.email_customer_verify_body ??
+      "Hallo {{name}},\n\nbitte bestätigen Sie Ihre E-Mail-Adresse, um Ihr Konto zu aktivieren.\nDieser Link ist 24 Stunden gültig.",
+    vars
+  );
+
+  const bodyHtml = `
+    <p>Hallo ${escapeHtml(name)},</p>
+    ${bodyText
+      .split("\n")
+      .map((line) => `<p>${escapeHtml(line)}</p>`)
+      .join("")}
+    <p><a href="${verificationUrl}" style="color:#6366f1;font-weight:bold">E-Mail-Adresse bestätigen</a></p>`;
+
+  await sendMail({
+    from: `${companyName} <${contactEmail}>`,
+    to: email,
+    subject,
+    text: [
+      bodyText,
+      "",
+      `E-Mail bestätigen: ${verificationUrl}`,
+      "",
+      "Mit freundlichen Grüßen",
+      signature,
+    ].join("\n"),
+    html: buildHtml(companyName, bodyHtml, signature),
+  });
+}
+
 function escapeHtml(str: string) {
   return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }

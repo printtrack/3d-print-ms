@@ -12,7 +12,7 @@ export default auth(async (req) => {
   }
 
   // --- Portal guard ---
-  const portalPublic = ["/portal/signin", "/portal/register"];
+  const portalPublic = ["/portal/signin", "/portal/register", "/portal/verify-error"];
   const isPortalPublicPath =
     portalPublic.includes(req.nextUrl.pathname) ||
     req.nextUrl.pathname.startsWith("/portal/reset-password");

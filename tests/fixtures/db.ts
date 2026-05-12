@@ -25,7 +25,7 @@ export async function resetDb() {
     "ProjectAuditLog", "ProjectAssignee", "Project", "ProjectPhase",
     "KnowledgeEntry", "KnowledgeFile",
     "Session", "Account", "PasswordResetToken",
-    "FilamentCredit", "Customer", "User", "VerificationToken",
+    "CustomerEmailVerificationToken", "FilamentCredit", "Customer", "User", "VerificationToken",
   ]) {
     await prismaTest.$executeRawUnsafe(`TRUNCATE TABLE \`${table}\``);
   }
@@ -71,6 +71,7 @@ export async function createTestCustomer(
     name: string;
     email: string;
     password: string;
+    emailVerifiedAt: Date | null;
   }> = {}
 ) {
   const password = overrides.password ?? "password123";
@@ -80,7 +81,18 @@ export async function createTestCustomer(
       name: overrides.name ?? "Test Kunde",
       email: overrides.email ?? "kunde@example.com",
       password: hashedPassword,
+      emailVerifiedAt: overrides.emailVerifiedAt === undefined ? new Date() : overrides.emailVerifiedAt,
     },
+  });
+}
+
+export async function createTestCustomerVerificationToken(
+  customerId: string,
+  overrides: Partial<{ expires: Date }> = {}
+) {
+  const expires = overrides.expires ?? new Date(Date.now() + 24 * 60 * 60 * 1000);
+  return prismaTest.customerEmailVerificationToken.create({
+    data: { customerId, expires },
   });
 }
 
@@ -247,6 +259,7 @@ export async function createTestOrder(
     generalProject: boolean;
     estimatedCompletionAt: Date;
     projectId: string;
+    customerId: string;
   }> = {}
 ) {
   return prismaTest.order.create({
@@ -262,6 +275,7 @@ export async function createTestOrder(
       generalProject: overrides.generalProject ?? false,
       estimatedCompletionAt: overrides.estimatedCompletionAt,
       projectId: overrides.projectId,
+      customerId: overrides.customerId,
     },
   });
 }

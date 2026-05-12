@@ -4,6 +4,7 @@ import { z } from "zod";
 import { sendOrderConfirmationEmail } from "@/lib/email";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { getSetting } from "@/lib/settings";
+import { getCustomerSession } from "@/lib/customer-auth";
 
 const orderSchema = z.object({
   customerName: z.string().min(1).max(100),
@@ -38,6 +39,26 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Customer session: attach FK and check verification
+    let customerId: string | undefined;
+    const customerSession = await getCustomerSession(req);
+    if (customerSession) {
+      const customer = await prisma.customer.findUnique({
+        where: { id: customerSession.id },
+        select: { id: true, emailVerifiedAt: true },
+      });
+      if (customer) {
+        const mode = (await getSetting("customer_verification_mode")) ?? "off";
+        if (mode !== "off" && !customer.emailVerifiedAt) {
+          return NextResponse.json(
+            { error: "Dein Konto wurde noch nicht freigeschalten. Bitte warte auf die Bestätigung, bevor du eine Bestellung aufgibst." },
+            { status: 403 }
+          );
+        }
+        customerId = customer.id;
+      }
+    }
+
     // Find the default phase
     const defaultPhase = await prisma.orderPhase.findFirst({
       where: { isDefault: true },
@@ -65,6 +86,7 @@ export async function POST(req: NextRequest) {
         description: data.description,
         phaseId: phase!.id,
         ...(data.deadline ? { deadline: new Date(data.deadline) } : {}),
+        ...(customerId ? { customerId } : {}),
       },
     });
 

@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Plus, Trash2, Building2, Scale, Mail, MessageSquare, Layers, LayoutList, FolderKanban, Users, Printer } from "lucide-react";
 import { PhaseManager } from "@/components/admin/PhaseManager";
 import { TeamManager } from "@/components/admin/TeamManager";
@@ -262,6 +263,33 @@ export function SettingsForm({
                   disabled={settings.access_code_enabled !== "true"}
                 />
               </div>
+
+              <Separator />
+
+              <div className="space-y-2">
+                <Label htmlFor="customer_verification_mode">Verifikation neu registrierter Kunden</Label>
+                <p className="text-xs text-muted-foreground">
+                  Legt fest, wie selbstregistrierte Kunden freigeschaltet werden, bevor sie Bestellungen aufgeben können.
+                </p>
+                <Select
+                  value={settings.customer_verification_mode ?? "off"}
+                  onValueChange={(v) => set("customer_verification_mode", v)}
+                >
+                  <SelectTrigger id="customer_verification_mode">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="off">Keine Verifikation – Kunden sind sofort bestellberechtigt</SelectItem>
+                    <SelectItem value="admin">Manuell durch Admin – Kunden unter „Kunden" freischalten</SelectItem>
+                    <SelectItem value="email">Per E-Mail-Bestätigung – Kunden erhalten einen Bestätigungs-Link</SelectItem>
+                  </SelectContent>
+                </Select>
+                {(settings.customer_verification_mode === "email") && (
+                  <p className="text-xs text-amber-600">
+                    Bitte E-Mail-Vorlage unter dem Tab „E-Mails" konfigurieren (Schlüssel: Kundenverifikation).
+                  </p>
+                )}
+              </div>
             </CardContent>
           </Card>
         )}
@@ -411,6 +439,36 @@ export function SettingsForm({
                     rows={5}
                     value={settings.email_reset_body ?? ""}
                     onChange={(e) => set("email_reset_body", e.target.value)}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">E-Mail: Kundenverifikation</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-xs text-muted-foreground">
+                  Wird versendet, wenn Verifikationsmodus „Per E-Mail-Bestätigung" aktiv ist. Verfügbare Variablen: <code className="font-mono">{"{{name}}"}</code>, <code className="font-mono">{"{{verificationUrl}}"}</code>, <code className="font-mono">{"{{companyName}}"}</code>.
+                </p>
+                <div className="space-y-2">
+                  <Label htmlFor="email_customer_verify_subject">Betreff</Label>
+                  <Input
+                    id="email_customer_verify_subject"
+                    value={settings.email_customer_verify_subject ?? ""}
+                    onChange={(e) => set("email_customer_verify_subject", e.target.value)}
+                    placeholder="{{companyName}}: Konto bestätigen"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email_customer_verify_body">Inhalt</Label>
+                  <Textarea
+                    id="email_customer_verify_body"
+                    rows={5}
+                    value={settings.email_customer_verify_body ?? ""}
+                    onChange={(e) => set("email_customer_verify_body", e.target.value)}
+                    placeholder={"Hallo {{name}},\n\nbitte bestätigen Sie Ihre E-Mail-Adresse, um Ihr Konto zu aktivieren.\nDieser Link ist 24 Stunden gültig."}
                   />
                 </div>
               </CardContent>
