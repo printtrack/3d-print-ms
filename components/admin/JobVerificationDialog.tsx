@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { CheckCircle2, Loader2, XCircle } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import type { PrintJob } from "./JobCard";
 
@@ -66,6 +67,8 @@ export function JobVerificationDialog({
   onOpenChange,
   onVerified,
 }: JobVerificationDialogProps) {
+  const t = useTranslations("admin");
+  const tc = useTranslations("common");
   const [parts, setParts] = useState<PartWithFiles[]>([]);
   const [loading, setLoading] = useState(true);
   const [results, setResults] = useState<Record<string, VerificationResult>>({});
@@ -80,7 +83,7 @@ export function JobVerificationDialog({
       .then((data) => {
         setParts(data.parts ?? []);
       })
-      .catch(() => toast.error("Fehler beim Laden der Teile"))
+      .catch(() => toast.error(t("verify_dialog_load_failed")))
       .finally(() => setLoading(false));
   }, [open, job.id]);
 
@@ -101,7 +104,7 @@ export function JobVerificationDialog({
         const err = await res.json().catch(() => ({}));
         throw new Error(err.error ?? "Fehler");
       }
-      toast.success("Verifikation abgeschlossen");
+      toast.success(t("verify_dialog_done"));
       // Construct a minimal updated job to remove it from the board
       onVerified({ ...job, status: "DONE" });
     } catch (e) {
@@ -119,7 +122,7 @@ export function JobVerificationDialog({
       <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            Druck verifizieren
+            {t("verify_dialog_title")}
             {job.shortCode && (
               <span className="text-xs px-1.5 py-0.5 rounded font-mono bg-muted text-muted-foreground border">
                 {job.shortCode}
@@ -127,7 +130,7 @@ export function JobVerificationDialog({
             )}
           </DialogTitle>
           <p className="text-sm text-muted-foreground">
-            Prüfe jedes Teil vom Druckbett und markiere es als erfolgreich oder als Fehldruck.
+            {t("verify_dialog_desc")}
           </p>
         </DialogHeader>
 
@@ -137,7 +140,7 @@ export function JobVerificationDialog({
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : parts.length === 0 ? (
-            <p className="text-sm text-muted-foreground text-center py-8">Keine Teile in diesem Job.</p>
+            <p className="text-sm text-muted-foreground text-center py-8">{t("verify_dialog_no_parts")}</p>
           ) : (
             parts.map((jp) => {
               const part = jp.orderPart;
@@ -182,7 +185,7 @@ export function JobVerificationDialog({
                         }
                       >
                         <CheckCircle2 className="h-3.5 w-3.5" />
-                        Erfolgreich
+                        {t("verify_dialog_success")}
                       </Button>
                       <Button
                         size="sm"
@@ -196,7 +199,7 @@ export function JobVerificationDialog({
                         }
                       >
                         <XCircle className="h-3.5 w-3.5" />
-                        Fehldruck
+                        {t("verify_dialog_misprint")}
                       </Button>
                     </div>
                   </div>
@@ -227,14 +230,14 @@ export function JobVerificationDialog({
         <DialogFooter className="flex-row items-center gap-3 pt-2 border-t">
           <div className="mr-auto text-sm text-muted-foreground">
             {successCount > 0 && (
-              <span className="text-green-700 mr-3">✓ {successCount} erfolgreich</span>
+              <span className="text-green-700 mr-3">✓ {successCount} {t("verify_dialog_summary_ok")}</span>
             )}
             {misprintCount > 0 && (
-              <span className="text-red-700">{misprintCount} Fehldrucke</span>
+              <span className="text-red-700">{misprintCount} {t("verify_dialog_summary_failed")}</span>
             )}
           </div>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
-            Abbrechen
+            {tc("cancel")}
           </Button>
           <Button
             disabled={!allDecided || submitting}
@@ -243,7 +246,7 @@ export function JobVerificationDialog({
             {submitting ? (
               <Loader2 className="h-4 w-4 mr-2 animate-spin" />
             ) : null}
-            Verifikation abschließen
+            {t("verify_dialog_complete")}
           </Button>
         </DialogFooter>
       </DialogContent>

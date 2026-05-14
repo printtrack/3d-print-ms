@@ -25,6 +25,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import { formatDate, formatDateTime } from "@/lib/utils";
 import { Wallet, Plus, Minus, CheckCircle2, Clock, Pencil, Trash2, UserPlus, ShieldCheck } from "lucide-react";
 
@@ -77,6 +78,8 @@ function CreditDialog({
   onClose: () => void;
   onBalanceUpdated: (id: string, newBalance: number) => void;
 }) {
+  const t = useTranslations("admin");
+  const tc = useTranslations("common");
   const [history, setHistory] = useState<CreditEntry[] | null>(null);
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
@@ -107,8 +110,8 @@ function CreditDialog({
 
   async function handleSubmit() {
     const grams = parseInt(amount, 10);
-    if (!grams || grams <= 0) { toast.error("Bitte eine gültige Grammzahl eingeben"); return; }
-    if (!reason.trim()) { toast.error("Bitte einen Grund angeben"); return; }
+    if (!grams || grams <= 0) { toast.error(t("customer_credit_grams_invalid")); return; }
+    if (!reason.trim()) { toast.error(t("customer_credit_reason_required")); return; }
 
     const finalAmount = mode === "deduct" ? -grams : grams;
     setSaving(true);
@@ -126,9 +129,9 @@ function CreditDialog({
       if (history !== null) setHistory((prev) => (prev ? [credit, ...prev] : [credit]));
       setAmount("");
       setReason("");
-      toast.success("Guthaben gebucht");
+      toast.success(t("customer_credit_booked"));
     } catch {
-      toast.error("Fehler beim Buchen");
+      toast.error(t("customer_credit_book_failed"));
     } finally {
       setSaving(false);
     }
@@ -171,7 +174,7 @@ function CreditDialog({
           <Separator />
           <div>
             <button className="text-sm text-primary hover:underline" onClick={toggleHistory}>
-              {showHistory ? "Verlauf ausblenden" : "Verlauf anzeigen"}
+              {showHistory ? t("customer_hide_history") : t("customer_show_history")}
             </button>
             {showHistory && (
               <div className="mt-3 space-y-1 max-h-48 overflow-y-auto">
@@ -195,7 +198,7 @@ function CreditDialog({
 
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Schließen</Button>
-          <Button onClick={handleSubmit} disabled={saving}>{saving ? "Buchen..." : "Buchen"}</Button>
+          <Button onClick={handleSubmit} disabled={saving}>{saving ? "Buchen..." : t("customer_credit_submit")}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -209,6 +212,8 @@ function CreateDialog({
   onClose: () => void;
   onCreated: (customer: CustomerRow) => void;
 }) {
+  const t = useTranslations("admin");
+  const tc = useTranslations("common");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -216,7 +221,7 @@ function CreateDialog({
 
   async function handleSubmit() {
     if (!name.trim() || !email.trim() || password.length < 6) {
-      toast.error("Bitte alle Pflichtfelder ausfüllen (Passwort min. 6 Zeichen)");
+      toast.error(t("customer_all_required"));
       return;
     }
     setSaving(true);
@@ -229,10 +234,10 @@ function CreateDialog({
       const data = await res.json();
       if (!res.ok) { toast.error(data.error ?? "Fehler"); return; }
       onCreated(data);
-      toast.success("Kunde angelegt");
+      toast.success(t("customer_created"));
       onClose();
     } catch {
-      toast.error("Fehler beim Anlegen");
+      toast.error(t("customer_create_failed"));
     } finally {
       setSaving(false);
     }
@@ -263,7 +268,7 @@ function CreateDialog({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Abbrechen</Button>
-          <Button onClick={handleSubmit} disabled={saving}>{saving ? "Anlegen..." : "Anlegen"}</Button>
+          <Button onClick={handleSubmit} disabled={saving}>{saving ? "Anlegen..." : t("customer_create_cta")}</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
@@ -279,6 +284,8 @@ function EditDialog({
   onClose: () => void;
   onUpdated: (updated: Partial<CustomerRow> & { id: string }) => void;
 }) {
+  const t = useTranslations("admin");
+  const tc = useTranslations("common");
   const [name, setName] = useState(customer.name);
   const [email, setEmail] = useState(customer.email);
   const [password, setPassword] = useState("");
@@ -286,7 +293,7 @@ function EditDialog({
 
   async function handleSubmit() {
     if (!name.trim() || !email.trim()) { toast.error("Name und E-Mail sind Pflicht"); return; }
-    if (password && password.length < 6) { toast.error("Passwort muss mindestens 6 Zeichen haben"); return; }
+    if (password && password.length < 6) { toast.error(t("customer_password_min")); return; }
     setSaving(true);
     try {
       const body: Record<string, string> = { name: name.trim(), email: email.trim() };
@@ -299,10 +306,10 @@ function EditDialog({
       const data = await res.json();
       if (!res.ok) { toast.error(data.error ?? "Fehler"); return; }
       onUpdated(data);
-      toast.success("Gespeichert");
+      toast.success(t("customer_saved"));
       onClose();
     } catch {
-      toast.error("Fehler beim Speichern");
+      toast.error(t("customer_save_failed"));
     } finally {
       setSaving(false);
     }
@@ -328,7 +335,7 @@ function EditDialog({
           </div>
           <div className="space-y-2">
             <Label htmlFor="edit-password">Neues Passwort (leer lassen = unverändert)</Label>
-            <Input id="edit-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Neues Passwort..." />
+            <Input id="edit-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder={t("customer_new_password_placeholder")} />
           </div>
         </div>
         <DialogFooter>
@@ -341,6 +348,8 @@ function EditDialog({
 }
 
 export function CustomerManager({ initialCustomers }: { initialCustomers: CustomerRow[] }) {
+  const t = useTranslations("admin");
+  const tc = useTranslations("common");
   const [customers, setCustomers] = useState(initialCustomers);
   const [activeCredit, setActiveCredit] = useState<CustomerRow | null>(null);
   const [showCreate, setShowCreate] = useState(false);
@@ -379,9 +388,9 @@ export function CustomerManager({ initialCustomers }: { initialCustomers: Custom
       const res = await fetch(`/api/admin/customers/${deleteTarget.id}`, { method: "DELETE" });
       if (!res.ok) { toast.error((await res.json()).error ?? "Fehler"); return; }
       setCustomers((prev) => prev.filter((c) => c.id !== deleteTarget.id));
-      toast.success("Kunde gelöscht");
+      toast.success(t("customer_deleted"));
     } catch {
-      toast.error("Fehler beim Löschen");
+      toast.error(t("customer_delete_failed"));
     } finally {
       setDeleteTarget(null);
     }
@@ -427,7 +436,7 @@ export function CustomerManager({ initialCustomers }: { initialCustomers: Custom
                     disabled={verifying === customer.id}
                   >
                     <ShieldCheck className="h-3.5 w-3.5 mr-1.5" />
-                    {verifying === customer.id ? "..." : "Freischalten"}
+                    {verifying === customer.id ? "..." : t("customer_activate")}
                   </Button>
                 )}
 
@@ -436,7 +445,7 @@ export function CustomerManager({ initialCustomers }: { initialCustomers: Custom
                   Guthaben
                 </Button>
 
-                <Button variant="ghost" size="icon" className="h-8 w-8" aria-label="Bearbeiten" onClick={() => setEditCustomer(customer)}>
+                <Button variant="ghost" size="icon" className="h-8 w-8" aria-label={tc("edit")} onClick={() => setEditCustomer(customer)}>
                   <Pencil className="h-3.5 w-3.5" />
                 </Button>
 

@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { Upload, X, FileText, Image, CheckCircle2, Copy, ExternalLink, AlertTriangle, KeyRound } from "lucide-react";
 import { formatFileSize } from "@/lib/utils";
 import { CONTENT } from "@/app/content";
+import { useTranslations } from "next-intl";
 
 const ACCEPTED_TYPES = [
   "image/jpeg",
@@ -28,6 +29,8 @@ const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 
 export function OrderForm({ accessCodeEnabled = false }: { accessCodeEnabled?: boolean }) {
   const router = useRouter();
+  const t = useTranslations("order_form");
+  const tc = useTranslations("common");
   const [loading, setLoading] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const [formData, setFormData] = useState({
@@ -43,7 +46,7 @@ export function OrderForm({ accessCodeEnabled = false }: { accessCodeEnabled?: b
     const selected = Array.from(e.target.files ?? []);
     const valid = selected.filter((f) => {
       if (f.size > MAX_FILE_SIZE) {
-        toast.error(`${f.name} ist zu groß (max. 50MB)`);
+        toast.error(tc("file_too_large", { name: f.name }));
         return false;
       }
       return true;
@@ -63,7 +66,7 @@ export function OrderForm({ accessCodeEnabled = false }: { accessCodeEnabled?: b
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!formData.customerName || !formData.customerEmail || !formData.description) {
-      toast.error("Bitte alle Pflichtfelder ausfüllen");
+      toast.error(t("required_fields_error"));
       return;
     }
 
@@ -85,7 +88,7 @@ export function OrderForm({ accessCodeEnabled = false }: { accessCodeEnabled?: b
 
       if (!orderRes.ok) {
         const err = await orderRes.json();
-        throw new Error(err.error ?? "Auftrag konnte nicht erstellt werden");
+        throw new Error(err.error ?? t("create_error"));
       }
 
       const { orderId, trackingToken } = await orderRes.json();
@@ -102,13 +105,13 @@ export function OrderForm({ accessCodeEnabled = false }: { accessCodeEnabled?: b
         });
 
         if (!uploadRes.ok) {
-          toast.warning("Auftrag erstellt, aber Datei-Upload fehlgeschlagen");
+          toast.warning(t("upload_partial_error"));
         }
       }
 
       setSubmitted({ trackingToken });
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Unbekannter Fehler");
+      toast.error(err instanceof Error ? err.message : tc("unknown_error"));
     } finally {
       setLoading(false);
     }
@@ -121,7 +124,7 @@ export function OrderForm({ accessCodeEnabled = false }: { accessCodeEnabled?: b
 
     function handleCopy() {
       navigator.clipboard.writeText(trackingUrl).then(() => {
-        toast.success("Link kopiert!");
+        toast.success(t("copied_link"));
       });
     }
 
@@ -134,22 +137,21 @@ export function OrderForm({ accessCodeEnabled = false }: { accessCodeEnabled?: b
                 <CheckCircle2 className="h-10 w-10 text-green-600" />
               </div>
             </div>
-            <h2 className="text-xl font-bold mb-1">Auftrag erfolgreich eingereicht!</h2>
+            <h2 className="text-xl font-bold mb-1">{t("success_title")}</h2>
             <p className="text-muted-foreground text-sm">
-              Ihr Auftrag wurde registriert. Bitte speichern Sie den folgenden Tracking-Link.
+              {t("success_desc")}
             </p>
           </div>
 
           <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 mb-6 flex items-start gap-3">
             <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
             <p className="text-sm text-amber-800">
-              <strong>Wichtig:</strong> Speichern Sie diesen Link! Eine Bestätigungs-E-Mail
-              mit dem Link wurde an Ihre E-Mail-Adresse gesendet.
+              <strong>{t("success_important")}</strong> {t("success_save_link")}
             </p>
           </div>
 
           <div className="space-y-3">
-            <Label className="text-sm font-medium">Ihr Tracking-Link</Label>
+            <Label className="text-sm font-medium">{t("tracking_link_label")}</Label>
             <div className="flex gap-2">
               <div className="flex-1 px-3 py-2 bg-muted rounded-md text-sm font-mono break-all border">
                 {trackingUrl}
@@ -163,7 +165,7 @@ export function OrderForm({ accessCodeEnabled = false }: { accessCodeEnabled?: b
                 onClick={handleCopy}
               >
                 <Copy className="h-4 w-4 mr-2" />
-                Link kopieren
+                {t("copy_link")}
               </Button>
               <Button
                 type="button"
@@ -171,7 +173,7 @@ export function OrderForm({ accessCodeEnabled = false }: { accessCodeEnabled?: b
                 onClick={() => router.push(`/track/${submitted.trackingToken}`)}
               >
                 <ExternalLink className="h-4 w-4 mr-2" />
-                Zum Auftrag
+                {t("go_to_order")}
               </Button>
             </div>
             <a
@@ -179,7 +181,7 @@ export function OrderForm({ accessCodeEnabled = false }: { accessCodeEnabled?: b
               download="tracking-link.txt"
               className="block text-center text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
             >
-              Als Textdatei herunterladen
+              {t("download_txt")}
             </a>
           </div>
         </CardContent>
@@ -190,31 +192,30 @@ export function OrderForm({ accessCodeEnabled = false }: { accessCodeEnabled?: b
   return (
     <Card className="w-full max-w-2xl mx-auto">
       <CardHeader>
-        <CardTitle>3D-Druck Auftrag einreichen</CardTitle>
+        <CardTitle>{t("title")}</CardTitle>
         <CardDescription>
-          Beschreibe deinen Auftrag und lade Dateien oder Bilder hoch. Du erhältst einen
-          Tracking-Link zum Verfolgen deines Auftrags.
+          {t("subtitle")}
         </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="customerName">Name *</Label>
+              <Label htmlFor="customerName">{t("name_label")}</Label>
               <Input
                 id="customerName"
-                placeholder="Max Mustermann"
+                placeholder={t("name_placeholder")}
                 value={formData.customerName}
                 onChange={(e) => setFormData((p) => ({ ...p, customerName: e.target.value }))}
                 required
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="customerEmail">E-Mail *</Label>
+              <Label htmlFor="customerEmail">{t("email_label")}</Label>
               <Input
                 id="customerEmail"
                 type="email"
-                placeholder="max@example.com"
+                placeholder={t("email_placeholder")}
                 value={formData.customerEmail}
                 onChange={(e) => setFormData((p) => ({ ...p, customerEmail: e.target.value }))}
                 required
@@ -223,10 +224,10 @@ export function OrderForm({ accessCodeEnabled = false }: { accessCodeEnabled?: b
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="description">Beschreibung *</Label>
+            <Label htmlFor="description">{t("description_label")}</Label>
             <Textarea
               id="description"
-              placeholder="Beschreibe deinen 3D-Druck Auftrag: Material, Farbe, Größe, Verwendungszweck..."
+              placeholder={t("description_placeholder")}
               rows={5}
               value={formData.description}
               onChange={(e) => setFormData((p) => ({ ...p, description: e.target.value }))}
@@ -235,7 +236,7 @@ export function OrderForm({ accessCodeEnabled = false }: { accessCodeEnabled?: b
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="deadline">Wunschdatum (optional)</Label>
+            <Label htmlFor="deadline">{t("deadline_label")}</Label>
             <Input
               id="deadline"
               type="date"
@@ -264,16 +265,16 @@ export function OrderForm({ accessCodeEnabled = false }: { accessCodeEnabled?: b
           )}
 
           <div className="space-y-3">
-            <Label>Dateien (optional)</Label>
+            <Label>{t("files_label")}</Label>
             <div className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary/50 transition-colors">
               <Upload className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
               <p className="text-sm text-muted-foreground mb-2">
-                Bilder (JPG, PNG) oder 3D-Dateien (STL, OBJ, 3MF)
+                {tc("file_types_3d")}
               </p>
-              <p className="text-xs text-muted-foreground mb-3">Max. 50MB pro Datei</p>
+              <p className="text-xs text-muted-foreground mb-3">{tc("max_file_size")}</p>
               <label htmlFor="file-upload">
                 <Button type="button" variant="outline" size="sm" asChild>
-                  <span className="cursor-pointer">Dateien auswählen</span>
+                  <span className="cursor-pointer">{tc("select_files")}</span>
                 </Button>
               </label>
               <input
@@ -303,7 +304,7 @@ export function OrderForm({ accessCodeEnabled = false }: { accessCodeEnabled?: b
                     <button
                       type="button"
                       onClick={() => removeFile(i)}
-                      aria-label={`Datei entfernen: ${file.name}`}
+                      aria-label={t("remove_file", { name: file.name })}
                       className="text-muted-foreground hover:text-destructive p-1 rounded"
                     >
                       <X className="h-4 w-4" />
@@ -315,7 +316,7 @@ export function OrderForm({ accessCodeEnabled = false }: { accessCodeEnabled?: b
           </div>
 
           <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "Wird eingereicht..." : "Auftrag einreichen"}
+            {loading ? tc("submitting") : tc("submit")}
           </Button>
         </form>
       </CardContent>

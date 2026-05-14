@@ -2,6 +2,8 @@ import { notFound } from "next/navigation";
 import { TrackingView } from "@/components/customer/TrackingView";
 import { Printer, ArrowLeft } from "lucide-react";
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
+import { getSetting } from "@/lib/settings";
 
 interface PageProps {
   params: Promise<{ token: string }>;
@@ -19,7 +21,11 @@ async function getOrder(token: string) {
 
 export default async function TrackPage({ params }: PageProps) {
   const { token } = await params;
-  const order = await getOrder(token);
+  const [order, t, companyName] = await Promise.all([
+    getOrder(token),
+    getTranslations("track"),
+    getSetting("company_name"),
+  ]);
 
   if (!order) notFound();
 
@@ -28,7 +34,7 @@ export default async function TrackPage({ params }: PageProps) {
       <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container mx-auto px-4 py-4 flex items-center gap-3">
           <Printer className="h-6 w-6 text-primary" />
-          <h1 className="text-xl font-semibold">3D Print Service</h1>
+          <h1 className="text-xl font-semibold">{companyName ?? "3D Print CMS"}</h1>
         </div>
       </header>
 
@@ -39,11 +45,11 @@ export default async function TrackPage({ params }: PageProps) {
             className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground mb-6"
           >
             <ArrowLeft className="h-4 w-4" />
-            Neuen Auftrag einreichen
+            {t("new_order_cta")}
           </Link>
 
           <h2 className="text-2xl font-bold tracking-tight mb-6">
-            Auftragsstatus
+            {t("title")}
           </h2>
 
           <TrackingView order={order} trackingToken={token} />

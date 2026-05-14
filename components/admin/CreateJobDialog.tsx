@@ -18,6 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import type { PrintJob } from "./JobCard";
 
 interface Machine {
@@ -44,6 +45,8 @@ export function CreateJobDialog({
   defaultTime,
   onCreated,
 }: CreateJobDialogProps) {
+  const t = useTranslations("admin");
+  const tc = useTranslations("common");
   const [machineId, setMachineId] = useState(defaultMachineId ?? "");
   const [plannedDate, setPlannedDate] = useState(defaultDate ?? "");
   const [plannedTime, setPlannedTime] = useState(defaultTime ?? "08:00");
@@ -59,7 +62,7 @@ export function CreateJobDialog({
 
   async function handleCreate() {
     if (!machineId) {
-      toast.error("Bitte eine Maschine auswählen");
+      toast.error(t("create_job_machine_required"));
       return;
     }
 
@@ -78,10 +81,10 @@ export function CreateJobDialog({
       if (!res.ok) throw new Error();
       const job = await res.json();
       onCreated(job);
-      toast.success("Druckjob erstellt");
+      toast.success(t("create_job_created"));
       onOpenChange(false);
     } catch {
-      toast.error("Fehler beim Erstellen");
+      toast.error(t("create_job_failed"));
     } finally {
       setSaving(false);
     }
@@ -91,15 +94,15 @@ export function CreateJobDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-sm">
         <DialogHeader>
-          <DialogTitle>Neuer Druckjob</DialogTitle>
+          <DialogTitle>{t("create_job_title")}</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4 py-2">
           <div className="space-y-2">
-            <Label>Maschine *</Label>
+            <Label>{tc("name")} *</Label>
             <Select value={machineId} onValueChange={setMachineId}>
               <SelectTrigger>
-                <SelectValue placeholder="Maschine wählen..." />
+                <SelectValue placeholder={t("create_job_machine_placeholder")} />
               </SelectTrigger>
               <SelectContent>
                 {machines.map((m) => (
@@ -112,7 +115,7 @@ export function CreateJobDialog({
           </div>
 
           <div className="space-y-2">
-            <Label>Geplanter Starttermin</Label>
+            <Label>{t("create_job_start")}</Label>
             <div className="flex gap-2">
               <input
                 type="date"
@@ -133,10 +136,10 @@ export function CreateJobDialog({
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Abbrechen
+            {tc("cancel")}
           </Button>
           <Button onClick={handleCreate} disabled={saving}>
-            {saving ? "Erstellen..." : "Erstellen"}
+            {saving ? tc("creating") : tc("create")}
           </Button>
         </DialogFooter>
       </DialogContent>

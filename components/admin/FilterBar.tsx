@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -26,15 +27,16 @@ interface FilterBarProps {
   users: User[];
 }
 
-const DEADLINE_LABELS: Record<string, string> = {
-  today: "Fällig heute",
-  week: "Diese Woche",
-  overdue: "Überfällig",
-};
-
 export function FilterBar({ results = [], users }: FilterBarProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const t = useTranslations("admin");
+
+  const DEADLINE_LABELS: Record<string, string> = {
+    today: t("filter_due_today"),
+    week: t("filter_this_week"),
+    overdue: t("filter_overdue"),
+  };
   const [query, setQuery] = useState(searchParams.get("search") ?? "");
   const [, startTransition] = useTransition();
   const [dropdownOpen, setDropdownOpen] = useState(true);

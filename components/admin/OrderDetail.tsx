@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import { formatDateTime } from "@/lib/utils";
 import { FileManager } from "@/components/admin/files/FileManager";
 import { type OrderPartData } from "@/components/admin/files/PartFileSection";
@@ -170,43 +171,47 @@ function getInitials(name: string) {
   return name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
 }
 
-function getActionLabel(action: string): string {
-  const labels: Record<string, string> = {
-    ORDER_CREATED: "Auftrag eingereicht",
-    PHASE_CHANGED: "Status geändert",
-    ASSIGNED: "Bearbeiter geändert",
-    COMMENT_ADDED: "Kommentar hinzugefügt",
-    FILE_UPLOADED: "Datei hochgeladen",
-    TEAM_FILE_UPLOADED: "Designdatei vom Team hochgeladen",
-    PART_ITERATION_INCREMENTED: "Teil-Iteration erhöht",
-    ORDER_ARCHIVED: "Auftrag archiviert",
-    ORDER_UNARCHIVED: "Auftrag wiederhergestellt",
-    DEADLINE_SET: "Deadline geändert",
-    PRICE_SET: "Angebot aktualisiert",
-    MATERIAL_ASSIGNED: "Material zugewiesen",
-    MATERIAL_REMOVED: "Material entfernt",
-    SURVEY_SENT: "Umfrage versandt",
-    SURVEY_SUBMITTED: "Umfrage ausgefüllt",
-    VERIFICATION_SENT: "Freigabeanfrage versandt",
-    VERIFICATION_APPROVED: "Freigabe erteilt",
-    VERIFICATION_REJECTED: "Freigabe abgelehnt",
-    VERIFICATION_OVERRIDDEN: "Freigabe durch Admin erteilt",
-    JOB_ASSIGNED: "Druckauftrag zugewiesen",
-    JOB_REMOVED: "Vom Druckauftrag entfernt",
-    JOB_STARTED: "Druckstart",
-    JOB_COMPLETED: "Druck abgeschlossen",
-    PART_ADDED: "Teil hinzugefügt",
-    PART_REMOVED: "Teil entfernt",
-    PART_UPDATED: "Teil aktualisiert",
-    PROTOTYPE_ENABLED: "Prototyp-Modus aktiviert",
-    PROTOTYPE_DISABLED: "Prototyp-Modus deaktiviert",
-    ITERATION_INCREMENTED: "Iteration erhöht",
-  };
-  return labels[action] ?? action;
-}
+
 
 export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin, parts: initialParts, availableFilaments, customerCredit: initialCustomerCredit, partPhases, machines, initialMilestones }: OrderDetailProps) {
+  const t = useTranslations("admin");
+  const tc = useTranslations("common");
   const router = useRouter();
+
+  function getActionLabel(action: string): string {
+    const labels: Record<string, string> = {
+      ORDER_CREATED: t("audit_submitted"),
+      PHASE_CHANGED: t("audit_phase_changed"),
+      ASSIGNED: t("audit_assignee_changed"),
+      COMMENT_ADDED: t("audit_comment_added"),
+      FILE_UPLOADED: t("audit_file_uploaded"),
+      TEAM_FILE_UPLOADED: t("audit_team_file"),
+      PART_ITERATION_INCREMENTED: t("audit_iteration"),
+      ORDER_ARCHIVED: t("audit_archived"),
+      ORDER_UNARCHIVED: t("audit_restored"),
+      DEADLINE_SET: t("audit_deadline_changed"),
+      PRICE_SET: t("audit_price_updated"),
+      MATERIAL_ASSIGNED: t("audit_material_assigned"),
+      MATERIAL_REMOVED: t("audit_material_removed"),
+      SURVEY_SENT: t("audit_survey_sent"),
+      SURVEY_SUBMITTED: t("audit_survey_filled"),
+      VERIFICATION_SENT: t("audit_verification_sent"),
+      VERIFICATION_APPROVED: t("audit_verification_approved"),
+      VERIFICATION_REJECTED: t("audit_verification_rejected"),
+      VERIFICATION_OVERRIDDEN: t("audit_verification_admin"),
+      JOB_ASSIGNED: t("audit_job_assigned"),
+      JOB_REMOVED: t("audit_job_removed"),
+      JOB_STARTED: t("audit_print_started"),
+      JOB_COMPLETED: t("audit_print_done"),
+      PART_ADDED: t("audit_part_added"),
+      PART_REMOVED: t("audit_part_removed"),
+      PART_UPDATED: t("audit_part_updated"),
+      PROTOTYPE_ENABLED: t("audit_prototype_on"),
+      PROTOTYPE_DISABLED: t("audit_prototype_off"),
+      ITERATION_INCREMENTED: t("audit_iteration_inc"),
+    };
+    return labels[action] ?? action;
+  }
   const [selectedPhaseId, setSelectedPhaseId] = useState(order.phaseId);
   const [parts, setParts] = useState<OrderPartData[]>(initialParts);
   const [selectedAssigneeIds, setSelectedAssigneeIds] = useState<string[]>(
@@ -302,11 +307,11 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
     if (!customerCredit) return;
     const grams = parseInt(creditGrams, 10);
     if (!grams || grams <= 0) {
-      toast.error("Bitte eine gültige Grammzahl eingeben");
+      toast.error(t("toast_invalid_grams"));
       return;
     }
     if (!creditReason.trim()) {
-      toast.error("Bitte einen Grund angeben");
+      toast.error(t("toast_reason_required"));
       return;
     }
     setSavingCredit(true);
@@ -323,9 +328,9 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
       }
       setCustomerCredit((prev) => prev ? { ...prev, balance: prev.balance - grams } : prev);
       setShowCreditForm(false);
-      toast.success("Guthaben abgezogen");
+      toast.success(t("toast_credit_deducted"));
     } catch {
-      toast.error("Fehler beim Abziehen");
+      toast.error(t("toast_credit_failed"));
     } finally {
       setSavingCredit(false);
     }
@@ -361,7 +366,7 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
       setMilestones((prev) =>
         prev.map((ms) => (ms.id === m.id ? { ...ms, completedAt: m.completedAt } : ms))
       );
-      toast.error("Fehler beim Aktualisieren");
+      toast.error(t("toast_update_failed"));
     }
   }
 
@@ -375,14 +380,14 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
       });
       if (!res.ok) {
         const data = await res.json();
-        toast.error(data.error ?? "Fehler beim Senden");
+        toast.error(data.error ?? t("toast_send_failed"));
         return;
       }
       const newVr = await res.json();
       setVerificationRequests((prev) => [newVr, ...prev]);
-      toast.success("Freigabeanfrage versandt");
+      toast.success(t("toast_verification_sent"));
     } catch {
-      toast.error("Fehler beim Senden");
+      toast.error(t("toast_send_failed"));
     } finally {
       setSendingVerification(false);
     }
@@ -398,10 +403,10 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
         body: JSON.stringify({ phaseId }),
       });
       if (!res.ok) throw new Error();
-      toast.success("Phase gespeichert");
+      toast.success(t("toast_phase_saved"));
       router.refresh();
     } catch {
-      toast.error("Speichern fehlgeschlagen");
+      toast.error(t("toast_phase_failed"));
     } finally {
       setSavingPhase(false);
     }
@@ -420,10 +425,10 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
       });
       if (!res.ok) throw new Error();
       savedAssigneeIds.current = assigneeIds;
-      toast.success("Zuweisung gespeichert");
+      toast.success(t("toast_assignee_saved"));
       router.refresh();
     } catch {
-      toast.error("Speichern fehlgeschlagen");
+      toast.error(t("toast_phase_failed"));
     } finally {
       setSavingAssignees(false);
     }
@@ -440,10 +445,10 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
       });
       if (!res.ok) throw new Error();
       savedDeadlineValue.current = value;
-      toast.success("Deadline gespeichert");
+      toast.success(t("toast_deadline_saved"));
       router.refresh();
     } catch {
-      toast.error("Speichern fehlgeschlagen");
+      toast.error(t("toast_phase_failed"));
     } finally {
       setSavingDeadline(false);
     }
@@ -454,7 +459,7 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
     if (priceValue === savedPriceValue.current) return;
     const parsed = priceValue.trim() === "" ? null : parseFloat(priceValue.replace(",", "."));
     if (parsed !== null && (isNaN(parsed) || parsed < 0)) {
-      toast.error("Ungültiger Betrag");
+      toast.error(t("toast_invalid_amount"));
       return;
     }
     setSavingPrice(true);
@@ -466,10 +471,10 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
       });
       if (!res.ok) throw new Error();
       savedPriceValue.current = priceValue;
-      toast.success("Angebot gespeichert");
+      toast.success(t("toast_price_saved"));
       router.refresh();
     } catch {
-      toast.error("Speichern fehlgeschlagen");
+      toast.error(t("toast_phase_failed"));
     } finally {
       setSavingPrice(false);
     }
@@ -490,9 +495,9 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
       const newComment = await res.json();
       setComments((prev) => [...prev, newComment]);
       setComment("");
-      toast.success("Kommentar hinzugefügt");
+      toast.success(t("toast_comment_added"));
     } catch {
-      toast.error("Kommentar fehlgeschlagen");
+      toast.error(t("toast_comment_failed"));
     } finally {
       setCommenting(false);
     }
@@ -511,7 +516,7 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
       toast.success(isArchived ? "Auftrag wiederhergestellt" : "Auftrag archiviert");
       router.refresh();
     } catch {
-      toast.error("Aktion fehlgeschlagen");
+      toast.error(t("toast_action_failed"));
     } finally {
       setArchiving(false);
     }
@@ -530,7 +535,7 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
       toast.success(!isPrototype ? "Prototyp-Modus aktiviert" : "Prototyp-Modus deaktiviert");
       router.refresh();
     } catch {
-      toast.error("Aktion fehlgeschlagen");
+      toast.error(t("toast_action_failed"));
     } finally {
       setTogglingPrototype(false);
     }
@@ -541,10 +546,10 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
     try {
       const res = await fetch(`/api/admin/orders/${order.id}`, { method: "DELETE" });
       if (!res.ok) throw new Error();
-      toast.success("Auftrag dauerhaft gelöscht");
+      toast.success(t("toast_deleted"));
       router.push("/admin/orders");
     } catch {
-      toast.error("Löschen fehlgeschlagen");
+      toast.error(t("toast_update_failed"));
       setDeleting(false);
     }
   }
@@ -585,10 +590,10 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
             : vr
         )
       );
-      toast.success("Freigabe durch Admin erteilt");
+      toast.success(t("audit_verification_admin"));
       router.refresh();
     } catch {
-      toast.error("Freigabe fehlgeschlagen");
+      toast.error(t("toast_action_failed"));
     } finally {
       setOverridingVerification(null);
     }
@@ -621,7 +626,7 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
           className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft className="h-4 w-4" />
-          Zurück zum Board
+          {t("order_detail_back")}
         </Link>
       </div>
 
@@ -637,7 +642,7 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
           {isPrototype && (
             <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-100 border-purple-200">
               <FlaskConical className="h-3 w-3 mr-1" />
-              Prototyp · #{iterationCount}
+              {t("order_detail_prototype_prefix")}{iterationCount}
             </Badge>
           )}
           <Badge style={{ backgroundColor: order.phase.color }} className="text-white">
@@ -652,7 +657,7 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
           {/* Description */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Beschreibung</CardTitle>
+              <CardTitle className="text-base">{t("order_detail_description")}</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="text-sm whitespace-pre-wrap">{order.description}</p>
@@ -686,13 +691,13 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
                 <MessageSquare className="h-4 w-4" />
-                Kommentare ({comments.length})
+                {t("order_detail_comments")} ({comments.length})
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               {comments.length === 0 && (
                 <p className="text-sm text-muted-foreground text-center py-4">
-                  Noch keine Kommentare
+                  {t("order_detail_no_comments")}
                 </p>
               )}
 
@@ -725,7 +730,7 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
                 </Avatar>
                 <div className="flex-1 space-y-2">
                   <Textarea
-                    placeholder="Kommentar schreiben..."
+                    placeholder={t("order_detail_comment_placeholder")}
                     value={comment}
                     onChange={(e) => setComment(e.target.value)}
                     rows={3}
@@ -741,7 +746,7 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
                     disabled={!comment.trim() || commenting}
                   >
                     <Send className="h-3 w-3 mr-2" />
-                    {commenting ? "Senden..." : "Kommentieren"}
+                    {commenting ? t("order_detail_comment_submitting") : t("order_detail_comment_submit")}
                   </Button>
                 </div>
               </div>
@@ -754,11 +759,11 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
           {/* Status, Assignment & Deadline */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-sm font-semibold text-muted-foreground">Auftragssteuerung</CardTitle>
+              <CardTitle className="text-sm font-semibold text-muted-foreground">{t("order_detail_control")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium">Phase</label>
+                <label className="text-sm font-medium">{t("order_detail_phase")}</label>
                 <Select value={selectedPhaseId} onValueChange={handleSavePhase} disabled={savingPhase}>
                   <SelectTrigger>
                     <SelectValue />
@@ -780,7 +785,7 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
               </div>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium">Zugewiesen an</label>
+                <label className="text-sm font-medium">{t("order_detail_assignee")}</label>
                 <AssigneePicker
                   users={teamMembers}
                   value={selectedAssigneeIds}
@@ -792,7 +797,7 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
               </div>
 
               {savingAssignees && (
-                <p className="text-xs text-muted-foreground text-center">Speichern...</p>
+                <p className="text-xs text-muted-foreground text-center">{tc("saving")}</p>
               )}
 
               {currentPhaseIsPrototype && (
@@ -800,7 +805,7 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
                   <div className="flex items-center justify-between">
                     <label className="text-sm font-medium flex items-center gap-2">
                       <FlaskConical className="h-4 w-4 text-purple-600" />
-                      Prototyp-Modus
+                      {t("order_detail_prototype_mode")}
                     </label>
                     <Switch
                       checked={isPrototype}
@@ -809,14 +814,14 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
                     />
                   </div>
                   {isPrototype && (
-                    <p className="text-xs text-purple-600 font-medium">Iteration #{iterationCount}</p>
+                    <p className="text-xs text-purple-600 font-medium">{t("order_detail_iteration")}{iterationCount}</p>
                   )}
                 </div>
               )}
               <Separator />
 
               <div className="space-y-2">
-                <label className="text-sm font-medium">Deadline</label>
+                <label className="text-sm font-medium">{t("order_detail_deadline")}</label>
                 <input
                   type="date"
                   className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
@@ -828,10 +833,10 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
                   }}
                 />
                 {savingDeadline && (
-                  <p className="text-xs text-muted-foreground">Speichern...</p>
+                  <p className="text-xs text-muted-foreground">{tc("saving")}</p>
                 )}
                 <p className="text-[11px] text-muted-foreground">
-                  Wird auch als Gantt-Balken-Ende angezeigt
+                  {t("order_detail_deadline_hint")}
                 </p>
               </div>
             </CardContent>
@@ -842,7 +847,7 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
             <Card>
               <CardContent className="py-3">
                 <div className="flex items-center gap-2 text-sm">
-                  <span className="text-muted-foreground">Projekt:</span>
+                  <span className="text-muted-foreground">{t("order_detail_project")}</span>
                   <Link
                     href={`/admin/projects/${order.project.id}`}
                     className="font-medium text-primary hover:underline"
@@ -851,7 +856,7 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
                   </Link>
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Meilensteine werden über das Projekt verwaltet.
+                  {t("order_detail_milestones_managed")}
                 </p>
               </CardContent>
             </Card>
@@ -863,7 +868,7 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
                   <Flag className="h-4 w-4" />
-                  Meilensteine ({milestones.length})
+                  {t("order_detail_milestones")} ({milestones.length})
                 </CardTitle>
                 <Button
                   variant="ghost"
@@ -872,13 +877,13 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
                   onClick={() => setMilestoneDialog({ open: true, milestone: null })}
                 >
                   <Plus className="h-3.5 w-3.5 mr-1" />
-                  Neu
+                  {tc("new")}
                 </Button>
               </div>
             </CardHeader>
             <CardContent className="space-y-1.5 pt-0">
               {milestones.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Keine Meilensteine</p>
+                <p className="text-sm text-muted-foreground">{t("order_detail_no_milestones")}</p>
               ) : (
                 [...milestones]
                   .sort((a, b) => {
@@ -907,7 +912,7 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
                     <button
                       className="mt-0.5 shrink-0"
                       onClick={(e) => { e.stopPropagation(); handleToggleMilestoneComplete(m); }}
-                      title={m.completedAt ? "Als offen markieren" : "Als erledigt markieren"}
+                      title={m.completedAt ? t("order_detail_mark_open") : t("order_detail_mark_done")}
                     >
                       {m.completedAt ? (
                         <CheckCircle2 className="h-4 w-4 text-green-500" />
@@ -926,10 +931,10 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
                           </span>
                         )}
                         {isOverdue && (
-                          <Badge variant="destructive" className="text-[10px] h-4 px-1">Überfällig</Badge>
+                          <Badge variant="destructive" className="text-[10px] h-4 px-1">{tc("overdue")}</Badge>
                         )}
                         {m.completedAt && (
-                          <Badge variant="secondary" className="text-[10px] h-4 px-1">Erledigt</Badge>
+                          <Badge variant="secondary" className="text-[10px] h-4 px-1">{tc("done")}</Badge>
                         )}
                       </div>
                       {tasksTotal > 0 && (
@@ -959,12 +964,12 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
               <CardHeader>
                 <CardTitle className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
                   <Wallet className="h-4 w-4" />
-                  Filament-Guthaben
+                  {t("order_detail_credit")}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-sm text-muted-foreground">Aktuelles Guthaben</span>
+                  <span className="text-sm text-muted-foreground">{t("order_detail_credit_balance")}</span>
                   <span className="font-semibold text-sm">{customerCredit.balance} g</span>
                 </div>
                 {!showCreditForm ? (
@@ -974,22 +979,22 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
                     className="w-full"
                     onClick={() => setShowCreditForm(true)}
                   >
-                    Guthaben abziehen
+                    {t("order_detail_credit_deduct")}
                   </Button>
                 ) : (
                   <div className="space-y-2">
                     <div className="space-y-1">
-                      <label className="text-xs font-medium">Menge (g)</label>
+                      <label className="text-xs font-medium">{t("order_detail_credit_amount")}</label>
                       <Input
                         type="number"
                         min="1"
-                        placeholder="z.B. 45"
+                        placeholder={t("order_detail_credit_amount_placeholder")}
                         value={creditGrams}
                         onChange={(e) => setCreditGrams(e.target.value)}
                       />
                     </div>
                     <div className="space-y-1">
-                      <label className="text-xs font-medium">Grund</label>
+                      <label className="text-xs font-medium">{t("order_detail_credit_reason")}</label>
                       <Input
                         value={creditReason}
                         onChange={(e) => setCreditReason(e.target.value)}
@@ -997,14 +1002,14 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
                     </div>
                     <div className="flex gap-2">
                       <Button size="sm" onClick={handleDeductCredit} disabled={savingCredit}>
-                        {savingCredit ? "Buchen..." : "Abziehen"}
+                        {savingCredit ? t("order_detail_credit_deducting") : t("order_detail_credit_deduct_cta")}
                       </Button>
                       <Button
                         size="sm"
                         variant="outline"
                         onClick={() => setShowCreditForm(false)}
                       >
-                        Abbrechen
+                        {tc("cancel")}
                       </Button>
                     </div>
                   </div>
@@ -1016,7 +1021,7 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
           {/* Price Estimate */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-sm font-semibold text-muted-foreground">Angebot / Preis</CardTitle>
+              <CardTitle className="text-sm font-semibold text-muted-foreground">{t("order_detail_price")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               <div className="relative">
@@ -1044,7 +1049,7 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
           {/* Actions */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-sm font-semibold text-muted-foreground">Aktionen</CardTitle>
+              <CardTitle className="text-sm font-semibold text-muted-foreground">{t("order_detail_actions")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
               <Button
@@ -1056,12 +1061,12 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
                 {isArchived ? (
                   <>
                     <RotateCcw className="h-4 w-4 mr-2" />
-                    {archiving ? "Wird wiederhergestellt..." : "Aus Archiv wiederherstellen"}
+                    {archiving ? t("order_detail_restoring") : t("order_detail_restore")}
                   </>
                 ) : (
                   <>
                     <Archive className="h-4 w-4 mr-2" />
-                    {archiving ? "Wird archiviert..." : "Archivieren"}
+                    {archiving ? t("order_detail_archiving") : t("order_detail_archive")}
                   </>
                 )}
               </Button>
@@ -1075,25 +1080,23 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
                       disabled={deleting}
                     >
                       <Trash2 className="h-3.5 w-3.5 mr-2" />
-                      {deleting ? "Wird gelöscht..." : "Dauerhaft löschen"}
+                      {deleting ? t("order_detail_deleting") : t("order_detail_delete")}
                     </Button>
                   </AlertDialogTrigger>
                   <AlertDialogContent>
                     <AlertDialogHeader>
-                      <AlertDialogTitle>Auftrag dauerhaft löschen?</AlertDialogTitle>
+                      <AlertDialogTitle>{t("order_detail_delete_confirm_title")}</AlertDialogTitle>
                       <AlertDialogDescription>
-                        Dieser Vorgang kann nicht rückgängig gemacht werden. Der Auftrag von{" "}
-                        <strong>{order.customerName}</strong> sowie alle zugehörigen Dateien,
-                        Kommentare und der Verlauf werden unwiderruflich gelöscht.
+                        {t("order_detail_delete_confirm_desc", { name: order.customerName })}
                       </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                      <AlertDialogCancel>Abbrechen</AlertDialogCancel>
+                      <AlertDialogCancel>{tc("cancel")}</AlertDialogCancel>
                       <AlertDialogAction
                         onClick={handleDelete}
                         className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                       >
-                        Dauerhaft löschen
+                        {t("order_detail_delete")}
                       </AlertDialogAction>
                     </AlertDialogFooter>
                   </AlertDialogContent>
@@ -1106,19 +1109,19 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
           {/* Order Info */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-sm font-semibold text-muted-foreground">Auftragsinformationen</CardTitle>
+              <CardTitle className="text-sm font-semibold text-muted-foreground">{t("order_detail_info")}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 text-sm">
               <div>
-                <p className="text-muted-foreground">Erstellt</p>
+                <p className="text-muted-foreground">{t("order_detail_created")}</p>
                 <p className="font-medium">{formatDateTime(order.createdAt)}</p>
               </div>
               <div>
-                <p className="text-muted-foreground">Aktualisiert</p>
+                <p className="text-muted-foreground">{t("order_detail_updated")}</p>
                 <p className="font-medium">{formatDateTime(order.updatedAt)}</p>
               </div>
               <div>
-                <p className="text-muted-foreground">Tracking-Link</p>
+                <p className="text-muted-foreground">{t("order_detail_tracking")}</p>
                 <a
                   href={`/track/${order.trackingToken}`}
                   target="_blank"
@@ -1136,7 +1139,7 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
             <CardHeader>
               <CardTitle className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
                 <ShieldCheck className="h-4 w-4" />
-                Angebotsfreigabe
+                {t("order_detail_verification_status")}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
@@ -1147,14 +1150,14 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
                 {priceRequest?.status === "PENDING" && (
                   <span className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">
                     <ShieldAlert className="h-3 w-3" />
-                    Ausstehend
+                    {t("order_detail_pending")}
                   </span>
                 )}
                 {priceRequest?.status === "APPROVED" && (
-                  <span className="text-xs px-1.5 py-0.5 rounded bg-green-100 text-green-700">Freigegeben</span>
+                  <span className="text-xs px-1.5 py-0.5 rounded bg-green-100 text-green-700">{t("order_detail_approved")}</span>
                 )}
                 {priceRequest?.status === "REJECTED" && (
-                  <span className="text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-700">Abgelehnt</span>
+                  <span className="text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-700">{t("order_detail_rejected")}</span>
                 )}
               </div>
               {designApproved && !hasPendingPrice && !priceRequest && (
@@ -1166,11 +1169,11 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
                   disabled={sendingVerification}
                 >
                   <Send className="h-3 w-3 mr-1" />
-                  {sendingVerification ? "Wird gesendet..." : "Freigabe senden"}
+                  {sendingVerification ? tc("sending") : tc("send")}
                 </Button>
               )}
               {!designApproved && !priceRequest && (
-                <p className="text-xs text-muted-foreground">Erst nach Designfreigabe verfügbar</p>
+                <p className="text-xs text-muted-foreground">{t("order_detail_design_first")}</p>
               )}
               {hasPendingPrice && isAdmin && priceRequest && (
                 <Button
@@ -1181,7 +1184,7 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
                   disabled={overridingVerification === priceRequest.id}
                 >
                   <ShieldCheck className="h-3 w-3 mr-1" />
-                  {overridingVerification === priceRequest.id ? "Wird erteilt..." : "Admin-Freigabe erteilen"}
+                  {overridingVerification === priceRequest.id ? t("order_detail_admin_approving") : t("order_detail_admin_approve")}
                 </Button>
               )}
             </CardContent>
@@ -1192,18 +1195,18 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
             <CardHeader>
               <CardTitle className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
                 <MessageSquare className="h-4 w-4" />
-                Umfrage
+                {t("order_detail_survey")}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
               {!order.surveyResponse ? (
-                <p className="text-muted-foreground">Noch nicht gesendet</p>
+                <p className="text-muted-foreground">{t("order_detail_survey_not_sent")}</p>
               ) : !order.surveyResponse.submittedAt ? (
-                <p className="text-muted-foreground">Gesendet – noch nicht ausgefüllt</p>
+                <p className="text-muted-foreground">{t("order_detail_survey_sent")}</p>
               ) : (
                 <div className="space-y-2">
                   <p className="text-green-600 font-medium">
-                    Eingegangen{" "}
+                    {t("order_detail_survey_received")}{" "}
                     {order.surveyResponse.answers && order.surveyResponse.answers.length > 0 && (
                       <span className="ml-1 text-foreground font-normal">
                         ⭐{" "}
@@ -1222,7 +1225,7 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
                   ))}
                   {order.surveyResponse.comment && (
                     <div className="space-y-0.5 pt-1 border-t">
-                      <p className="text-xs text-muted-foreground">Kommentar:</p>
+                      <p className="text-xs text-muted-foreground">{t("order_detail_comment_prefix")}</p>
                       <p className="text-xs whitespace-pre-wrap">{order.surveyResponse.comment}</p>
                     </div>
                   )}
@@ -1238,7 +1241,7 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
               onClick={() => setAuditLogOpen((v) => !v)}
             >
               <CardTitle className="text-sm font-semibold text-muted-foreground flex items-center justify-between">
-                <span>Verlauf</span>
+                <span>{t("order_detail_history")}</span>
                 <ChevronDown
                   className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${auditLogOpen ? "rotate-180" : ""}`}
                 />
@@ -1261,7 +1264,7 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
                         <p className="text-xs text-muted-foreground">{log.details}</p>
                       )}
                       {log.user && (
-                        <p className="text-xs text-muted-foreground">von {log.user.name}</p>
+                        <p className="text-xs text-muted-foreground">{log.user.name}</p>
                       )}
                       <p className="text-xs text-muted-foreground">
                         {formatDateTime(log.createdAt)}

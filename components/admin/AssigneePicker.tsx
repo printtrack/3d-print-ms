@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 import { Check, ChevronsUpDown, UserMinus } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -50,6 +51,7 @@ export function AssigneePicker({
   compact = false,
   disabled = false,
 }: AssigneePickerProps) {
+  const tc = useTranslations("common");
   const [open, setOpen] = useState(false);
   const selected = users.filter((u) => value.includes(u.id));
 
@@ -115,7 +117,7 @@ export function AssigneePicker({
           >
             <span className="truncate">
               {selected.length === 0
-                ? "Nicht zugewiesen"
+                ? tc("not_assigned")
                 : selected.map((u) => u.name).join(", ")}
             </span>
             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />

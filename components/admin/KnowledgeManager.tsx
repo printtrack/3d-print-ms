@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useRef, useEffect, useCallback } from "react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -111,10 +112,12 @@ function TagInput({
   value,
   onChange,
   allTags,
+  placeholder,
 }: {
   value: string[];
   onChange: (tags: string[]) => void;
   allTags: string[];
+  placeholder: string;
 }) {
   const [input, setInput] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -187,7 +190,7 @@ function TagInput({
           onChange={(e) => { setInput(e.target.value); setShowSuggestions(true); }}
           onFocus={() => setShowSuggestions(true)}
           onKeyDown={handleKeyDown}
-          placeholder={value.length === 0 ? "Tag eingeben und Enter drücken..." : ""}
+          placeholder={value.length === 0 ? placeholder : ""}
           className="flex-1 min-w-24 bg-transparent outline-none placeholder:text-muted-foreground"
         />
       </div>
@@ -213,6 +216,9 @@ function TagInput({
 }
 
 export function KnowledgeManager({ initialEntries, userRole }: KnowledgeManagerProps) {
+  const t = useTranslations("admin");
+  const tc = useTranslations("common");
+
   const [entries, setEntries] = useState(initialEntries);
   const [search, setSearch] = useState("");
   const [editingEntry, setEditingEntry] = useState<KnowledgeEntry | null>(null);
@@ -314,9 +320,9 @@ export function KnowledgeManager({ initialEntries, userRole }: KnowledgeManagerP
   }
 
   async function handleSave() {
-    if (!formData.title.trim()) { toast.error("Titel ist erforderlich"); return; }
-    if (!formData.problem.trim()) { toast.error("Problem ist erforderlich"); return; }
-    if (!formData.solution.trim()) { toast.error("Lösung ist erforderlich"); return; }
+    if (!formData.title.trim()) { toast.error(t("knowledge_title_required")); return; }
+    if (!formData.problem.trim()) { toast.error(t("knowledge_problem_required")); return; }
+    if (!formData.solution.trim()) { toast.error(t("knowledge_solution_required")); return; }
 
     setSaving(true);
     try {
@@ -331,7 +337,7 @@ export function KnowledgeManager({ initialEntries, userRole }: KnowledgeManagerP
         // Preserve files from local state (PATCH response already includes files)
         setEntries((prev) => prev.map((e) => (e.id === updated.id ? updated : e)));
         setEditingEntry(updated);
-        toast.success("Eintrag aktualisiert");
+        toast.success(t("knowledge_updated"));
       } else {
         const res = await fetch("/api/admin/knowledge", {
           method: "POST",
@@ -343,24 +349,24 @@ export function KnowledgeManager({ initialEntries, userRole }: KnowledgeManagerP
         setEntries((prev) => [created, ...prev]);
         // Transition to edit mode so user can upload files
         setEditingEntry(created);
-        toast.success("Eintrag erstellt — du kannst jetzt Anhänge hinzufügen");
+        toast.success(t("knowledge_created"));
       }
     } catch {
-      toast.error("Fehler beim Speichern");
+      toast.error(t("knowledge_save_failed"));
     } finally {
       setSaving(false);
     }
   }
 
   async function handleDelete(entry: KnowledgeEntry) {
-    if (!confirm(`Eintrag "${entry.title}" wirklich löschen?`)) return;
+    if (!confirm(t("knowledge_delete_confirm"))) return;
     try {
       const res = await fetch(`/api/admin/knowledge/${entry.id}`, { method: "DELETE" });
       if (!res.ok) throw new Error();
       setEntries((prev) => prev.filter((e) => e.id !== entry.id));
-      toast.success("Eintrag gelöscht");
+      toast.success(t("knowledge_deleted"));
     } catch {
-      toast.error("Fehler beim Löschen");
+      toast.error(t("knowledge_delete_failed"));
     }
   }
 
@@ -392,20 +398,20 @@ export function KnowledgeManager({ initialEntries, userRole }: KnowledgeManagerP
             e.id === editingEntry.id ? { ...e, files: [...e.files, ...serialized] } : e
           )
         );
-        toast.success(`${serialized.length} Datei(en) hochgeladen`);
+        toast.success(t("knowledge_file_uploaded"));
       } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Fehler beim Hochladen");
+        toast.error(err instanceof Error ? err.message : t("knowledge_file_upload_failed"));
       } finally {
         setUploading(false);
         if (fileInputRef.current) fileInputRef.current.value = "";
       }
     },
-    [editingEntry]
+    [editingEntry, t]
   );
 
   async function handleFileDelete(file: KnowledgeFile) {
     if (!editingEntry) return;
-    if (!confirm(`Datei "${file.originalName}" wirklich löschen?`)) return;
+    if (!confirm(t("knowledge_file_delete_confirm"))) return;
     try {
       const res = await fetch(
         `/api/admin/knowledge/${editingEntry.id}/files/${file.id}`,
@@ -422,9 +428,9 @@ export function KnowledgeManager({ initialEntries, userRole }: KnowledgeManagerP
             : e
         )
       );
-      toast.success("Datei gelöscht");
+      toast.success(t("knowledge_file_deleted"));
     } catch {
-      toast.error("Fehler beim Löschen der Datei");
+      toast.error(t("knowledge_file_delete_failed"));
     }
   }
 
@@ -434,21 +440,21 @@ export function KnowledgeManager({ initialEntries, userRole }: KnowledgeManagerP
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Wissensdatenbank</h1>
+          <h1 className="text-2xl font-bold tracking-tight">{t("knowledge_title")}</h1>
           <p className="text-muted-foreground text-sm">
-            Dokumentiere häufige Probleme und deren Lösungen
+            {t("knowledge_desc")}
           </p>
         </div>
         <Button onClick={openCreate}>
           <Plus className="h-4 w-4 mr-2" />
-          Neu erstellen
+          {t("knowledge_new")}
         </Button>
       </div>
 
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
-          placeholder="Wissensdatenbank durchsuchen..."
+          placeholder={t("knowledge_search")}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="pl-9"
@@ -459,8 +465,8 @@ export function KnowledgeManager({ initialEntries, userRole }: KnowledgeManagerP
         <div className="text-center py-16 text-muted-foreground">
           <BookOpen className="h-10 w-10 mx-auto mb-3 opacity-30" />
           {entries.length === 0
-            ? "Noch keine Einträge vorhanden. Erstelle den ersten Eintrag!"
-            : "Keine Einträge für diese Suche gefunden."}
+            ? t("knowledge_empty")
+            : t("knowledge_no_results")}
         </div>
       )}
 
@@ -489,11 +495,11 @@ export function KnowledgeManager({ initialEntries, userRole }: KnowledgeManagerP
             </CardHeader>
             <CardContent className="flex-1 space-y-3">
               <div>
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Problem</p>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">{t("knowledge_problem_label")}</p>
                 <p className="text-sm line-clamp-2 text-foreground/80"><WikiText text={entry.problem} entries={entries} onOpen={openEdit} /></p>
               </div>
               <div>
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">Lösung</p>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1">{t("knowledge_solution_label")}</p>
                 <p className="text-sm line-clamp-2 text-foreground/80"><WikiText text={entry.solution} entries={entries} onOpen={openEdit} /></p>
               </div>
               {entry.tags.length > 0 && (
@@ -525,26 +531,26 @@ export function KnowledgeManager({ initialEntries, userRole }: KnowledgeManagerP
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>{editingEntry ? "Eintrag bearbeiten" : "Neuer Eintrag"}</DialogTitle>
+            <DialogTitle>{editingEntry ? t("knowledge_dialog_edit") : t("knowledge_dialog_new")}</DialogTitle>
           </DialogHeader>
 
           <div className="max-h-[70vh] overflow-y-auto space-y-4 py-2 pr-1">
             <div className="space-y-2">
-              <Label htmlFor="kb-title">Titel *</Label>
+              <Label htmlFor="kb-title">{t("knowledge_title_label")}</Label>
               <Input
                 id="kb-title"
-                placeholder="z.B. Warping bei PETG verhindern"
+                placeholder={t("knowledge_title_placeholder")}
                 value={formData.title}
                 onChange={(e) => setFormData((p) => ({ ...p, title: e.target.value }))}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="kb-problem">Problem *</Label>
+              <Label htmlFor="kb-problem">{t("knowledge_problem_label")} *</Label>
               <Textarea
                 id="kb-problem"
                 ref={problemRef}
-                placeholder="Beschreibe das Problem..."
+                placeholder={t("knowledge_problem_placeholder")}
                 value={formData.problem}
                 onChange={(e) => {
                   setFormData((p) => ({ ...p, problem: e.target.value }));
@@ -587,7 +593,7 @@ export function KnowledgeManager({ initialEntries, userRole }: KnowledgeManagerP
               })()}
               {editingEntry && formData.problem && (
                 <details className="text-xs text-muted-foreground">
-                  <summary className="cursor-pointer select-none">Vorschau</summary>
+                  <summary className="cursor-pointer select-none">{t("knowledge_preview")}</summary>
                   <div className="mt-2 p-3 rounded border bg-muted/30 prose prose-sm max-w-none">
                     <ReactMarkdown
                       urlTransform={(url) => url}
@@ -624,11 +630,11 @@ export function KnowledgeManager({ initialEntries, userRole }: KnowledgeManagerP
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="kb-solution">Lösung *</Label>
+              <Label htmlFor="kb-solution">{t("knowledge_solution_label")} *</Label>
               <Textarea
                 id="kb-solution"
                 ref={solutionRef}
-                placeholder="Beschreibe die Lösung..."
+                placeholder={t("knowledge_solution_placeholder")}
                 value={formData.solution}
                 onChange={(e) => {
                   setFormData((p) => ({ ...p, solution: e.target.value }));
@@ -671,7 +677,7 @@ export function KnowledgeManager({ initialEntries, userRole }: KnowledgeManagerP
               })()}
               {editingEntry && formData.solution && (
                 <details className="text-xs text-muted-foreground">
-                  <summary className="cursor-pointer select-none">Vorschau</summary>
+                  <summary className="cursor-pointer select-none">{t("knowledge_preview")}</summary>
                   <div className="mt-2 p-3 rounded border bg-muted/30 prose prose-sm max-w-none">
                     <ReactMarkdown
                       urlTransform={(url) => url}
@@ -708,14 +714,15 @@ export function KnowledgeManager({ initialEntries, userRole }: KnowledgeManagerP
             </div>
 
             <div className="space-y-2">
-              <Label>Tags</Label>
+              <Label>{t("knowledge_tags_label")}</Label>
               <TagInput
                 value={formData.tags}
                 onChange={(tags) => setFormData((p) => ({ ...p, tags }))}
                 allTags={allTags}
+                placeholder={t("knowledge_tags_placeholder")}
               />
               <p className="text-xs text-muted-foreground">
-                Enter oder Komma zum Hinzufügen · Backspace zum Entfernen
+                {t("knowledge_tags_hint")}
               </p>
             </div>
 
@@ -723,7 +730,7 @@ export function KnowledgeManager({ initialEntries, userRole }: KnowledgeManagerP
             {editingEntry && (
               <div className="space-y-3 pt-2 border-t">
                 <div className="flex items-center justify-between">
-                  <Label>Anhänge</Label>
+                  <Label>{t("knowledge_attachments")}</Label>
                   <Button
                     type="button"
                     variant="outline"
@@ -732,7 +739,7 @@ export function KnowledgeManager({ initialEntries, userRole }: KnowledgeManagerP
                     onClick={() => fileInputRef.current?.click()}
                   >
                     <Upload className="h-3.5 w-3.5 mr-1.5" />
-                    {uploading ? "Hochladen..." : "Datei hochladen"}
+                    {uploading ? t("knowledge_uploading") : t("knowledge_upload")}
                   </Button>
                   <input
                     ref={fileInputRef}
@@ -746,7 +753,7 @@ export function KnowledgeManager({ initialEntries, userRole }: KnowledgeManagerP
 
                 {currentFiles.length === 0 && (
                   <p className="text-xs text-muted-foreground">
-                    Noch keine Anhänge. Bilder und PDFs werden unterstützt (max. 20 MB).
+                    {t("knowledge_no_attachments")}
                   </p>
                 )}
 
@@ -785,7 +792,7 @@ export function KnowledgeManager({ initialEntries, userRole }: KnowledgeManagerP
                             onClick={() => insertReference(file)}
                             title="Referenz in Problemfeld oder Lösungsfeld einfügen"
                           >
-                            Referenz einfügen
+                            {t("knowledge_insert_ref")}
                           </Button>
                           <Button
                             type="button"
@@ -806,7 +813,7 @@ export function KnowledgeManager({ initialEntries, userRole }: KnowledgeManagerP
 
             {!editingEntry && (
               <p className="text-xs text-muted-foreground border-t pt-2">
-                Nach dem Speichern können Anhänge hinzugefügt werden.
+                {t("knowledge_attachments_after_save")}
               </p>
             )}
 
@@ -818,7 +825,7 @@ export function KnowledgeManager({ initialEntries, userRole }: KnowledgeManagerP
               if (backlinks.length === 0) return null;
               return (
                 <div className="mt-4">
-                  <p className="text-xs font-medium text-muted-foreground mb-1.5">Erwähnt in:</p>
+                  <p className="text-xs font-medium text-muted-foreground mb-1.5">{t("knowledge_mentioned_in")}</p>
                   <div className="flex flex-wrap gap-1.5">
                     {backlinks.map((e) => (
                       <button key={e.id} type="button" onClick={() => openEdit(e)}
@@ -835,10 +842,10 @@ export function KnowledgeManager({ initialEntries, userRole }: KnowledgeManagerP
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-              {editingEntry ? "Schließen" : "Abbrechen"}
+              {editingEntry ? tc("close") : tc("cancel")}
             </Button>
             <Button onClick={handleSave} disabled={saving}>
-              {saving ? "Speichern..." : "Speichern"}
+              {tc("save")}
             </Button>
           </DialogFooter>
         </DialogContent>

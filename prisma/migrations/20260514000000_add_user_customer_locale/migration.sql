@@ -1,0 +1,5 @@
+-- AlterTable
+ALTER TABLE `User` ADD COLUMN `locale` VARCHAR(191) NOT NULL DEFAULT 'de';
+
+-- AlterTable
+ALTER TABLE `Customer` ADD COLUMN `locale` VARCHAR(191) NOT NULL DEFAULT 'de';

@@ -2,12 +2,15 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 
 export function PortalResetPasswordRequestForm() {
+  const t = useTranslations("portal");
+  const tc = useTranslations("common");
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
@@ -23,7 +26,7 @@ export function PortalResetPasswordRequestForm() {
       });
       setSent(true);
     } catch {
-      toast.error("Unbekannter Fehler");
+      toast.error(tc("unknown_error"));
     } finally {
       setLoading(false);
     }
@@ -33,11 +36,10 @@ export function PortalResetPasswordRequestForm() {
     return (
       <div className="space-y-4 text-center">
         <p className="text-sm">
-          Falls ein Konto mit <strong>{email}</strong> existiert, wurde eine E-Mail gesendet.
-          Bitte prüfen Sie Ihr Postfach.
+          {t("reset_sent", { email })}
         </p>
         <Link href="/portal/signin" className="text-sm text-primary hover:underline">
-          Zurück zur Anmeldung
+          {t("back_to_signin")}
         </Link>
       </div>
     );
@@ -46,11 +48,11 @@ export function PortalResetPasswordRequestForm() {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-2">
-        <Label htmlFor="email">E-Mail</Label>
+        <Label htmlFor="email">{tc("email")}</Label>
         <Input
           id="email"
           type="email"
-          placeholder="ihre@email.de"
+          placeholder={t("reset_email_placeholder")}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
@@ -58,11 +60,11 @@ export function PortalResetPasswordRequestForm() {
         />
       </div>
       <Button type="submit" className="w-full" disabled={loading}>
-        {loading ? "Senden..." : "Reset-Link senden"}
+        {loading ? tc("sending") : t("reset_link_cta")}
       </Button>
       <p className="text-center text-sm text-muted-foreground">
         <Link href="/portal/signin" className="text-primary hover:underline">
-          Zurück zur Anmeldung
+          {t("back_to_signin")}
         </Link>
       </p>
     </form>

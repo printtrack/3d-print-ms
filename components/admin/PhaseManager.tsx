@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { FlaskConical, GripVertical, MessageSquare, Pencil, Plus, Star, Trash2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 interface Phase {
   id: string;
@@ -52,6 +53,7 @@ function SortablePhaseRow({
   onEdit: (phase: Phase) => void;
   onDelete: (phase: Phase) => void;
 }) {
+  const t = useTranslations("admin");
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: phase.id,
   });
@@ -88,25 +90,25 @@ function SortablePhaseRow({
       {phase.isDefault && (
         <Badge variant="secondary" className="text-xs shrink-0">
           <Star className="h-3 w-3 mr-1" />
-          Standard
+          {t("phase_badge_standard")}
         </Badge>
       )}
 
       {phase.isSurvey && (
         <Badge variant="secondary" className="text-xs shrink-0">
           <MessageSquare className="h-3 w-3 mr-1" />
-          Umfrage
+          {t("phase_badge_survey")}
         </Badge>
       )}
 
       {phase.isPrototype && (
         <Badge className="text-xs shrink-0 bg-purple-100 text-purple-700 hover:bg-purple-100">
           <FlaskConical className="h-3 w-3 mr-1" />
-          Prototyp
+          {t("phase_badge_prototype")}
         </Badge>
       )}
 
-      <span className="hidden sm:inline text-xs text-muted-foreground shrink-0">{phase._count.orders} Aufträge</span>
+      <span className="hidden sm:inline text-xs text-muted-foreground shrink-0">{phase._count.orders} {t("phase_badge_orders")}</span>
 
       <div className="flex gap-1">
         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => onEdit(phase)}>
@@ -127,6 +129,8 @@ function SortablePhaseRow({
 }
 
 export function PhaseManager({ initialPhases }: { initialPhases: Phase[] }) {
+  const t = useTranslations("admin");
+  const tc = useTranslations("common");
   const [phases, setPhases] = useState(initialPhases);
   const [editingPhase, setEditingPhase] = useState<Phase | null>(null);
   const [isCreating, setIsCreating] = useState(false);
@@ -159,7 +163,7 @@ export function PhaseManager({ initialPhases }: { initialPhases: Phase[] }) {
 
   async function handleSave() {
     if (!formData.name.trim()) {
-      toast.error("Name ist erforderlich");
+      toast.error(t("phase_name_required"));
       return;
     }
 
@@ -174,7 +178,7 @@ export function PhaseManager({ initialPhases }: { initialPhases: Phase[] }) {
         if (!res.ok) throw new Error();
         const updated = await res.json();
         setPhases((prev) => prev.map((p) => (p.id === updated.id ? { ...p, ...updated } : p)));
-        toast.success("Phase aktualisiert");
+        toast.success(t("phase_updated"));
       } else {
         const res = await fetch("/api/admin/phases", {
           method: "POST",
@@ -184,18 +188,18 @@ export function PhaseManager({ initialPhases }: { initialPhases: Phase[] }) {
         if (!res.ok) throw new Error();
         const created = await res.json();
         setPhases((prev) => [...prev, { ...created, _count: { orders: 0 } }]);
-        toast.success("Phase erstellt");
+        toast.success(t("phase_created"));
       }
       setIsCreating(false);
     } catch {
-      toast.error("Fehler beim Speichern");
+      toast.error(t("phase_save_failed"));
     } finally {
       setSaving(false);
     }
   }
 
   async function handleDelete(phase: Phase) {
-    if (!confirm(`Phase "${phase.name}" wirklich löschen?`)) return;
+    if (!confirm(t("phase_delete_confirm", { name: phase.name }))) return;
 
     try {
       const res = await fetch(`/api/admin/phases/${phase.id}`, { method: "DELETE" });
@@ -205,9 +209,9 @@ export function PhaseManager({ initialPhases }: { initialPhases: Phase[] }) {
         return;
       }
       setPhases((prev) => prev.filter((p) => p.id !== phase.id));
-      toast.success("Phase gelöscht");
+      toast.success(t("phase_deleted"));
     } catch {
-      toast.error("Fehler beim Löschen");
+      toast.error(t("phase_delete_failed"));
     }
   }
 
@@ -237,7 +241,7 @@ export function PhaseManager({ initialPhases }: { initialPhases: Phase[] }) {
         )
       );
     } catch {
-      toast.error("Reihenfolge konnte nicht gespeichert werden");
+      toast.error(t("phase_order_failed"));
     }
   }
 
@@ -245,14 +249,14 @@ export function PhaseManager({ initialPhases }: { initialPhases: Phase[] }) {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Phasen</h1>
+          <h1 className="text-2xl font-bold tracking-tight">{t("phase_manager_title")}</h1>
           <p className="text-muted-foreground text-sm">
-            Konfiguriere die Phasen für den Auftrags-Workflow
+            {t("phase_manager_desc")}
           </p>
         </div>
         <Button onClick={openCreate}>
           <Plus className="h-4 w-4 mr-2" />
-          Phase hinzufügen
+          {t("phase_manager_add")}
         </Button>
       </div>
 
@@ -273,7 +277,7 @@ export function PhaseManager({ initialPhases }: { initialPhases: Phase[] }) {
 
       {phases.length === 0 && (
         <div className="text-center py-12 text-muted-foreground">
-          Noch keine Phasen konfiguriert
+          {t("phase_manager_empty")}
         </div>
       )}
 
@@ -281,22 +285,22 @@ export function PhaseManager({ initialPhases }: { initialPhases: Phase[] }) {
       <Dialog open={isCreating} onOpenChange={setIsCreating}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editingPhase ? "Phase bearbeiten" : "Neue Phase"}</DialogTitle>
+            <DialogTitle>{editingPhase ? t("phase_dialog_edit") : t("phase_dialog_new")}</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <Label htmlFor="phase-name">Name *</Label>
+              <Label htmlFor="phase-name">{tc("name")} *</Label>
               <Input
                 id="phase-name"
-                placeholder="z.B. In Bearbeitung"
+                placeholder={t("phase_name_placeholder")}
                 value={formData.name}
                 onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="phase-color">Farbe</Label>
+              <Label htmlFor="phase-color">{tc("color")}</Label>
               <div className="flex items-center gap-3">
                 <input
                   id="phase-color"
@@ -322,7 +326,7 @@ export function PhaseManager({ initialPhases }: { initialPhases: Phase[] }) {
                 onChange={(e) => setFormData((p) => ({ ...p, isDefault: e.target.checked }))}
                 className="h-4 w-4"
               />
-              <Label htmlFor="is-default">Als Standard-Phase (für neue Aufträge)</Label>
+              <Label htmlFor="is-default">{t("phase_is_default")}</Label>
             </div>
 
             <div className="flex items-center gap-2">
@@ -333,7 +337,7 @@ export function PhaseManager({ initialPhases }: { initialPhases: Phase[] }) {
                 onChange={(e) => setFormData((p) => ({ ...p, isSurvey: e.target.checked }))}
                 className="h-4 w-4"
               />
-              <Label htmlFor="is-survey">Umfrageauslöser (sendet Umfrage-E-Mail)</Label>
+              <Label htmlFor="is-survey">{t("phase_is_survey")}</Label>
             </div>
 
             <div className="flex items-center gap-2">
@@ -344,17 +348,17 @@ export function PhaseManager({ initialPhases }: { initialPhases: Phase[] }) {
                 onChange={(e) => setFormData((p) => ({ ...p, isPrototype: e.target.checked }))}
                 className="h-4 w-4"
               />
-              <Label htmlFor="is-prototype">Prototyp-Phase (ermöglicht Iterationszähler bei rückwärtiger Bewegung)</Label>
+              <Label htmlFor="is-prototype">{t("phase_is_prototype")}</Label>
             </div>
 
           </div>
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsCreating(false)}>
-              Abbrechen
+              {tc("cancel")}
             </Button>
             <Button onClick={handleSave} disabled={saving}>
-              {saving ? "Speichern..." : "Speichern"}
+              {saving ? `${tc("save")}...` : tc("save")}
             </Button>
           </DialogFooter>
         </DialogContent>

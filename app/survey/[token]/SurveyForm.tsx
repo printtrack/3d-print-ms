@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Star } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 interface SurveyFormProps {
   token: string;
@@ -15,6 +16,8 @@ interface SurveyFormProps {
 }
 
 export function SurveyForm({ token, questions, customerName, onSubmitted }: SurveyFormProps) {
+  const t = useTranslations("survey");
+  const tc = useTranslations("common");
   const [ratings, setRatings] = useState<number[]>(questions.map(() => 0));
   const [hoveredRatings, setHoveredRatings] = useState<number[]>(questions.map(() => 0));
   const [comment, setComment] = useState("");
@@ -39,7 +42,7 @@ export function SurveyForm({ token, questions, customerName, onSubmitted }: Surv
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (ratings.some((r) => r === 0)) {
-      toast.error("Bitte bewerten Sie alle Fragen");
+      toast.error(t("validate_all"));
       return;
     }
 
@@ -53,11 +56,11 @@ export function SurveyForm({ token, questions, customerName, onSubmitted }: Surv
       });
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error ?? "Fehler beim Senden");
+        throw new Error(data.error ?? t("submit_error"));
       }
       onSubmitted();
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Fehler beim Senden");
+      toast.error(err instanceof Error ? err.message : t("submit_error"));
     } finally {
       setSubmitting(false);
     }
@@ -66,8 +69,8 @@ export function SurveyForm({ token, questions, customerName, onSubmitted }: Surv
   return (
     <form onSubmit={handleSubmit} className="space-y-8">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Wie war Ihr Erlebnis?</h1>
-        <p className="text-muted-foreground mt-1">Hallo {customerName}, wir freuen uns über Ihr Feedback.</p>
+        <h1 className="text-2xl font-bold tracking-tight">{t("title")}</h1>
+        <p className="text-muted-foreground mt-1">{t("greeting", { name: customerName })}</p>
       </div>
 
       <div className="space-y-6">
@@ -87,7 +90,7 @@ export function SurveyForm({ token, questions, customerName, onSubmitted }: Surv
                     onClick={() => setRating(qIdx, value)}
                     onMouseEnter={() => setHovered(qIdx, value)}
                     className="p-0.5 transition-transform hover:scale-110"
-                    aria-label={`${value} von 5 Sternen`}
+                    aria-label={t("star_rating", { value })}
                   >
                     <Star
                       className={`h-8 w-8 transition-colors ${
@@ -110,10 +113,10 @@ export function SurveyForm({ token, questions, customerName, onSubmitted }: Surv
       </div>
 
       <div className="space-y-2">
-        <Label htmlFor="survey-comment">Weitere Anmerkungen (optional)</Label>
+        <Label htmlFor="survey-comment">{t("additional_notes")}</Label>
         <Textarea
           id="survey-comment"
-          placeholder="Was hat Ihnen besonders gut gefallen? Was können wir verbessern?"
+          placeholder={t("notes_placeholder")}
           rows={4}
           value={comment}
           onChange={(e) => setComment(e.target.value)}
@@ -122,7 +125,7 @@ export function SurveyForm({ token, questions, customerName, onSubmitted }: Surv
       </div>
 
       <Button type="submit" disabled={submitting} className="w-full">
-        {submitting ? "Wird gesendet..." : "Feedback absenden"}
+        {submitting ? tc("sending") : t("submit_cta")}
       </Button>
     </form>
   );

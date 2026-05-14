@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { signOut } from "next-auth/react";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
@@ -22,6 +23,7 @@ import {
   CalendarRange,
   FolderKanban,
 } from "lucide-react";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
 interface NavItem {
   href: string;
@@ -36,38 +38,6 @@ interface NavSection {
   items: NavItem[];
 }
 
-const navSections: NavSection[] = [
-  {
-    label: "Übersicht",
-    items: [
-      { href: "/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
-    ],
-  },
-  {
-    label: "Aufträge & Produktion",
-    items: [
-      { href: "/admin/orders", label: "Aufträge", icon: ClipboardList },
-      { href: "/admin/jobs", label: "Druckjobs", icon: Layers },
-      { href: "/admin/projects", label: "Projekte", icon: FolderKanban },
-    ],
-  },
-  {
-    label: "Planung & Ressourcen",
-    items: [
-      { href: "/admin/planning", label: "Planung", icon: CalendarRange },
-      { href: "/admin/inventory", label: "Inventar", icon: Package },
-    ],
-  },
-  {
-    label: "Wissen & Verwaltung",
-    items: [
-      { href: "/admin/knowledge", label: "Wissensdatenbank", icon: BookOpen },
-      { href: "/admin/customers", label: "Kunden", icon: Users2, adminOnly: true },
-      { href: "/admin/settings", label: "Einstellungen", icon: SlidersHorizontal, adminOnly: true },
-    ],
-  },
-];
-
 interface AdminNavProps {
   userRole?: string;
   companyName?: string;
@@ -76,6 +46,39 @@ interface AdminNavProps {
 export function AdminNav({ userRole, companyName = "3D Print CMS" }: AdminNavProps) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const t = useTranslations("nav");
+
+  const navSections: NavSection[] = [
+    {
+      label: t("overview"),
+      items: [
+        { href: "/admin", label: t("dashboard"), icon: LayoutDashboard, exact: true },
+      ],
+    },
+    {
+      label: t("orders_production"),
+      items: [
+        { href: "/admin/orders", label: t("orders"), icon: ClipboardList },
+        { href: "/admin/jobs", label: t("print_jobs"), icon: Layers },
+        { href: "/admin/projects", label: t("projects"), icon: FolderKanban },
+      ],
+    },
+    {
+      label: t("planning_resources"),
+      items: [
+        { href: "/admin/planning", label: t("planning"), icon: CalendarRange },
+        { href: "/admin/inventory", label: t("inventory"), icon: Package },
+      ],
+    },
+    {
+      label: t("knowledge_admin"),
+      items: [
+        { href: "/admin/knowledge", label: t("knowledge"), icon: BookOpen },
+        { href: "/admin/customers", label: t("customers"), icon: Users2, adminOnly: true },
+        { href: "/admin/settings", label: t("settings"), icon: SlidersHorizontal, adminOnly: true },
+      ],
+    },
+  ];
 
   function isActive(href: string, exact?: boolean) {
     if (exact) return pathname === href;
@@ -140,7 +143,10 @@ export function AdminNav({ userRole, companyName = "3D Print CMS" }: AdminNavPro
         })}
       </nav>
 
-      <div className="px-3 py-4 border-t border-border/60">
+      <div className="px-3 py-4 border-t border-border/60 space-y-1">
+        <div className="flex items-center justify-end px-3 py-1">
+          <LanguageSwitcher />
+        </div>
         <Button
           variant="ghost"
           size="sm"
@@ -148,7 +154,7 @@ export function AdminNav({ userRole, companyName = "3D Print CMS" }: AdminNavPro
           onClick={() => signOut({ callbackUrl: "/auth/signin" })}
         >
           <LogOut className="h-4 w-4" />
-          Abmelden
+          {t("signout")}
         </Button>
       </div>
     </>
@@ -158,7 +164,7 @@ export function AdminNav({ userRole, companyName = "3D Print CMS" }: AdminNavPro
     <>
       {/* Mobile header bar */}
       <div className="md:hidden fixed top-0 left-0 right-0 z-40 flex items-center gap-3 px-4 h-14 bg-card border-b">
-        <Button variant="ghost" size="icon" onClick={() => setOpen(true)} aria-label="Menü öffnen">
+        <Button variant="ghost" size="icon" onClick={() => setOpen(true)} aria-label={t("open_menu")}>
           <Menu className="h-5 w-5" />
         </Button>
         <span className="font-semibold text-sm">{companyName}</span>

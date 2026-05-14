@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -38,6 +39,8 @@ export function PartLinkJobDialog({
   activeJobId = null,
   onLinked,
 }: PartLinkJobDialogProps) {
+  const t = useTranslations("admin");
+  const tc = useTranslations("common");
   const [jobs, setJobs] = useState<JobOption[]>([]);
   const [selectedJobId, setSelectedJobId] = useState("");
   const [loading, setLoading] = useState(false);
@@ -52,7 +55,7 @@ export function PartLinkJobDialog({
       .then((data: JobOption[]) => {
         setJobs(data.filter((j) => j.status !== "DONE" && j.status !== "CANCELLED" && j.id !== activeJobId));
       })
-      .catch(() => toast.error("Jobs konnten nicht geladen werden"))
+      .catch(() => toast.error(t("link_job_load_failed")))
       .finally(() => setLoading(false));
   }, [open]);
 
@@ -67,13 +70,13 @@ export function PartLinkJobDialog({
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || "Fehler beim Hinzufügen");
+        throw new Error(data.error || t("link_job_add_failed"));
       }
-      toast.success(`Teil "${partName}" zum Job hinzugefügt`);
+      toast.success(t("link_job_added", { name: partName }));
       onLinked?.();
       onOpenChange(false);
     } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Fehler beim Hinzufügen");
+      toast.error(e instanceof Error ? e.message : t("link_job_add_failed"));
     } finally {
       setLinking(false);
     }
@@ -83,18 +86,18 @@ export function PartLinkJobDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Zu Druckjob hinzufügen</DialogTitle>
+          <DialogTitle>{t("link_job_title")}</DialogTitle>
         </DialogHeader>
         <div className="space-y-3 py-2">
-          <Label>Aktiver Job</Label>
+          <Label>{t("link_job_active")}</Label>
           {loading ? (
-            <p className="text-sm text-muted-foreground">Lade Jobs...</p>
+            <p className="text-sm text-muted-foreground">{t("link_job_loading")}</p>
           ) : jobs.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Keine aktiven Jobs vorhanden.</p>
+            <p className="text-sm text-muted-foreground">{t("link_job_empty")}</p>
           ) : (
             <Select value={selectedJobId} onValueChange={setSelectedJobId}>
               <SelectTrigger>
-                <SelectValue placeholder="Job wählen..." />
+                <SelectValue placeholder={t("link_job_select")} />
               </SelectTrigger>
               <SelectContent>
                 {jobs.map((j) => (
@@ -111,10 +114,10 @@ export function PartLinkJobDialog({
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={linking}>
-            Abbrechen
+            {tc("cancel")}
           </Button>
           <Button onClick={handleLink} disabled={!selectedJobId || linking}>
-            {linking ? "..." : "Hinzufügen"}
+            {linking ? "..." : tc("add")}
           </Button>
         </DialogFooter>
       </DialogContent>

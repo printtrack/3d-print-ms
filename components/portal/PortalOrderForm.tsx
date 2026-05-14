@@ -10,6 +10,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { toast } from "sonner";
 import { Upload, X, FileText, Image } from "lucide-react";
 import { formatFileSize } from "@/lib/utils";
+import { useTranslations } from "next-intl";
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 
@@ -20,6 +21,8 @@ interface Props {
 
 export function PortalOrderForm({ customerName, customerEmail }: Props) {
   const router = useRouter();
+  const t = useTranslations("portal");
+  const tc = useTranslations("common");
   const [loading, setLoading] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const [description, setDescription] = useState("");
@@ -29,7 +32,7 @@ export function PortalOrderForm({ customerName, customerEmail }: Props) {
     const selected = Array.from(e.target.files ?? []);
     const valid = selected.filter((f) => {
       if (f.size > MAX_FILE_SIZE) {
-        toast.error(`${f.name} ist zu groß (max. 50MB)`);
+        toast.error(tc("file_too_large", { name: f.name }));
         return false;
       }
       return true;
@@ -49,7 +52,7 @@ export function PortalOrderForm({ customerName, customerEmail }: Props) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!description) {
-      toast.error("Bitte eine Beschreibung eingeben");
+      toast.error(t("new_order_required_error"));
       return;
     }
 
@@ -69,7 +72,7 @@ export function PortalOrderForm({ customerName, customerEmail }: Props) {
 
       if (!orderRes.ok) {
         const err = await orderRes.json();
-        throw new Error(err.error ?? "Auftrag konnte nicht erstellt werden");
+        throw new Error(err.error ?? t("new_order_create_error"));
       }
 
       const { orderId } = await orderRes.json();
@@ -85,13 +88,13 @@ export function PortalOrderForm({ customerName, customerEmail }: Props) {
         });
 
         if (!uploadRes.ok) {
-          toast.warning("Auftrag erstellt, aber Datei-Upload fehlgeschlagen");
+          toast.warning(t("new_order_upload_error"));
         }
       }
 
       router.push(`/portal/orders/${orderId}`);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Unbekannter Fehler");
+      toast.error(err instanceof Error ? err.message : tc("unknown_error"));
       setLoading(false);
     }
   }
@@ -99,21 +102,18 @@ export function PortalOrderForm({ customerName, customerEmail }: Props) {
   return (
     <Card className="w-full max-w-2xl mx-auto">
       <CardHeader>
-        <CardTitle>Neuen Auftrag einreichen</CardTitle>
+        <CardTitle>{t("new_order_title")}</CardTitle>
         <CardDescription>
-          Auftrag wird eingereicht als:{" "}
-          <span className="font-medium text-foreground">
-            {customerName} ({customerEmail})
-          </span>
+          {t("new_order_as", { name: customerName, email: customerEmail })}
         </CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="space-y-2">
-            <Label htmlFor="description">Beschreibung *</Label>
+            <Label htmlFor="description">{t("new_order_desc_label")}</Label>
             <Textarea
               id="description"
-              placeholder="Beschreibe deinen 3D-Druck Auftrag: Material, Farbe, Größe, Verwendungszweck..."
+              placeholder={t("new_order_desc_placeholder")}
               rows={5}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -122,7 +122,7 @@ export function PortalOrderForm({ customerName, customerEmail }: Props) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="deadline">Wunschdatum (optional)</Label>
+            <Label htmlFor="deadline">{t("new_order_deadline")}</Label>
             <Input
               id="deadline"
               type="date"
@@ -133,16 +133,14 @@ export function PortalOrderForm({ customerName, customerEmail }: Props) {
           </div>
 
           <div className="space-y-3">
-            <Label>Dateien (optional)</Label>
+            <Label>{t("new_order_files")}</Label>
             <div className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary/50 transition-colors">
               <Upload className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
-              <p className="text-sm text-muted-foreground mb-2">
-                Bilder (JPG, PNG) oder 3D-Dateien (STL, OBJ, 3MF)
-              </p>
-              <p className="text-xs text-muted-foreground mb-3">Max. 50MB pro Datei</p>
+              <p className="text-sm text-muted-foreground mb-2">{tc("file_types_3d")}</p>
+              <p className="text-xs text-muted-foreground mb-3">{tc("max_file_size")}</p>
               <label htmlFor="file-upload">
                 <Button type="button" variant="outline" size="sm" asChild>
-                  <span className="cursor-pointer">Dateien auswählen</span>
+                  <span className="cursor-pointer">{tc("select_files")}</span>
                 </Button>
               </label>
               <input
@@ -184,7 +182,7 @@ export function PortalOrderForm({ customerName, customerEmail }: Props) {
           </div>
 
           <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "Wird eingereicht..." : "Auftrag einreichen"}
+            {loading ? t("new_order_submitting") : t("new_order_submit_cta")}
           </Button>
         </form>
       </CardContent>

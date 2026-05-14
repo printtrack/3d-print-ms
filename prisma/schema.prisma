@@ -54,6 +54,7 @@ model User {
   email            String                  @unique
   password         String
   role             Role                    @default(TEAM_MEMBER)
+  locale           String                  @default("de")
   createdAt        DateTime                @default(now())
   assignedOrders   OrderAssignee[]
   comments         OrderComment[]
@@ -475,6 +476,7 @@ model Customer {
   name               String
   password           String
   creditBalance      Int                             @default(0)
+  locale             String                          @default("de")
   emailVerifiedAt    DateTime?
   createdAt          DateTime                        @default(now())
   updatedAt          DateTime                        @updatedAt

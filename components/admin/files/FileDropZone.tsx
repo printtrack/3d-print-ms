@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useRef, useState, type DragEvent } from "react";
 import { Upload, CloudUpload } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -27,6 +28,7 @@ export function FileDropZone({
   className,
 }: FileDropZoneProps) {
   const inputRef = useRef<HTMLInputElement>(null);
+  const tc = useTranslations("common");
   const [isDragOver, setIsDragOver] = useState(false);
   const dragCounter = useRef(0);
 
@@ -97,8 +99,8 @@ export function FileDropZone({
           {isDragOver
             ? destinationLabel
               ? `Ablegen in ${destinationLabel}`
-              : "Loslassen zum Hochladen"
-            : "Weitere Datei hochladen oder hier ablegen"}
+              : tc("release_to_upload")
+            : tc("add_another_file")}
         </span>
       </div>
     );
@@ -150,8 +152,8 @@ export function FileDropZone({
           {isDragOver
             ? destinationLabel
               ? `Ablegen in ${destinationLabel}`
-              : "Loslassen zum Hochladen"
-            : "Dateien hier ablegen oder klicken"}
+              : tc("release_to_upload")
+            : tc("drop_or_click")}
         </p>
         <p className="text-xs text-muted-foreground mt-1">
           JPG, PNG, GIF, WebP, STL, OBJ, 3MF · max 50 MB

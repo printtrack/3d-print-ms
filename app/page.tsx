@@ -2,11 +2,13 @@ import { DM_Serif_Display } from "next/font/google";
 import { Printer, Zap, Shield, Eye, MessageCircle } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 
 import { OrderForm } from "@/components/customer/OrderForm";
 import { Button } from "@/components/ui/button";
 import { getSetting } from "@/lib/settings";
 import { CONTENT } from "./content";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
 export const dynamic = "force-dynamic";
 
@@ -18,12 +20,16 @@ const serif = DM_Serif_Display({
 
 const FEATURE_ICONS = { Zap, Shield, Eye, MessageCircle } as const;
 
+type LT = Awaited<ReturnType<typeof getTranslations<"landing">>>;
+type NT = Awaited<ReturnType<typeof getTranslations<"nav">>>;
+
 export async function generateMetadata(): Promise<Metadata> {
   const companyName =
     (await getSetting("company_name")) ?? CONTENT.fallbackCompanyName;
+  const t = await getTranslations("landing");
   return {
     title: companyName,
-    description: CONTENT.hero.subheadline,
+    description: t("hero_subheadline"),
   };
 }
 
@@ -32,17 +38,19 @@ export default async function Home() {
     (await getSetting("company_name")) ?? CONTENT.fallbackCompanyName;
   const contactEmail = (await getSetting("contact_email")) ?? "";
   const accessCodeEnabled = (await getSetting("access_code_enabled")) === "true";
+  const t = await getTranslations("landing");
+  const tNav = await getTranslations("nav");
 
   return (
     <div className={`${serif.variable} min-h-screen`}>
-      <Navbar companyName={companyName} />
+      <Navbar companyName={companyName} t={t} tNav={tNav} />
       <main id="main-content">
-        <HeroSection />
-        <FeaturesSection />
-        <HowItWorksSection />
-        <OrderFormSection accessCodeEnabled={accessCodeEnabled} />
+        <HeroSection t={t} />
+        <FeaturesSection t={t} />
+        <HowItWorksSection t={t} />
+        <OrderFormSection accessCodeEnabled={accessCodeEnabled} t={t} />
       </main>
-      <Footer companyName={companyName} contactEmail={contactEmail} />
+      <Footer companyName={companyName} contactEmail={contactEmail} t={t} tNav={tNav} />
     </div>
   );
 }
@@ -51,7 +59,15 @@ export default async function Home() {
 // Navbar
 // ---------------------------------------------------------------------------
 
-function Navbar({ companyName }: { companyName: string }) {
+function Navbar({
+  companyName,
+  t,
+  tNav,
+}: {
+  companyName: string;
+  t: LT;
+  tNav: NT;
+}) {
   return (
     <nav
       aria-label="Hauptnavigation"
@@ -67,13 +83,16 @@ function Navbar({ companyName }: { companyName: string }) {
           <span className="text-white font-semibold text-lg">{companyName}</span>
         </div>
         <div className="flex items-center gap-2 sm:gap-3">
+          <div className="text-white/70 hover:text-white">
+            <LanguageSwitcher />
+          </div>
           <Button
             asChild
             size="sm"
             variant="ghost"
             className="hidden sm:inline-flex font-medium text-white/70 hover:text-white hover:bg-white/10"
           >
-            <Link href="/portal/signin">Mein Konto</Link>
+            <Link href="/portal/signin">{tNav("my_account")}</Link>
           </Button>
           <Button
             asChild
@@ -84,7 +103,7 @@ function Navbar({ companyName }: { companyName: string }) {
               color: "var(--landing-hero-bg)",
             }}
           >
-            <a href="#order-form">{CONTENT.navbar.ctaLabel}</a>
+            <a href="#order-form">{t("start_order_cta")}</a>
           </Button>
         </div>
       </div>
@@ -96,8 +115,7 @@ function Navbar({ companyName }: { companyName: string }) {
 // Hero
 // ---------------------------------------------------------------------------
 
-function HeroSection() {
-  const [line1, line2] = CONTENT.hero.headline.split("\n");
+function HeroSection({ t }: { t: LT }) {
   return (
     <section
       className="relative min-h-screen flex items-center pt-20"
@@ -124,7 +142,7 @@ function HeroSection() {
           className="text-sm font-medium tracking-widest uppercase mb-6"
           style={{ color: "var(--landing-accent)" }}
         >
-          {CONTENT.hero.eyebrow}
+          {t("hero_eyebrow")}
         </p>
 
         {/* Headline */}
@@ -132,14 +150,14 @@ function HeroSection() {
           className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl leading-[1.1] text-white mb-8"
           style={{ fontFamily: "var(--font-dm-serif)" }}
         >
-          {line1}
+          {t("hero_headline_1")}
           <br />
-          <span style={{ color: "var(--landing-accent)" }}>{line2}</span>
+          <span style={{ color: "var(--landing-accent)" }}>{t("hero_headline_2")}</span>
         </h1>
 
         {/* Subheadline */}
         <p className="text-lg sm:text-xl max-w-2xl mx-auto mb-10 leading-relaxed" style={{ color: "oklch(1 0 0 / 60%)" }}>
-          {CONTENT.hero.subheadline}
+          {t("hero_subheadline")}
         </p>
 
         {/* CTAs */}
@@ -153,7 +171,7 @@ function HeroSection() {
               color: "var(--landing-hero-bg)",
             }}
           >
-            <a href="#order-form">{CONTENT.hero.primaryCta}</a>
+            <a href="#order-form">{t("hero_cta")}</a>
           </Button>
         </div>
       </div>
@@ -165,7 +183,14 @@ function HeroSection() {
 // Features
 // ---------------------------------------------------------------------------
 
-function FeaturesSection() {
+function FeaturesSection({ t }: { t: LT }) {
+  const features = [
+    { icon: "Zap", title: t("feature_fast_title"), description: t("feature_fast_desc") },
+    { icon: "Shield", title: t("feature_quality_title"), description: t("feature_quality_desc") },
+    { icon: "Eye", title: t("feature_status_title"), description: t("feature_status_desc") },
+    { icon: "MessageCircle", title: t("feature_questions_title"), description: t("feature_questions_desc") },
+  ] as const;
+
   return (
     <section className="py-24 bg-white">
       <div className="container mx-auto px-6">
@@ -174,18 +199,18 @@ function FeaturesSection() {
             className="text-sm font-medium tracking-widest uppercase mb-3"
             style={{ color: "var(--landing-accent)" }}
           >
-            {CONTENT.features.sectionLabel}
+            {t("features_label")}
           </p>
           <h2
             className="text-4xl text-gray-900"
             style={{ fontFamily: "var(--font-dm-serif)" }}
           >
-            {CONTENT.features.headline}
+            {t("features_headline")}
           </h2>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-          {CONTENT.features.items.map((item) => {
+          {features.map((item) => {
             const Icon = FEATURE_ICONS[item.icon as keyof typeof FEATURE_ICONS];
             return (
               <div
@@ -217,7 +242,13 @@ function FeaturesSection() {
 // How It Works
 // ---------------------------------------------------------------------------
 
-function HowItWorksSection() {
+function HowItWorksSection({ t }: { t: LT }) {
+  const steps = [
+    { number: "01", title: t("step1_title"), description: t("step1_desc") },
+    { number: "02", title: t("step2_title"), description: t("step2_desc") },
+    { number: "03", title: t("step3_title"), description: t("step3_desc") },
+  ];
+
   return (
     <section className="py-24" style={{ backgroundColor: "oklch(0.97 0.004 240)" }}>
       <div className="container mx-auto px-6">
@@ -226,13 +257,13 @@ function HowItWorksSection() {
             className="text-sm font-medium tracking-widest uppercase mb-3"
             style={{ color: "var(--landing-accent)" }}
           >
-            {CONTENT.howItWorks.sectionLabel}
+            {t("how_label")}
           </p>
           <h2
             className="text-4xl text-gray-900"
             style={{ fontFamily: "var(--font-dm-serif)" }}
           >
-            {CONTENT.howItWorks.headline}
+            {t("how_headline")}
           </h2>
         </div>
 
@@ -243,7 +274,7 @@ function HowItWorksSection() {
             style={{ backgroundColor: "var(--landing-accent-glow)" }}
           />
 
-          {CONTENT.howItWorks.steps.map((step, i) => (
+          {steps.map((step, i) => (
             <div key={step.number} className="relative flex flex-col items-center text-center">
               <div
                 className="w-20 h-20 rounded-full flex items-center justify-center text-2xl font-bold mb-6 border-2 relative z-10"
@@ -270,7 +301,7 @@ function HowItWorksSection() {
 // Order Form
 // ---------------------------------------------------------------------------
 
-function OrderFormSection({ accessCodeEnabled }: { accessCodeEnabled: boolean }) {
+function OrderFormSection({ accessCodeEnabled, t }: { accessCodeEnabled: boolean; t: LT }) {
   return (
     <section id="order-form" className="py-24 bg-white scroll-mt-20">
       <div className="container mx-auto px-6">
@@ -279,16 +310,16 @@ function OrderFormSection({ accessCodeEnabled }: { accessCodeEnabled: boolean })
             className="text-sm font-medium tracking-widest uppercase mb-3"
             style={{ color: "var(--landing-accent)" }}
           >
-            {CONTENT.orderSection.sectionLabel}
+            {t("order_label")}
           </p>
           <h2
             className="text-4xl text-gray-900 mb-4"
             style={{ fontFamily: "var(--font-dm-serif)" }}
           >
-            {CONTENT.orderSection.headline}
+            {t("order_headline")}
           </h2>
           <p className="text-gray-500 text-lg max-w-xl mx-auto">
-            {CONTENT.orderSection.subheadline}
+            {t("order_subheadline")}
           </p>
         </div>
         <OrderForm accessCodeEnabled={accessCodeEnabled} />
@@ -304,9 +335,13 @@ function OrderFormSection({ accessCodeEnabled }: { accessCodeEnabled: boolean })
 function Footer({
   companyName,
   contactEmail,
+  t,
+  tNav,
 }: {
   companyName: string;
   contactEmail: string;
+  t: LT;
+  tNav: NT;
 }) {
   return (
     <footer
@@ -322,7 +357,7 @@ function Footer({
           <div>
             <span className="text-white font-semibold">{companyName}</span>
             <p className="text-xs mt-0.5" style={{ color: "oklch(1 0 0 / 40%)" }}>
-              {CONTENT.footer.tagline}
+              {t("footer_tagline")}
             </p>
           </div>
         </div>
@@ -341,21 +376,21 @@ function Footer({
             className="transition-colors"
             style={{ color: "oklch(1 0 0 / 55%)" }}
           >
-            Impressum
+            {t("imprint")}
           </a>
           <a
             href="/datenschutz"
             className="transition-colors"
             style={{ color: "oklch(1 0 0 / 55%)" }}
           >
-            Datenschutz
+            {t("privacy")}
           </a>
           <Link
             href="/portal/signin"
             className="transition-colors"
             style={{ color: "oklch(1 0 0 / 55%)" }}
           >
-            Mein Konto
+            {tNav("my_account")}
           </Link>
           <a
             href="/auth/signin"

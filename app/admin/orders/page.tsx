@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
+import { getTranslations } from "next-intl/server";
 import { DashboardView } from "@/components/admin/DashboardView";
 import { FilterBar } from "@/components/admin/FilterBar";
 import { HighlightHandler } from "@/components/admin/HighlightHandler";
@@ -152,9 +153,10 @@ export default async function OrdersPage({ searchParams }: PageProps) {
   const isInternal = internal === "true";
   const isPendingVerification = pendingVerification === "true";
 
-  const [session, { phases, orders, archiveCount, users }] = await Promise.all([
+  const [session, { phases, orders, archiveCount, users }, t] = await Promise.all([
     auth(),
     getData(search, showArchived, deadline, assigneeIds, isPrototype, isInternal, isPendingVerification),
+    getTranslations("admin"),
   ]);
 
   const isAdmin = (session?.user as { role?: string })?.role === "ADMIN";
@@ -166,7 +168,7 @@ export default async function OrdersPage({ searchParams }: PageProps) {
       <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3 flex-shrink-0">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">
-            {showArchived ? "Archiv" : "Aufträge"}
+            {showArchived ? t("orders_archive") : t("orders_title")}
           </h1>
           <p className="text-muted-foreground text-sm">
             {orders.length} Auftrag{orders.length !== 1 ? "e" : ""}

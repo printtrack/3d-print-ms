@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,6 +12,9 @@ import { toast } from "sonner";
 import Link from "next/link";
 
 export function SignInForm() {
+  const t = useTranslations("auth");
+  const tc = useTranslations("common");
+
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") ?? "/admin";
@@ -30,13 +34,13 @@ export function SignInForm() {
       });
 
       if (result?.error) {
-        toast.error("Ungültige E-Mail oder Passwort");
+        toast.error(t("invalid_credentials"));
       } else {
         router.push(callbackUrl);
         router.refresh();
       }
     } catch {
-      toast.error("Anmeldung fehlgeschlagen");
+      toast.error(t("login_failed"));
     } finally {
       setLoading(false);
     }
@@ -45,17 +49,17 @@ export function SignInForm() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Anmelden</CardTitle>
-        <CardDescription>Gib deine Zugangsdaten ein</CardDescription>
+        <CardTitle>{t("signin_title")}</CardTitle>
+        <CardDescription>{t("signin_subtitle")}</CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="email">E-Mail</Label>
+            <Label htmlFor="email">{tc("email")}</Label>
             <Input
               id="email"
               type="email"
-              placeholder="admin@3dprinting.local"
+              placeholder={t("email_placeholder")}
               value={form.email}
               onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
               required
@@ -63,7 +67,7 @@ export function SignInForm() {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="password">Passwort</Label>
+            <Label htmlFor="password">{tc("password")}</Label>
             <Input
               id="password"
               type="password"
@@ -74,11 +78,11 @@ export function SignInForm() {
             />
           </div>
           <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "Wird angemeldet..." : "Anmelden"}
+            {loading ? t("signing_in") : t("signin_title")}
           </Button>
           <p className="text-center text-sm text-muted-foreground">
             <Link href="/auth/reset-password" className="text-primary hover:underline">
-              Passwort vergessen?
+              {t("forgot_password")}
             </Link>
           </p>
         </form>

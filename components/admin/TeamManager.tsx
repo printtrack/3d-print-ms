@@ -24,6 +24,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
 import { formatDate } from "@/lib/utils";
 import { Plus, Trash2, Pencil, Shield, User } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 interface TeamMember {
   id: string;
@@ -45,6 +46,8 @@ export function TeamManager({
   initialMembers: TeamMember[];
   currentUserId: string;
 }) {
+  const t = useTranslations("admin");
+  const tc = useTranslations("common");
   const [members, setMembers] = useState(initialMembers);
   const [isCreating, setIsCreating] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -83,7 +86,7 @@ export function TeamManager({
 
       if (!res.ok) {
         const data = await res.json();
-        toast.error(data.error ?? "Fehler");
+        toast.error(data.error ?? tc("error"));
         return;
       }
 
@@ -96,9 +99,9 @@ export function TeamManager({
         )
       );
       setEditingMember(null);
-      toast.success("Änderungen gespeichert");
+      toast.success(t("team_saved"));
     } catch {
-      toast.error("Fehler beim Speichern");
+      toast.error(t("team_save_failed"));
     } finally {
       setEditLoading(false);
     }
@@ -111,7 +114,7 @@ export function TeamManager({
 
   async function handleCreate() {
     if (!form.name || !form.email || !form.password) {
-      toast.error("Alle Felder ausfüllen");
+      toast.error(t("team_all_required"));
       return;
     }
 
@@ -125,16 +128,16 @@ export function TeamManager({
 
       if (!res.ok) {
         const data = await res.json();
-        toast.error(data.error ?? "Fehler");
+        toast.error(data.error ?? tc("error"));
         return;
       }
 
       const newMember = await res.json();
       setMembers((prev) => [...prev, { ...newMember, _count: { assignedOrders: 0 } }]);
       setIsCreating(false);
-      toast.success("Teammitglied hinzugefügt");
+      toast.success(t("team_added"));
     } catch {
-      toast.error("Fehler beim Erstellen");
+      toast.error(t("team_create_failed"));
     } finally {
       setSaving(false);
     }
@@ -142,22 +145,22 @@ export function TeamManager({
 
   async function handleDelete(member: TeamMember) {
     if (member.id === currentUserId) {
-      toast.error("Du kannst dich nicht selbst löschen");
+      toast.error(t("team_no_self_delete"));
       return;
     }
-    if (!confirm(`"${member.name}" wirklich entfernen?`)) return;
+    if (!confirm(`"${member.name}" ${t("team_delete_confirm")}`)) return;
 
     try {
       const res = await fetch(`/api/admin/team/${member.id}`, { method: "DELETE" });
       if (!res.ok) {
         const data = await res.json();
-        toast.error(data.error ?? "Fehler");
+        toast.error(data.error ?? tc("error"));
         return;
       }
       setMembers((prev) => prev.filter((m) => m.id !== member.id));
-      toast.success("Teammitglied entfernt");
+      toast.success(t("team_removed"));
     } catch {
-      toast.error("Fehler beim Löschen");
+      toast.error(t("team_delete_failed"));
     }
   }
 
@@ -165,14 +168,14 @@ export function TeamManager({
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Team</h1>
+          <h1 className="text-2xl font-bold tracking-tight">{t("team_title")}</h1>
           <p className="text-muted-foreground text-sm">
-            Verwalte die Teammitglieder und ihre Rollen
+            {t("team_desc")}
           </p>
         </div>
         <Button onClick={openCreate}>
           <Plus className="h-4 w-4 mr-2" />
-          Hinzufügen
+          {tc("add")}
         </Button>
       </div>
 
@@ -190,7 +193,7 @@ export function TeamManager({
                 <div className="flex items-center gap-2">
                   <p className="font-medium text-sm">{member.name}</p>
                   {member.id === currentUserId && (
-                    <Badge variant="outline" className="text-xs">Du</Badge>
+                    <Badge variant="outline" className="text-xs">{t("team_you")}</Badge>
                   )}
                 </div>
                 <p className="text-sm text-muted-foreground truncate">{member.email}</p>
@@ -206,15 +209,15 @@ export function TeamManager({
                   ) : (
                     <User className="h-3 w-3" />
                   )}
-                  {member.role === "ADMIN" ? "Admin" : "Mitglied"}
+                  {member.role === "ADMIN" ? t("team_role_admin") : t("team_role_member")}
                 </Badge>
 
                 <span className="text-xs text-muted-foreground hidden sm:block">
-                  {member._count.assignedOrders} Aufträge
+                  {member._count.assignedOrders} {t("team_orders")}
                 </span>
 
                 <span className="text-xs text-muted-foreground hidden sm:block">
-                  Seit {formatDate(member.createdAt)}
+                  {tc("since")} {formatDate(member.createdAt)}
                 </span>
 
                 <Button
@@ -242,18 +245,18 @@ export function TeamManager({
       </div>
 
       {members.length === 0 && (
-        <div className="text-center py-12 text-muted-foreground">Keine Teammitglieder</div>
+        <div className="text-center py-12 text-muted-foreground">{t("team_empty")}</div>
       )}
 
       <Dialog open={!!editingMember} onOpenChange={(open) => { if (!open) setEditingMember(null); }}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Mitglied bearbeiten</DialogTitle>
+            <DialogTitle>{t("team_dialog_edit")}</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <Label>Name *</Label>
+              <Label>{tc("name")} *</Label>
               <Input
                 placeholder="Max Mustermann"
                 value={editForm.name}
@@ -261,7 +264,7 @@ export function TeamManager({
               />
             </div>
             <div className="space-y-2">
-              <Label>E-Mail *</Label>
+              <Label>{tc("email")} *</Label>
               <Input
                 type="email"
                 placeholder="max@example.com"
@@ -270,7 +273,7 @@ export function TeamManager({
               />
             </div>
             <div className="space-y-2">
-              <Label>Rolle</Label>
+              <Label>{t("team_role_label")}</Label>
               <Select
                 value={editForm.role}
                 onValueChange={(v) => setEditForm((p) => ({ ...p, role: v as "ADMIN" | "TEAM_MEMBER" }))}
@@ -279,16 +282,16 @@ export function TeamManager({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="TEAM_MEMBER">Team-Mitglied</SelectItem>
-                  <SelectItem value="ADMIN">Admin</SelectItem>
+                  <SelectItem value="TEAM_MEMBER">{t("team_role_option")}</SelectItem>
+                  <SelectItem value="ADMIN">{t("team_role_admin")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Neues Passwort</Label>
+              <Label>{t("team_password_new")}</Label>
               <Input
                 type="password"
-                placeholder="Leer lassen = unverändert"
+                placeholder={t("team_password_hint")}
                 value={editForm.password}
                 onChange={(e) => setEditForm((p) => ({ ...p, password: e.target.value }))}
               />
@@ -297,10 +300,10 @@ export function TeamManager({
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditingMember(null)}>
-              Abbrechen
+              {tc("cancel")}
             </Button>
             <Button onClick={handleEdit} disabled={editLoading}>
-              {editLoading ? "Speichern..." : "Änderungen speichern"}
+              {editLoading ? `${t("team_save_changes")}...` : t("team_save_changes")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -309,12 +312,12 @@ export function TeamManager({
       <Dialog open={isCreating} onOpenChange={setIsCreating}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Neues Teammitglied</DialogTitle>
+            <DialogTitle>{t("team_dialog_new")}</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <Label>Name *</Label>
+              <Label>{tc("name")} *</Label>
               <Input
                 placeholder="Max Mustermann"
                 value={form.name}
@@ -322,7 +325,7 @@ export function TeamManager({
               />
             </div>
             <div className="space-y-2">
-              <Label>E-Mail *</Label>
+              <Label>{tc("email")} *</Label>
               <Input
                 type="email"
                 placeholder="max@example.com"
@@ -331,16 +334,16 @@ export function TeamManager({
               />
             </div>
             <div className="space-y-2">
-              <Label>Passwort *</Label>
+              <Label>{t("team_password_label")} *</Label>
               <Input
                 type="password"
-                placeholder="Mindestens 6 Zeichen"
+                placeholder={tc("min_6_chars")}
                 value={form.password}
                 onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))}
               />
             </div>
             <div className="space-y-2">
-              <Label>Rolle</Label>
+              <Label>{t("team_role_label")}</Label>
               <Select
                 value={form.role}
                 onValueChange={(v) => setForm((p) => ({ ...p, role: v as "ADMIN" | "TEAM_MEMBER" }))}
@@ -349,8 +352,8 @@ export function TeamManager({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="TEAM_MEMBER">Team-Mitglied</SelectItem>
-                  <SelectItem value="ADMIN">Admin</SelectItem>
+                  <SelectItem value="TEAM_MEMBER">{t("team_role_option")}</SelectItem>
+                  <SelectItem value="ADMIN">{t("team_role_admin")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -358,10 +361,10 @@ export function TeamManager({
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsCreating(false)}>
-              Abbrechen
+              {tc("cancel")}
             </Button>
             <Button onClick={handleCreate} disabled={saving}>
-              {saving ? "Erstellen..." : "Erstellen"}
+              {saving ? `${tc("create")}...` : tc("create")}
             </Button>
           </DialogFooter>
         </DialogContent>

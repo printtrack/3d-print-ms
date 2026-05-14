@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { getTranslations } from "next-intl/server";
 import { DashboardHome } from "@/components/admin/DashboardHome";
 
 export const dynamic = "force-dynamic";
@@ -71,13 +72,13 @@ async function getDashboardData() {
 }
 
 export default async function AdminDashboard() {
-  const data = await getDashboardData();
+  const [data, t] = await Promise.all([getDashboardData(), getTranslations("admin")]);
 
   return (
     <div className="flex flex-col gap-6 flex-1 min-h-0 overflow-auto">
       <div className="flex-shrink-0">
-        <h1 className="text-2xl font-bold tracking-tight">Dashboard</h1>
-        <p className="text-muted-foreground text-sm">Übersicht über laufende Aufträge und Aktivitäten</p>
+        <h1 className="text-2xl font-bold tracking-tight">{t("dashboard_title")}</h1>
+        <p className="text-muted-foreground text-sm">{t("dashboard_desc")}</p>
       </div>
       <DashboardHome {...data} />
     </div>

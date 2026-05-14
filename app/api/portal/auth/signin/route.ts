@@ -34,8 +34,11 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Ungültige E-Mail oder Passwort" }, { status: 401 });
   }
 
-  const jwt = await createCustomerSession({ id: customer.id, email: customer.email, name: customer.name });
+  const jwt = await createCustomerSession({ id: customer.id, email: customer.email, name: customer.name, locale: customer.locale });
   const response = NextResponse.json({ success: true });
   setCustomerSessionCookie(response, jwt);
+  // Sync locale cookie from DB preference on login
+  const secure = process.env.NODE_ENV === "production" ? "; Secure" : "";
+  response.headers.append("Set-Cookie", `locale=${customer.locale}; Path=/; SameSite=Lax; Max-Age=${365 * 24 * 60 * 60}${secure}`);
   return response;
 }

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,13 +12,15 @@ import { toast } from "sonner";
 
 export function PortalRegisterForm() {
   const router = useRouter();
+  const t = useTranslations("portal");
+  const tc = useTranslations("common");
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({ name: "", email: "", password: "", confirm: "" });
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (form.password !== form.confirm) {
-      toast.error("Passwörter stimmen nicht überein");
+      toast.error(tc("password_mismatch"));
       return;
     }
     setLoading(true);
@@ -29,13 +32,13 @@ export function PortalRegisterForm() {
       });
       const json = await res.json();
       if (!res.ok) {
-        toast.error(json.error ?? "Registrierung fehlgeschlagen");
+        toast.error(json.error ?? t("register_failed"));
         return;
       }
       router.push("/portal");
       router.refresh();
     } catch {
-      toast.error("Registrierung fehlgeschlagen");
+      toast.error(t("register_failed"));
     } finally {
       setLoading(false);
     }
@@ -44,17 +47,17 @@ export function PortalRegisterForm() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Registrieren</CardTitle>
-        <CardDescription>Erstellen Sie Ihr kostenloses Kundenkonto</CardDescription>
+        <CardTitle>{tc("register")}</CardTitle>
+        <CardDescription>{t("register_subtitle")}</CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="name">Name</Label>
+            <Label htmlFor="name">{tc("name")}</Label>
             <Input
               id="name"
               type="text"
-              placeholder="Max Mustermann"
+              placeholder={t("register_name_placeholder")}
               value={form.name}
               onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
               required
@@ -62,11 +65,11 @@ export function PortalRegisterForm() {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="email">E-Mail</Label>
+            <Label htmlFor="email">{tc("email")}</Label>
             <Input
               id="email"
               type="email"
-              placeholder="ihre@email.de"
+              placeholder={t("register_email_placeholder")}
               value={form.email}
               onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
               required
@@ -74,11 +77,11 @@ export function PortalRegisterForm() {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="password">Passwort</Label>
+            <Label htmlFor="password">{tc("password")}</Label>
             <Input
               id="password"
               type="password"
-              placeholder="Mindestens 6 Zeichen"
+              placeholder={tc("min_6_chars")}
               value={form.password}
               onChange={(e) => setForm((p) => ({ ...p, password: e.target.value }))}
               minLength={6}
@@ -87,11 +90,11 @@ export function PortalRegisterForm() {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="confirm">Passwort bestätigen</Label>
+            <Label htmlFor="confirm">{tc("password_confirm")}</Label>
             <Input
               id="confirm"
               type="password"
-              placeholder="Passwort wiederholen"
+              placeholder={tc("password_repeat")}
               value={form.confirm}
               onChange={(e) => setForm((p) => ({ ...p, confirm: e.target.value }))}
               minLength={6}
@@ -100,12 +103,12 @@ export function PortalRegisterForm() {
             />
           </div>
           <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "Wird erstellt..." : "Konto erstellen"}
+            {loading ? t("register_creating") : t("register_cta")}
           </Button>
           <p className="text-center text-sm text-muted-foreground">
-            Bereits ein Konto?{" "}
+            {t("register_already_have")}{" "}
             <Link href="/portal/signin" className="text-primary hover:underline">
-              Anmelden
+              {tc("signin")}
             </Link>
           </p>
         </form>

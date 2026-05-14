@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { getCustomerSessionFromCookies } from "@/lib/customer-auth";
 import { prisma } from "@/lib/db";
 import { PortalOrderList } from "@/components/portal/PortalOrderList";
@@ -9,6 +10,8 @@ import { Button } from "@/components/ui/button";
 export default async function PortalPage() {
   const customer = await getCustomerSessionFromCookies();
   if (!customer) redirect("/portal/signin");
+
+  const t = await getTranslations("portal");
 
   const [orders, customerData] = await Promise.all([
     prisma.order.findMany({
@@ -47,13 +50,13 @@ export default async function PortalPage() {
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Meine Aufträge</h1>
+          <h1 className="text-2xl font-bold">{t("my_orders")}</h1>
           <p className="text-muted-foreground text-sm mt-1">
-            Hallo, {customer.name} — hier sind alle Ihre 3D-Druck-Aufträge.
+            {t("my_orders_desc", { name: customer.name })}
           </p>
         </div>
         <Link href="/portal/orders/new">
-          <Button>Neuen Auftrag einreichen</Button>
+          <Button>{t("new_order_cta")}</Button>
         </Link>
       </div>
       <CreditBalanceBanner

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -9,6 +10,8 @@ import { toast } from "sonner";
 
 export function PortalResetPasswordConfirmForm({ token }: { token: string }) {
   const router = useRouter();
+  const t = useTranslations("portal");
+  const tc = useTranslations("common");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [loading, setLoading] = useState(false);
@@ -16,7 +19,7 @@ export function PortalResetPasswordConfirmForm({ token }: { token: string }) {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (password !== confirm) {
-      toast.error("Passwörter stimmen nicht überein");
+      toast.error(tc("password_mismatch"));
       return;
     }
     setLoading(true);
@@ -27,11 +30,11 @@ export function PortalResetPasswordConfirmForm({ token }: { token: string }) {
         body: JSON.stringify({ password }),
       });
       const json = await res.json();
-      if (!res.ok) throw new Error(json.error ?? "Fehler");
-      toast.success("Passwort wurde geändert. Bitte melden Sie sich an.");
+      if (!res.ok) throw new Error(json.error ?? tc("error"));
+      toast.success(t("password_changed"));
       router.push("/portal/signin");
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Unbekannter Fehler");
+      toast.error(err instanceof Error ? err.message : tc("unknown_error"));
     } finally {
       setLoading(false);
     }
@@ -40,11 +43,11 @@ export function PortalResetPasswordConfirmForm({ token }: { token: string }) {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-2">
-        <Label htmlFor="password">Neues Passwort</Label>
+        <Label htmlFor="password">{t("new_password_title")}</Label>
         <Input
           id="password"
           type="password"
-          placeholder="Mindestens 6 Zeichen"
+          placeholder={tc("min_6_chars")}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           minLength={6}
@@ -53,11 +56,11 @@ export function PortalResetPasswordConfirmForm({ token }: { token: string }) {
         />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="confirm">Passwort bestätigen</Label>
+        <Label htmlFor="confirm">{tc("password_confirm")}</Label>
         <Input
           id="confirm"
           type="password"
-          placeholder="Passwort wiederholen"
+          placeholder={tc("password_repeat")}
           value={confirm}
           onChange={(e) => setConfirm(e.target.value)}
           minLength={6}
@@ -66,7 +69,7 @@ export function PortalResetPasswordConfirmForm({ token }: { token: string }) {
         />
       </div>
       <Button type="submit" className="w-full" disabled={loading}>
-        {loading ? "Speichern..." : "Passwort speichern"}
+        {loading ? tc("saving") : t("save_password")}
       </Button>
     </form>
   );

@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { GripVertical, Pencil, Plus, Printer, Star, Trash2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 interface PartPhase {
   id: string;
@@ -50,6 +51,7 @@ function SortablePartPhaseRow({
   onEdit: (phase: PartPhase) => void;
   onDelete: (phase: PartPhase) => void;
 }) {
+  const t = useTranslations("admin");
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: phase.id,
   });
@@ -83,19 +85,19 @@ function SortablePartPhaseRow({
       {phase.isDefault && (
         <Badge variant="secondary" className="text-xs shrink-0">
           <Star className="h-3 w-3 mr-1" />
-          Standard
+          {t("part_phase_badge_standard")}
         </Badge>
       )}
 
       {phase.isPrintReady && (
         <Badge className="text-xs shrink-0 bg-green-100 text-green-700 hover:bg-green-100">
           <Printer className="h-3 w-3 mr-1" />
-          Druckbereit
+          {t("part_phase_badge_print_ready")}
         </Badge>
       )}
 
       <span className="hidden sm:inline text-xs text-muted-foreground shrink-0">
-        {phase._count.orderParts} Teile
+        {phase._count.orderParts} {t("part_phase_badge_parts")}
       </span>
 
       <div className="flex gap-1">
@@ -116,6 +118,8 @@ function SortablePartPhaseRow({
 }
 
 export function PartPhaseManager({ initialPartPhases }: { initialPartPhases: PartPhase[] }) {
+  const t = useTranslations("admin");
+  const tc = useTranslations("common");
   const [phases, setPhases] = useState(initialPartPhases);
   const [editingPhase, setEditingPhase] = useState<PartPhase | null>(null);
   const [isCreating, setIsCreating] = useState(false);
@@ -148,7 +152,7 @@ export function PartPhaseManager({ initialPartPhases }: { initialPartPhases: Par
 
   async function handleSave() {
     if (!formData.name.trim()) {
-      toast.error("Name ist erforderlich");
+      toast.error(t("phase_name_required"));
       return;
     }
 
@@ -163,7 +167,7 @@ export function PartPhaseManager({ initialPartPhases }: { initialPartPhases: Par
         if (!res.ok) throw new Error();
         const updated = await res.json();
         setPhases((prev) => prev.map((p) => (p.id === updated.id ? { ...p, ...updated } : p)));
-        toast.success("Teilphase aktualisiert");
+        toast.success(t("part_phase_updated"));
       } else {
         const res = await fetch("/api/admin/part-phases", {
           method: "POST",
@@ -173,30 +177,30 @@ export function PartPhaseManager({ initialPartPhases }: { initialPartPhases: Par
         if (!res.ok) throw new Error();
         const created = await res.json();
         setPhases((prev) => [...prev, { ...created, _count: { orderParts: 0 } }]);
-        toast.success("Teilphase erstellt");
+        toast.success(t("part_phase_created"));
       }
       setIsCreating(false);
     } catch {
-      toast.error("Fehler beim Speichern");
+      toast.error(t("phase_save_failed"));
     } finally {
       setSaving(false);
     }
   }
 
   async function handleDelete(phase: PartPhase) {
-    if (!confirm(`Teilphase "${phase.name}" wirklich löschen?`)) return;
+    if (!confirm(t("part_phase_delete_confirm", { name: phase.name }))) return;
 
     try {
       const res = await fetch(`/api/admin/part-phases/${phase.id}`, { method: "DELETE" });
       if (!res.ok) {
         const data = await res.json();
-        toast.error(data.error ?? "Fehler beim Löschen");
+        toast.error(data.error ?? t("phase_delete_failed"));
         return;
       }
       setPhases((prev) => prev.filter((p) => p.id !== phase.id));
-      toast.success("Teilphase gelöscht");
+      toast.success(t("part_phase_deleted"));
     } catch {
-      toast.error("Fehler beim Löschen");
+      toast.error(t("phase_delete_failed"));
     }
   }
 
@@ -221,7 +225,7 @@ export function PartPhaseManager({ initialPartPhases }: { initialPartPhases: Par
         )
       );
     } catch {
-      toast.error("Reihenfolge konnte nicht gespeichert werden");
+      toast.error(t("phase_order_failed"));
     }
   }
 
@@ -229,14 +233,14 @@ export function PartPhaseManager({ initialPartPhases }: { initialPartPhases: Par
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Teilphasen</h1>
+          <h1 className="text-2xl font-bold tracking-tight">{t("part_phase_title")}</h1>
           <p className="text-muted-foreground text-sm">
-            Konfiguriere die Phasen für den Teil-Workflow
+            {t("part_phase_desc")}
           </p>
         </div>
         <Button onClick={openCreate}>
           <Plus className="h-4 w-4 mr-2" />
-          Teilphase hinzufügen
+          {t("part_phase_add")}
         </Button>
       </div>
 
@@ -257,29 +261,29 @@ export function PartPhaseManager({ initialPartPhases }: { initialPartPhases: Par
 
       {phases.length === 0 && (
         <div className="text-center py-12 text-muted-foreground">
-          Noch keine Teilphasen konfiguriert
+          {t("part_phase_empty")}
         </div>
       )}
 
       <Dialog open={isCreating} onOpenChange={setIsCreating}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editingPhase ? "Teilphase bearbeiten" : "Neue Teilphase"}</DialogTitle>
+            <DialogTitle>{editingPhase ? t("part_phase_dialog_edit") : t("part_phase_dialog_new")}</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <Label htmlFor="part-phase-name">Name *</Label>
+              <Label htmlFor="part-phase-name">{tc("name")} *</Label>
               <Input
                 id="part-phase-name"
-                placeholder="z.B. Druckbereit"
+                placeholder={t("part_phase_name_placeholder")}
                 value={formData.name}
                 onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="part-phase-color">Farbe</Label>
+              <Label htmlFor="part-phase-color">{tc("color")}</Label>
               <div className="flex items-center gap-3">
                 <input
                   id="part-phase-color"
@@ -305,7 +309,7 @@ export function PartPhaseManager({ initialPartPhases }: { initialPartPhases: Par
                 onChange={(e) => setFormData((p) => ({ ...p, isDefault: e.target.checked }))}
                 className="h-4 w-4"
               />
-              <Label htmlFor="part-is-default">Als Standard-Phase (für neue Teile)</Label>
+              <Label htmlFor="part-is-default">{t("part_phase_is_default")}</Label>
             </div>
 
             <div className="flex items-center gap-2">
@@ -316,16 +320,16 @@ export function PartPhaseManager({ initialPartPhases }: { initialPartPhases: Par
                 onChange={(e) => setFormData((p) => ({ ...p, isPrintReady: e.target.checked }))}
                 className="h-4 w-4"
               />
-              <Label htmlFor="part-is-print-ready">Druckbereit (zeigt &quot;Zum Druck&quot; Button)</Label>
+              <Label htmlFor="part-is-print-ready">{t("part_phase_is_print_ready")}</Label>
             </div>
           </div>
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsCreating(false)}>
-              Abbrechen
+              {tc("cancel")}
             </Button>
             <Button onClick={handleSave} disabled={saving}>
-              {saving ? "Speichern..." : "Speichern"}
+              {saving ? `${tc("save")}...` : tc("save")}
             </Button>
           </DialogFooter>
         </DialogContent>
