@@ -11,6 +11,8 @@ order: 2
 
 The **Orders** section manages all incoming orders. Each order passes through defined phases from intake to completion.
 
+![Orders overview](/wiki-screenshots/orders.png)
+
 ## Order list (`/admin/orders`)
 
 The list shows all orders with status, customer name, date, and file count.

@@ -11,6 +11,8 @@ order: 4
 
 Projekte fassen mehrere [[Aufträge]] zusammen, die thematisch zusammengehören — z. B. alle Teile eines größeren Druckauftrags.
 
+![Projekte Übersicht](/wiki-screenshots/projects.png)
+
 ## Wofür sind Projekte?
 
 Wenn ein Kunde viele einzelne Aufträge für dasselbe Vorhaben einreicht, kannst du diese unter einem Projekt bündeln. So behältst du den Überblick über den Gesamtfortschritt, ohne jede Auftragskarte einzeln aufzurufen.

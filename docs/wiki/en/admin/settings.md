@@ -11,6 +11,8 @@ order: 9
 
 The settings area is **visible to admins only**. Here you configure the entire system.
 
+![Settings overview](/wiki-screenshots/settings.png)
+
 ## Company settings
 
 - **Company name** — shown in the sidebar and in emails

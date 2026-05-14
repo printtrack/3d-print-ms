@@ -11,6 +11,8 @@ order: 1
 
 The dashboard shows all open [[Orders]] as a Kanban board, sorted by their current phase from left to right.
 
+![Dashboard overview](/wiki-screenshots/dashboard.png)
+
 ## What is this page for?
 
 Your daily starting point: see at a glance how many orders are in each phase and which ones need attention next.

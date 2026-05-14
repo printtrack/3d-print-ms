@@ -11,6 +11,8 @@ order: 7
 
 The knowledge base collects recurring problems and proven solutions related to 3D printing. Any team member can create and edit entries.
 
+![Knowledge Base overview](/wiki-screenshots/knowledge.png)
+
 ## Creating an entry
 
 1. Click **+ Entry**.

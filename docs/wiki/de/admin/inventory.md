@@ -11,6 +11,8 @@ order: 6
 
 Das Inventar verwaltet den aktuellen Filament-Lagerbestand. Der Bestand wird automatisch reduziert, wenn [[Druckjobs]] mit Filament-Verbrauch abgeschlossen werden.
 
+![Inventar Übersicht](/wiki-screenshots/inventory.png)
+
 ## Lagerbestand anzeigen
 
 Die Inventarliste zeigt alle eingetragenen Filamente mit:

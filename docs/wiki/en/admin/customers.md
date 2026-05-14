@@ -11,6 +11,8 @@ order: 8
 
 The customers area is **visible to admins only**. Here you manage customers who have registered via the customer portal.
 
+![Customers overview](/wiki-screenshots/customers.png)
+
 ## Customer list
 
 The list shows all registered customers with:

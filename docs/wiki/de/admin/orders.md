@@ -11,6 +11,8 @@ order: 2
 
 Unter **Aufträge** werden alle eingegangenen Bestellungen verwaltet. Jeder Auftrag durchläuft definierte Phasen von der Annahme bis zur Fertigstellung.
 
+![Auftragsübersicht](/wiki-screenshots/orders.png)
+
 ## Auftragslistenansicht (`/admin/orders`)
 
 Die Liste zeigt alle Aufträge mit Status, Kundenname, Datum und Dateianzahl.

@@ -11,6 +11,8 @@ order: 9
 
 Der Einstellungsbereich ist **ausschließlich für Admins**. Hier konfigurierst du das gesamte System.
 
+![Einstellungen Übersicht](/wiki-screenshots/settings.png)
+
 ## Firmen-Einstellungen
 
 - **Firmenname** — wird in der Sidebar und in E-Mails angezeigt

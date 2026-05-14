@@ -11,6 +11,8 @@ order: 7
 
 Die Wissensdatenbank sammelt wiederkehrende Probleme und bewährte Lösungen rund um den 3D-Druck. Jeder Teammitglied kann Einträge anlegen und bearbeiten.
 
+![Wissensdatenbank Übersicht](/wiki-screenshots/knowledge.png)
+
 ## Eintrag erstellen
 
 1. Klicke **+ Eintrag**.

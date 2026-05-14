@@ -11,6 +11,8 @@ order: 6
 
 The inventory manages the current filament stock. Stock levels are automatically reduced when [[Print Jobs]] with filament usage are completed.
 
+![Inventory overview](/wiki-screenshots/inventory.png)
+
 ## Viewing stock
 
 The inventory list shows all registered filaments with:

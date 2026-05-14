@@ -11,6 +11,8 @@ order: 3
 
 Druckjobs verwalten die tatsächliche Produktion auf den [[Einstellungen|Maschinen]]. Ein Job kann mehrere [[Aufträge]] bündeln.
 
+![Druckjobs Übersicht](/wiki-screenshots/jobs.png)
+
 ## Ansichten
 
 Oben links schaltest du zwischen **Timeline** (Standard) und **Queue** um.

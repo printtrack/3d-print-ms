@@ -12,7 +12,6 @@ const TEST_BASE_URL = `http://localhost:${TEST_PORT}`;
 
 export default defineConfig({
   testDir: "./tests",
-  testIgnore: ["**/wiki-screenshots.spec.ts"],
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 1,
@@ -49,6 +48,15 @@ export default defineConfig({
       name: "portal",
       testMatch: "**/portal/**/*.spec.ts",
       dependencies: ["setup"],
+    },
+    // Tool scripts (screenshot generators etc.) — not part of regular suite
+    {
+      name: "tools",
+      testMatch: "**/tools/**/*.spec.ts",
+      dependencies: ["setup"],
+      use: {
+        storageState: STORAGE_STATE,
+      },
     },
   ],
   webServer: {
