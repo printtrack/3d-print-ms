@@ -18,6 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { BookOpen, FileText, Link2, Paperclip, Pencil, Plus, Search, Trash2, Upload, X } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import { preprocessWikilinks, stripWikilinks as stripMarkdown } from "@/lib/wikilinks";
 
 interface KnowledgeFile {
   id: string;
@@ -47,20 +48,6 @@ interface KnowledgeManagerProps {
 }
 
 const emptyForm = { title: "", problem: "", solution: "" };
-
-// Strip markdown image syntax and [[wikilinks]] for plain-text card preview
-function stripMarkdown(text: string) {
-  return text
-    .replace(/!\[.*?\]\(.*?\)/g, "")      // strip image syntax
-    .replace(/\[\[([^\]]+)\]\]/g, "$1")   // strip [[Title]] → Title
-    .trim();
-}
-
-function preprocessWikilinks(text: string): string {
-  return text.replace(/\[\[([^\]]+)\]\]/g, (_, title) =>
-    `[${title}](wikilink:${encodeURIComponent(title)})`
-  );
-}
 
 // Renders plain text with [[Title]] as inline clickable chips
 function WikiText({

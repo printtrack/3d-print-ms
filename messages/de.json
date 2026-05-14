@@ -120,7 +120,16 @@
     "my_account": "Mein Konto",
     "hello_customer": "Hallo, {name}",
     "signin": "Anmelden",
-    "signout": "Abmelden"
+    "signout": "Abmelden",
+    "help": "Hilfe"
+  },
+
+  "wiki": {
+    "title": "Bedienungs-Wiki",
+    "search_placeholder": "Wiki durchsuchen …",
+    "no_results": "Keine Einträge gefunden.",
+    "fallback_banner": "Diese Seite ist noch nicht auf Englisch verfügbar — Inhalt wird auf Deutsch angezeigt.",
+    "back_to_overview": "Zur Übersicht"
   },
 
   "landing": {

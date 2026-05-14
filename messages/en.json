@@ -120,7 +120,16 @@
     "my_account": "My Account",
     "hello_customer": "Hello, {name}",
     "signin": "Sign in",
-    "signout": "Sign out"
+    "signout": "Sign out",
+    "help": "Help"
+  },
+
+  "wiki": {
+    "title": "Help Wiki",
+    "search_placeholder": "Search wiki …",
+    "no_results": "No entries found.",
+    "fallback_banner": "This page is not yet available in English — showing German content.",
+    "back_to_overview": "Back to overview"
   },
 
   "landing": {
