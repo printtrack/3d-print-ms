@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { Cpu, Pencil, Plus, Trash2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 interface Machine {
   id: string;
@@ -39,6 +40,8 @@ type FormData = {
 };
 
 export function MachineManager({ initialMachines }: { initialMachines: Machine[] }) {
+  const t = useTranslations("admin");
+  const tc = useTranslations("common");
   const [machines, setMachines] = useState(initialMachines);
   const [editingMachine, setEditingMachine] = useState<Machine | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -85,9 +88,9 @@ export function MachineManager({ initialMachines }: { initialMachines: Machine[]
   }
 
   async function handleSave() {
-    if (!formData.name.trim()) { toast.error("Name ist erforderlich"); return; }
+    if (!formData.name.trim()) { toast.error(t("machine_name_required")); return; }
     if (!formData.buildVolumeX || !formData.buildVolumeY || !formData.buildVolumeZ) {
-      toast.error("Bauvolumen ist erforderlich");
+      toast.error(t("machine_volume_required"));
       return;
     }
 
@@ -112,7 +115,7 @@ export function MachineManager({ initialMachines }: { initialMachines: Machine[]
         if (!res.ok) throw new Error();
         const updated = await res.json();
         setMachines((prev) => prev.map((m) => (m.id === updated.id ? { ...m, ...updated } : m)));
-        toast.success("Maschine aktualisiert");
+        toast.success(t("machine_updated"));
       } else {
         const res = await fetch("/api/admin/machines", {
           method: "POST",
@@ -122,18 +125,18 @@ export function MachineManager({ initialMachines }: { initialMachines: Machine[]
         if (!res.ok) throw new Error();
         const created = await res.json();
         setMachines((prev) => [...prev, { ...created, _count: { printJobs: 0 } }]);
-        toast.success("Maschine erstellt");
+        toast.success(t("machine_created"));
       }
       setIsDialogOpen(false);
     } catch {
-      toast.error("Fehler beim Speichern");
+      toast.error(t("machine_save_failed"));
     } finally {
       setSaving(false);
     }
   }
 
   async function handleDelete(machine: Machine) {
-    if (!confirm(`Maschine "${machine.name}" wirklich löschen?`)) return;
+    if (!confirm(t("machine_delete_confirm", { name: machine.name }))) return;
 
     try {
       const res = await fetch(`/api/admin/machines/${machine.id}`, { method: "DELETE" });
@@ -143,9 +146,9 @@ export function MachineManager({ initialMachines }: { initialMachines: Machine[]
         return;
       }
       setMachines((prev) => prev.filter((m) => m.id !== machine.id));
-      toast.success("Maschine gelöscht");
+      toast.success(t("machine_deleted"));
     } catch {
-      toast.error("Fehler beim Löschen");
+      toast.error(t("machine_delete_failed"));
     }
   }
 
@@ -153,14 +156,14 @@ export function MachineManager({ initialMachines }: { initialMachines: Machine[]
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight">Maschinen</h1>
+          <h1 className="text-2xl font-bold tracking-tight">{t("machine_title")}</h1>
           <p className="text-muted-foreground text-sm">
-            Verwalte deine 3D-Drucker und deren Spezifikationen
+            {t("machine_desc")}
           </p>
         </div>
         <Button onClick={openCreate}>
           <Plus className="h-4 w-4 mr-2" />
-          Maschine hinzufügen
+          {t("machine_add")}
         </Button>
       </div>
 
@@ -177,7 +180,7 @@ export function MachineManager({ initialMachines }: { initialMachines: Machine[]
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="font-medium text-sm">{machine.name}</span>
                 {!machine.isActive && (
-                  <Badge variant="secondary" className="text-xs">Inaktiv</Badge>
+                  <Badge variant="secondary" className="text-xs">{t("machine_badge_inactive")}</Badge>
                 )}
               </div>
               <p className="text-xs text-muted-foreground">
@@ -187,7 +190,7 @@ export function MachineManager({ initialMachines }: { initialMachines: Machine[]
             </div>
 
             <span className="hidden sm:inline text-xs text-muted-foreground shrink-0">
-              {machine._count.printJobs} Jobs
+              {machine._count.printJobs} {t("machine_badge_jobs")}
             </span>
 
             <div className="flex gap-1">
@@ -209,29 +212,29 @@ export function MachineManager({ initialMachines }: { initialMachines: Machine[]
 
       {machines.length === 0 && (
         <div className="text-center py-12 text-muted-foreground">
-          Noch keine Maschinen konfiguriert
+          {t("machine_empty")}
         </div>
       )}
 
       <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>{editingMachine ? "Maschine bearbeiten" : "Neue Maschine"}</DialogTitle>
+            <DialogTitle>{editingMachine ? t("machine_dialog_edit") : t("machine_dialog_new")}</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <Label htmlFor="machine-name">Name *</Label>
+              <Label htmlFor="machine-name">{tc("name")} *</Label>
               <Input
                 id="machine-name"
-                placeholder="z.B. Prusa MK4"
+                placeholder={t("machine_name_placeholder")}
                 value={formData.name}
                 onChange={(e) => field("name", e.target.value)}
               />
             </div>
 
             <div className="space-y-2">
-              <Label>Bauvolumen (mm) *</Label>
+              <Label>{t("machine_volume_label")}</Label>
               <div className="grid grid-cols-3 gap-2">
                 <div>
                   <Input
@@ -240,7 +243,7 @@ export function MachineManager({ initialMachines }: { initialMachines: Machine[]
                     value={formData.buildVolumeX}
                     onChange={(e) => field("buildVolumeX", e.target.value)}
                   />
-                  <p className="text-xs text-muted-foreground mt-1 text-center">Breite</p>
+                  <p className="text-xs text-muted-foreground mt-1 text-center">{t("machine_width")}</p>
                 </div>
                 <div>
                   <Input
@@ -249,7 +252,7 @@ export function MachineManager({ initialMachines }: { initialMachines: Machine[]
                     value={formData.buildVolumeY}
                     onChange={(e) => field("buildVolumeY", e.target.value)}
                   />
-                  <p className="text-xs text-muted-foreground mt-1 text-center">Tiefe</p>
+                  <p className="text-xs text-muted-foreground mt-1 text-center">{t("machine_depth")}</p>
                 </div>
                 <div>
                   <Input
@@ -258,28 +261,28 @@ export function MachineManager({ initialMachines }: { initialMachines: Machine[]
                     value={formData.buildVolumeZ}
                     onChange={(e) => field("buildVolumeZ", e.target.value)}
                   />
-                  <p className="text-xs text-muted-foreground mt-1 text-center">Höhe</p>
+                  <p className="text-xs text-muted-foreground mt-1 text-center">{t("machine_height")}</p>
                 </div>
               </div>
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="machine-rate">Stundensatz (€/h)</Label>
+              <Label htmlFor="machine-rate">{t("machine_rate_label")}</Label>
               <Input
                 id="machine-rate"
                 type="number"
                 step="0.01"
-                placeholder="z.B. 2.50"
+                placeholder={t("machine_rate_placeholder")}
                 value={formData.hourlyRate}
                 onChange={(e) => field("hourlyRate", e.target.value)}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="machine-notes">Notizen</Label>
+              <Label htmlFor="machine-notes">{tc("notes")}</Label>
               <Textarea
                 id="machine-notes"
-                placeholder="Besonderheiten, Kalibrierungshinweise..."
+                placeholder={t("machine_notes_placeholder")}
                 value={formData.notes}
                 onChange={(e) => field("notes", e.target.value)}
                 rows={3}
@@ -294,16 +297,16 @@ export function MachineManager({ initialMachines }: { initialMachines: Machine[]
                 onChange={(e) => field("isActive", e.target.checked)}
                 className="h-4 w-4"
               />
-              <Label htmlFor="machine-active">Aktiv (für neue Jobs verfügbar)</Label>
+              <Label htmlFor="machine-active">{t("machine_active")}</Label>
             </div>
           </div>
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
-              Abbrechen
+              {tc("cancel")}
             </Button>
             <Button onClick={handleSave} disabled={saving}>
-              {saving ? "Speichern..." : "Speichern"}
+              {saving ? `${tc("save")}...` : tc("save")}
             </Button>
           </DialogFooter>
         </DialogContent>

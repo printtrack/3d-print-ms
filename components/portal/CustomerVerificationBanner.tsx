@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { AlertCircle, Mail } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 
@@ -10,6 +11,8 @@ export function CustomerVerificationBanner({
 }: {
   mode: "admin" | "email";
 }) {
+  const t = useTranslations("portal");
+  const tc = useTranslations("common");
   const [sending, setSending] = useState(false);
 
   async function handleResend() {
@@ -17,13 +20,13 @@ export function CustomerVerificationBanner({
     try {
       const res = await fetch("/api/portal/auth/resend-verification", { method: "POST" });
       if (res.ok) {
-        toast.success("Bestätigungsmail wurde erneut gesendet");
+        toast.success(t("resend_success"));
       } else {
         const data = await res.json();
-        toast.error(data.error ?? "Fehler beim Senden");
+        toast.error(data.error ?? t("resend_error"));
       }
     } catch {
-      toast.error("Fehler beim Senden");
+      toast.error(t("resend_error"));
     } finally {
       setSending(false);
     }
@@ -35,12 +38,12 @@ export function CustomerVerificationBanner({
       <div className="flex-1 min-w-0">
         {mode === "admin" ? (
           <p className="text-sm text-amber-800">
-            <span className="font-medium">Konto noch nicht freigeschaltet.</span> Das Team prüft Ihre Registrierung. Sobald Ihr Konto freigeschalten wurde, können Sie Bestellungen aufgeben.
+            <span className="font-medium">{t("not_verified_admin")}</span> {t("not_verified_admin_desc")}
           </p>
         ) : (
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <p className="text-sm text-amber-800">
-              <span className="font-medium">E-Mail-Adresse noch nicht bestätigt.</span> Bitte prüfen Sie Ihr Postfach und klicken Sie den Bestätigungs-Link.
+              <span className="font-medium">{t("not_verified_email")}</span> {t("not_verified_email_desc")}
             </p>
             <Button
               variant="outline"
@@ -50,7 +53,7 @@ export function CustomerVerificationBanner({
               disabled={sending}
             >
               <Mail className="h-3.5 w-3.5 mr-1.5" />
-              {sending ? "Senden..." : "Erneut senden"}
+              {sending ? tc("sending") : t("resend_cta")}
             </Button>
           </div>
         )}

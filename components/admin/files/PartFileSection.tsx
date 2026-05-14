@@ -7,6 +7,7 @@ import { ChevronDown, ChevronRight, MoreHorizontal, Pencil, Printer, ShieldAlert
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -167,6 +168,8 @@ export function PartFileSection({
   onRejectVerification,
 }: PartFileSectionProps) {
   const router = useRouter();
+  const t = useTranslations("admin");
+  const tc = useTranslations("common");
   const isOrphan = variant === "orphan";
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
   const dragCounter = useRef(0);
@@ -191,7 +194,7 @@ export function PartFileSection({
       const updated = await res.json();
       partData?.onPartUpdated({ ...part, assignees: updated.assignees });
     } catch {
-      toast.error("Zuweisung konnte nicht gespeichert werden");
+      toast.error(t("part_file_save_failed"));
       setPartAssigneeIds(part.assignees?.map((a) => a.user.id) ?? []);
     }
   }
@@ -215,10 +218,10 @@ export function PartFileSection({
       });
       if (!res.ok) throw new Error();
       onApproveVerification?.(verificationRequest.id);
-      toast.success("Designfreigabe erteilt");
+      toast.success(t("part_file_design_approved"));
       router.refresh();
     } catch {
-      toast.error("Freigabe fehlgeschlagen");
+      toast.error(t("part_file_approve_failed"));
     } finally {
       setApprovingVr(false);
     }
@@ -241,10 +244,10 @@ export function PartFileSection({
       onRejectVerification?.(verificationRequest.id, rejectVrMessage || null);
       setShowRejectVrInput(false);
       setRejectVrMessage("");
-      toast.success("Freigabe abgelehnt");
+      toast.success(t("part_file_design_rejected"));
       router.refresh();
     } catch {
-      toast.error("Ablehnen fehlgeschlagen");
+      toast.error(t("part_file_reject_failed"));
     } finally {
       setRejectingVr(false);
     }
@@ -321,9 +324,9 @@ export function PartFileSection({
       if (!res.ok) throw new Error();
       const updated = await res.json();
       partData.onPartUpdated(updated);
-      toast.success("Teil umbenannt");
+      toast.success(t("part_file_renamed"));
     } catch {
-      toast.error("Fehler beim Umbenennen");
+      toast.error(t("part_file_rename_failed"));
     }
   }
 
@@ -339,7 +342,7 @@ export function PartFileSection({
       const updated = await res.json();
       partData.onPartUpdated(updated);
     } catch {
-      toast.error("Fehler beim Speichern der Phase");
+      toast.error(t("part_file_phase_failed"));
     }
   }
 
@@ -355,22 +358,22 @@ export function PartFileSection({
       const updated = await res.json();
       partData.onPartUpdated(updated);
     } catch {
-      toast.error("Fehler beim Speichern des Filaments");
+      toast.error(t("part_file_filament_failed"));
     }
   }
 
   async function handlePartDelete() {
     if (!partData) return;
-    if (!confirm(`Teil "${partData.part.name}" wirklich löschen?`)) return;
+    if (!confirm(t("part_file_delete_confirm", { name: partData.part.name }))) return;
     try {
       const res = await fetch(`/api/admin/orders/${orderId}/parts/${partData.part.id}`, {
         method: "DELETE",
       });
       if (!res.ok) throw new Error();
       partData.onPartDeleted(partData.part.id);
-      toast.success("Teil gelöscht");
+      toast.success(t("part_file_deleted"));
     } catch {
-      toast.error("Fehler beim Löschen");
+      toast.error(t("part_file_delete_failed"));
     }
   }
 
@@ -426,7 +429,7 @@ export function PartFileSection({
                 "text-sm font-semibold text-foreground truncate",
                 partData && "cursor-text"
               )}
-              title={partData ? "Doppelklick zum Umbenennen" : undefined}
+              title={partData ? t("part_file_dbl_click_rename") : undefined}
               onDoubleClick={
                 partData
                   ? (e) => {
@@ -475,7 +478,7 @@ export function PartFileSection({
                         {part.partPhase.name}
                       </>
                     ) : (
-                      "Phase wählen"
+                      t("part_file_select_phase")
                     )}
                     <ChevronDown className="h-3 w-3 opacity-60" />
                   </button>
@@ -488,7 +491,7 @@ export function PartFileSection({
                         key={pp.id}
                         onClick={blocked ? undefined : () => handlePhaseChange(pp.id)}
                         disabled={blocked}
-                        title={blocked ? "Erst Designfreigabe einholen" : undefined}
+                        title={blocked ? t("part_file_design_first") : undefined}
                         className={cn(
                           "gap-2",
                           part.partPhaseId === pp.id && "bg-accent"
@@ -581,7 +584,7 @@ export function PartFileSection({
                       size="icon"
                       variant="outline"
                       className="h-6 w-6"
-                      title="Zu Druckjob hinzufügen"
+                      title={t("part_file_add_to_job")}
                     >
                       <Printer className="h-3 w-3" />
                     </Button>
@@ -645,7 +648,7 @@ export function PartFileSection({
                             ? "border-transparent hover:bg-muted/60 text-muted-foreground"
                             : "border-dashed border-muted-foreground/40 text-muted-foreground/70 hover:bg-muted/40"
                         )}
-                        title="Filament auswählen"
+                        title={t("part_file_select_filament")}
                       >
                         {part.filament ? (
                           <>
@@ -658,7 +661,7 @@ export function PartFileSection({
                             {part.filament.name}
                           </>
                         ) : (
-                          "Filament wählen"
+                          t("part_file_select_filament")
                         )}
                       </button>
                     </DropdownMenuTrigger>
@@ -743,7 +746,7 @@ export function PartFileSection({
                         disabled={approvingVr}
                       >
                         <ShieldCheck className="h-3 w-3 mr-1" />
-                        {approvingVr ? "..." : "Erteilen"}
+                        {approvingVr ? "..." : t("part_file_approve")}
                       </Button>
                       <Button
                         size="sm"
@@ -773,7 +776,7 @@ export function PartFileSection({
                         onClick={handleRejectVr}
                         disabled={rejectingVr}
                       >
-                        {rejectingVr ? "..." : "Ablehnen bestätigen"}
+                        {rejectingVr ? "..." : t("part_file_confirm_reject")}
                       </Button>
                       <Button
                         size="sm"
@@ -941,7 +944,7 @@ export function PartFileSection({
                 </div>
               ) : (
                 <p className="text-sm text-muted-foreground text-center py-2">
-                  Keine Dateien in dieser Kategorie
+                  {t("part_file_no_files")}
                 </p>
               )}
             </div>

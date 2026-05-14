@@ -1,6 +1,7 @@
 import nodemailer from "nodemailer";
 import type Mail from "nodemailer/lib/mailer";
 import { getSettings, renderTemplate } from "@/lib/settings";
+import { getRecipientLocale, localeSuffix, getEmailWrappers } from "@/lib/email-locale";
 
 // Cached Ethereal test account (created once per process)
 let etherealTransport: nodemailer.Transporter | null = null;
@@ -69,46 +70,39 @@ export async function sendPhaseChangeEmail({
   phaseName: string;
   trackingToken: string;
 }) {
-  const settings = await getSettings();
+  const [settings, locale] = await Promise.all([
+    getSettings(),
+    getRecipientLocale(customerEmail),
+  ]);
   const companyName = settings.company_name ?? "3D Print CMS";
-  const signature = settings.company_signature ?? "Ihr 3D-Druck-Team";
+  const signature = settings.company_signature ?? (locale === "en" ? "Your 3D Print Team" : "Ihr 3D-Druck-Team");
   const contactEmail = settings.contact_email ?? "noreply@3dprinting.local";
+  const wrap = getEmailWrappers(locale);
+  const suffix = localeSuffix(locale);
 
   const trackingUrl = `${BASE_URL}/track/${trackingToken}`;
   const vars = { customerName, phaseName, trackingUrl };
 
   const subject = renderTemplate(
-    settings.email_phase_subject ?? "Ihr Auftrag ist jetzt: {{phaseName}}",
+    settings[`email_phase_subject${suffix}`] ?? settings.email_phase_subject ?? "Ihr Auftrag ist jetzt: {{phaseName}}",
     vars
   );
   const bodyText = renderTemplate(
-    settings.email_phase_body ??
+    settings[`email_phase_body${suffix}`] ?? settings.email_phase_body ??
       "der Status Ihres 3D-Druck-Auftrags wurde aktualisiert:\nNeuer Status: {{phaseName}}",
     vars
   );
 
   const bodyHtml = `
-    <p>Hallo ${escapeHtml(customerName)},</p>
-    ${bodyText
-      .split("\n")
-      .map((line) => `<p>${escapeHtml(line)}</p>`)
-      .join("")}
-    <p><a href="${trackingUrl}" style="color:#6366f1">Auftrag verfolgen</a></p>`;
+    <p>${escapeHtml(wrap.greeting(customerName))}</p>
+    ${bodyText.split("\n").map((line) => `<p>${escapeHtml(line)}</p>`).join("")}
+    <p><a href="${trackingUrl}" style="color:#6366f1">${wrap.trackLink}</a></p>`;
 
   await sendMail({
     from: `${companyName} <${contactEmail}>`,
     to: customerEmail,
     subject,
-    text: [
-      `Hallo ${customerName},`,
-      "",
-      bodyText,
-      "",
-      `Auftrag verfolgen: ${trackingUrl}`,
-      "",
-      "Mit freundlichen Grüßen",
-      signature,
-    ].join("\n"),
+    text: [wrap.greeting(customerName), "", bodyText, "", `${wrap.trackLink}: ${trackingUrl}`, "", wrap.closing, signature].join("\n"),
     html: buildHtml(companyName, bodyHtml, signature),
   });
 }
@@ -122,46 +116,39 @@ export async function sendOrderConfirmationEmail({
   customerName: string;
   trackingToken: string;
 }) {
-  const settings = await getSettings();
+  const [settings, locale] = await Promise.all([
+    getSettings(),
+    getRecipientLocale(customerEmail),
+  ]);
   const companyName = settings.company_name ?? "3D Print CMS";
-  const signature = settings.company_signature ?? "Ihr 3D-Druck-Team";
+  const signature = settings.company_signature ?? (locale === "en" ? "Your 3D Print Team" : "Ihr 3D-Druck-Team");
   const contactEmail = settings.contact_email ?? "noreply@3dprinting.local";
+  const wrap = getEmailWrappers(locale);
+  const suffix = localeSuffix(locale);
 
   const trackingUrl = `${BASE_URL}/track/${trackingToken}`;
   const vars = { customerName, trackingUrl };
 
   const subject = renderTemplate(
-    settings.email_confirm_subject ?? "Ihr 3D-Druck-Auftrag wurde eingereicht",
+    settings[`email_confirm_subject${suffix}`] ?? settings.email_confirm_subject ?? "Ihr 3D-Druck-Auftrag wurde eingereicht",
     vars
   );
   const bodyText = renderTemplate(
-    settings.email_confirm_body ??
+    settings[`email_confirm_body${suffix}`] ?? settings.email_confirm_body ??
       "vielen Dank für Ihren Auftrag! Wir haben ihn erhalten und werden ihn so schnell wie möglich bearbeiten.",
     vars
   );
 
   const bodyHtml = `
-    <p>Hallo ${escapeHtml(customerName)},</p>
-    ${bodyText
-      .split("\n")
-      .map((line) => `<p>${escapeHtml(line)}</p>`)
-      .join("")}
-    <p><a href="${trackingUrl}" style="color:#6366f1">Auftrag verfolgen</a></p>`;
+    <p>${escapeHtml(wrap.greeting(customerName))}</p>
+    ${bodyText.split("\n").map((line) => `<p>${escapeHtml(line)}</p>`).join("")}
+    <p><a href="${trackingUrl}" style="color:#6366f1">${wrap.trackLink}</a></p>`;
 
   await sendMail({
     from: `${companyName} <${contactEmail}>`,
     to: customerEmail,
     subject,
-    text: [
-      `Hallo ${customerName},`,
-      "",
-      bodyText,
-      "",
-      `Auftrag verfolgen: ${trackingUrl}`,
-      "",
-      "Mit freundlichen Grüßen",
-      signature,
-    ].join("\n"),
+    text: [wrap.greeting(customerName), "", bodyText, "", `${wrap.trackLink}: ${trackingUrl}`, "", wrap.closing, signature].join("\n"),
     html: buildHtml(companyName, bodyHtml, signature),
   });
 }
@@ -175,46 +162,38 @@ export async function sendPasswordResetEmail({
   name: string;
   resetUrl: string;
 }) {
-  const settings = await getSettings();
+  const [settings, locale] = await Promise.all([
+    getSettings(),
+    getRecipientLocale(email),
+  ]);
   const companyName = settings.company_name ?? "3D Print CMS";
-  const signature = settings.company_signature ?? "Ihr 3D-Druck-Team";
+  const signature = settings.company_signature ?? (locale === "en" ? "Your 3D Print Team" : "Ihr 3D-Druck-Team");
   const contactEmail = settings.contact_email ?? "noreply@3dprinting.local";
+  const wrap = getEmailWrappers(locale);
+  const suffix = localeSuffix(locale);
 
   const vars = { name, resetUrl };
 
   const subject = renderTemplate(
-    settings.email_reset_subject ?? "Passwort zurücksetzen",
+    settings[`email_reset_subject${suffix}`] ?? settings.email_reset_subject ?? "Passwort zurücksetzen",
     vars
   );
   const bodyText = renderTemplate(
-    settings.email_reset_body ??
+    settings[`email_reset_body${suffix}`] ?? settings.email_reset_body ??
       "Sie haben eine Anfrage zum Zurücksetzen Ihres Passworts gestellt.\n\nDieser Link ist 1 Stunde gültig. Falls Sie diese Anfrage nicht gestellt haben, können Sie diese E-Mail ignorieren.",
     vars
   );
 
   const bodyHtml = `
-    <p>Hallo ${escapeHtml(name)},</p>
-    ${bodyText
-      .split("\n")
-      .filter((line) => line.length > 0)
-      .map((line) => `<p>${escapeHtml(line)}</p>`)
-      .join("")}
-    <p><a href="${resetUrl}" style="color:#6366f1">Passwort zurücksetzen</a></p>`;
+    <p>${escapeHtml(wrap.greeting(name))}</p>
+    ${bodyText.split("\n").filter((l) => l.length > 0).map((line) => `<p>${escapeHtml(line)}</p>`).join("")}
+    <p><a href="${resetUrl}" style="color:#6366f1">${wrap.resetLink}</a></p>`;
 
   await sendMail({
     from: `${companyName} <${contactEmail}>`,
     to: email,
     subject,
-    text: [
-      `Hallo ${name},`,
-      "",
-      bodyText,
-      "",
-      `Passwort zurücksetzen: ${resetUrl}`,
-      "",
-      "Mit freundlichen Grüßen",
-      signature,
-    ].join("\n"),
+    text: [wrap.greeting(name), "", bodyText, "", `${wrap.resetLink}: ${resetUrl}`, "", wrap.closing, signature].join("\n"),
     html: buildHtml(companyName, bodyHtml, signature),
   });
 }
@@ -228,46 +207,39 @@ export async function sendSurveyEmail({
   customerName: string;
   surveyToken: string;
 }) {
-  const settings = await getSettings();
+  const [settings, locale] = await Promise.all([
+    getSettings(),
+    getRecipientLocale(customerEmail),
+  ]);
   const companyName = settings.company_name ?? "3D Print CMS";
-  const signature = settings.company_signature ?? "Ihr 3D-Druck-Team";
+  const signature = settings.company_signature ?? (locale === "en" ? "Your 3D Print Team" : "Ihr 3D-Druck-Team");
   const contactEmail = settings.contact_email ?? "noreply@3dprinting.local";
+  const wrap = getEmailWrappers(locale);
+  const suffix = localeSuffix(locale);
 
   const surveyUrl = `${BASE_URL}/survey/${surveyToken}`;
   const vars = { customerName, surveyUrl };
 
   const subject = renderTemplate(
-    settings.survey_email_subject ?? "Wie war Ihr 3D-Druck-Erlebnis?",
+    settings[`survey_email_subject${suffix}`] ?? settings.survey_email_subject ?? "Wie war Ihr 3D-Druck-Erlebnis?",
     vars
   );
   const bodyText = renderTemplate(
-    settings.survey_email_body ??
+    settings[`survey_email_body${suffix}`] ?? settings.survey_email_body ??
       "wir würden uns sehr über Ihr Feedback freuen. Es dauert nur 1–2 Minuten.",
     vars
   );
 
   const bodyHtml = `
-    <p>Hallo ${escapeHtml(customerName)},</p>
-    ${bodyText
-      .split("\n")
-      .map((line) => `<p>${escapeHtml(line)}</p>`)
-      .join("")}
-    <p><a href="${surveyUrl}" style="color:#6366f1;font-weight:bold">Jetzt Feedback geben</a></p>`;
+    <p>${escapeHtml(wrap.greeting(customerName))}</p>
+    ${bodyText.split("\n").map((line) => `<p>${escapeHtml(line)}</p>`).join("")}
+    <p><a href="${surveyUrl}" style="color:#6366f1;font-weight:bold">${wrap.surveyLink}</a></p>`;
 
   await sendMail({
     from: `${companyName} <${contactEmail}>`,
     to: customerEmail,
     subject,
-    text: [
-      `Hallo ${customerName},`,
-      "",
-      bodyText,
-      "",
-      `Feedback geben: ${surveyUrl}`,
-      "",
-      "Mit freundlichen Grüßen",
-      signature,
-    ].join("\n"),
+    text: [wrap.greeting(customerName), "", bodyText, "", `${wrap.surveyLink}: ${surveyUrl}`, "", wrap.closing, signature].join("\n"),
     html: buildHtml(companyName, bodyHtml, signature),
   });
 }
@@ -287,16 +259,20 @@ export async function sendVerificationEmail({
   trackingToken: string;
   priceEstimate?: number;
 }) {
-  const settings = await getSettings();
+  const [settings, locale] = await Promise.all([
+    getSettings(),
+    getRecipientLocale(customerEmail),
+  ]);
   const companyName = settings.company_name ?? "3D Print CMS";
-  const signature = settings.company_signature ?? "Ihr 3D-Druck-Team";
+  const signature = settings.company_signature ?? (locale === "en" ? "Your 3D Print Team" : "Ihr 3D-Druck-Team");
   const contactEmail = settings.contact_email ?? "noreply@3dprinting.local";
+  const wrap = getEmailWrappers(locale);
+  const suffix = localeSuffix(locale);
 
   const trackingUrl = `${BASE_URL}/track/${trackingToken}`;
   const price = priceEstimate != null ? priceEstimate.toFixed(2) : "0.00";
   const vars = { customerName, trackingUrl, price };
 
-  // verificationToken kept for backwards compatibility but not used in template
   void verificationToken;
 
   let subject: string;
@@ -304,48 +280,36 @@ export async function sendVerificationEmail({
 
   if (type === "DESIGN_REVIEW") {
     subject = renderTemplate(
-      settings.email_verification_design_subject ?? "Designfreigabe erforderlich",
+      settings[`email_verification_design_subject${suffix}`] ?? settings.email_verification_design_subject ?? "Designfreigabe erforderlich",
       vars
     );
     bodyText = renderTemplate(
-      settings.email_verification_design_body ??
+      settings[`email_verification_design_body${suffix}`] ?? settings.email_verification_design_body ??
         "Ihre Designdateien sind bereit und warten auf Ihre Freigabe.\n\nBitte besuchen Sie Ihre Auftragsseite, um die Freigabe zu erteilen oder abzulehnen.",
       vars
     );
   } else {
     subject = renderTemplate(
-      settings.email_verification_price_subject ?? "Angebotsfreigabe erforderlich: {{price}} €",
+      settings[`email_verification_price_subject${suffix}`] ?? settings.email_verification_price_subject ?? "Angebotsfreigabe erforderlich: {{price}} €",
       vars
     );
     bodyText = renderTemplate(
-      settings.email_verification_price_body ??
+      settings[`email_verification_price_body${suffix}`] ?? settings.email_verification_price_body ??
         "Ihr Angebot in Höhe von {{price}} € wartet auf Ihre Freigabe.\n\nBitte besuchen Sie Ihre Auftragsseite, um das Angebot zu bestätigen oder abzulehnen.",
       vars
     );
   }
 
   const bodyHtml = `
-    <p>Hallo ${escapeHtml(customerName)},</p>
-    ${bodyText
-      .split("\n")
-      .map((line) => `<p>${escapeHtml(line)}</p>`)
-      .join("")}
-    <p><a href="${trackingUrl}" style="color:#6366f1;font-weight:bold">Jetzt Freigabe erteilen</a></p>`;
+    <p>${escapeHtml(wrap.greeting(customerName))}</p>
+    ${bodyText.split("\n").map((line) => `<p>${escapeHtml(line)}</p>`).join("")}
+    <p><a href="${trackingUrl}" style="color:#6366f1;font-weight:bold">${wrap.approvalLink}</a></p>`;
 
   await sendMail({
     from: `${companyName} <${contactEmail}>`,
     to: customerEmail,
     subject,
-    text: [
-      `Hallo ${customerName},`,
-      "",
-      bodyText,
-      "",
-      `Freigabe erteilen: ${trackingUrl}`,
-      "",
-      "Mit freundlichen Grüßen",
-      signature,
-    ].join("\n"),
+    text: [wrap.greeting(customerName), "", bodyText, "", `${wrap.approvalLink}: ${trackingUrl}`, "", wrap.closing, signature].join("\n"),
     html: buildHtml(companyName, bodyHtml, signature),
   });
 }
@@ -359,32 +323,33 @@ export async function sendCustomerPasswordResetEmail({
   name: string;
   resetUrl: string;
 }) {
-  const settings = await getSettings();
+  const [settings, locale] = await Promise.all([
+    getSettings(),
+    getRecipientLocale(email),
+  ]);
   const companyName = settings.company_name ?? "3D Print CMS";
-  const signature = settings.company_signature ?? "Ihr 3D-Druck-Team";
+  const signature = settings.company_signature ?? (locale === "en" ? "Your 3D Print Team" : "Ihr 3D-Druck-Team");
   const contactEmail = settings.contact_email ?? "noreply@3dprinting.local";
+  const wrap = getEmailWrappers(locale);
+
+  const bodyTextDe = "Sie haben eine Anfrage zum Zurücksetzen Ihres Kunden-Passworts gestellt.\nDieser Link ist 1 Stunde gültig. Falls Sie diese Anfrage nicht gestellt haben, können Sie diese E-Mail ignorieren.";
+  const bodyTextEn = "You have requested to reset your customer account password.\nThis link is valid for 1 hour. If you did not request this, you can ignore this email.";
+  const subjectDe = "Kunden-Passwort zurücksetzen";
+  const subjectEn = "Reset your customer account password";
+
+  const bodyText = locale === "en" ? bodyTextEn : bodyTextDe;
+  const subject = locale === "en" ? subjectEn : subjectDe;
 
   const bodyHtml = `
-    <p>Hallo ${escapeHtml(name)},</p>
-    <p>Sie haben eine Anfrage zum Zurücksetzen Ihres Kunden-Passworts gestellt.</p>
-    <p>Dieser Link ist 1 Stunde gültig. Falls Sie diese Anfrage nicht gestellt haben, können Sie diese E-Mail ignorieren.</p>
-    <p><a href="${resetUrl}" style="color:#6366f1">Passwort zurücksetzen</a></p>`;
+    <p>${escapeHtml(wrap.greeting(name))}</p>
+    ${bodyText.split("\n").map((line) => `<p>${escapeHtml(line)}</p>`).join("")}
+    <p><a href="${resetUrl}" style="color:#6366f1">${wrap.resetLink}</a></p>`;
 
   await sendMail({
     from: `${companyName} <${contactEmail}>`,
     to: email,
-    subject: "Kunden-Passwort zurücksetzen",
-    text: [
-      `Hallo ${name},`,
-      "",
-      "Sie haben eine Anfrage zum Zurücksetzen Ihres Kunden-Passworts gestellt.",
-      "Dieser Link ist 1 Stunde gültig.",
-      "",
-      `Passwort zurücksetzen: ${resetUrl}`,
-      "",
-      "Mit freundlichen Grüßen",
-      signature,
-    ].join("\n"),
+    subject,
+    text: [wrap.greeting(name), "", bodyText, "", `${wrap.resetLink}: ${resetUrl}`, "", wrap.closing, signature].join("\n"),
     html: buildHtml(companyName, bodyHtml, signature),
   });
 }
@@ -398,42 +363,37 @@ export async function sendCustomerVerificationEmail({
   name: string;
   verificationUrl: string;
 }) {
-  const settings = await getSettings();
+  const [settings, locale] = await Promise.all([
+    getSettings(),
+    getRecipientLocale(email),
+  ]);
   const companyName = settings.company_name ?? "3D Print CMS";
-  const signature = settings.company_signature ?? "Ihr 3D-Druck-Team";
+  const signature = settings.company_signature ?? (locale === "en" ? "Your 3D Print Team" : "Ihr 3D-Druck-Team");
   const contactEmail = settings.contact_email ?? "noreply@3dprinting.local";
+  const wrap = getEmailWrappers(locale);
+  const suffix = localeSuffix(locale);
 
   const vars = { name, verificationUrl, companyName };
   const subject = renderTemplate(
-    settings.email_customer_verify_subject ?? "{{companyName}}: Konto bestätigen",
+    settings[`email_customer_verify_subject${suffix}`] ?? settings.email_customer_verify_subject ?? "{{companyName}}: Konto bestätigen",
     vars
   );
   const bodyText = renderTemplate(
-    settings.email_customer_verify_body ??
+    settings[`email_customer_verify_body${suffix}`] ?? settings.email_customer_verify_body ??
       "Hallo {{name}},\n\nbitte bestätigen Sie Ihre E-Mail-Adresse, um Ihr Konto zu aktivieren.\nDieser Link ist 24 Stunden gültig.",
     vars
   );
 
   const bodyHtml = `
-    <p>Hallo ${escapeHtml(name)},</p>
-    ${bodyText
-      .split("\n")
-      .map((line) => `<p>${escapeHtml(line)}</p>`)
-      .join("")}
-    <p><a href="${verificationUrl}" style="color:#6366f1;font-weight:bold">E-Mail-Adresse bestätigen</a></p>`;
+    <p>${escapeHtml(wrap.greeting(name))}</p>
+    ${bodyText.split("\n").map((line) => `<p>${escapeHtml(line)}</p>`).join("")}
+    <p><a href="${verificationUrl}" style="color:#6366f1;font-weight:bold">${wrap.verifyLink}</a></p>`;
 
   await sendMail({
     from: `${companyName} <${contactEmail}>`,
     to: email,
     subject,
-    text: [
-      bodyText,
-      "",
-      `E-Mail bestätigen: ${verificationUrl}`,
-      "",
-      "Mit freundlichen Grüßen",
-      signature,
-    ].join("\n"),
+    text: [bodyText, "", `${wrap.verifyLink}: ${verificationUrl}`, "", wrap.closing, signature].join("\n"),
     html: buildHtml(companyName, bodyHtml, signature),
   });
 }

@@ -18,6 +18,7 @@ import { formatDateTime, formatFileSize, is3DModel } from "@/lib/utils";
 import { toast } from "sonner";
 import { CheckCircle2, Clock, Download, FileText, Image as ImageIcon, MessageSquare, Package, ShieldAlert, ShieldCheck, Star, Upload, X, XCircle } from "lucide-react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 
 const ModelThumbnail = dynamic(
   () => import("@/components/ModelThumbnail").then((m) => m.ModelThumbnail),
@@ -100,6 +101,8 @@ const MAX_FILE_SIZE = 50 * 1024 * 1024;
 
 export function TrackingView({ order, trackingToken }: { order: TrackingData; trackingToken: string }) {
   const router = useRouter();
+  const t = useTranslations("track");
+  const tc = useTranslations("common");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
@@ -112,11 +115,41 @@ export function TrackingView({ order, trackingToken }: { order: TrackingData; tr
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [openModelFileId, setOpenModelFileId] = useState<string | null>(null);
 
+  function formatRelativeTime(dateStr: string): string {
+    const diffMs = Date.now() - new Date(dateStr).getTime();
+    const diffMins = Math.floor(diffMs / 60_000);
+    if (diffMins < 1) return t("just_now");
+    if (diffMins < 60) return t("minutes_ago", { count: diffMins });
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return t("hours_ago", { count: diffHours });
+    const diffDays = Math.floor(diffHours / 24);
+    return t("days_ago", { count: diffDays });
+  }
+
+  function getActionLabel(action: string): string {
+    const labels: Record<string, string> = {
+      ORDER_CREATED: t("audit_submitted"),
+      PHASE_CHANGED: t("audit_phase_changed"),
+      ASSIGNED: t("audit_assigned"),
+      COMMENT_ADDED: t("audit_comment_added"),
+      FILE_UPLOADED: t("audit_file_uploaded"),
+      TEAM_FILE_UPLOADED: t("audit_team_file_uploaded"),
+      PART_ITERATION_INCREMENTED: t("audit_iteration_incremented"),
+      SURVEY_SENT: t("audit_survey_sent"),
+      SURVEY_SUBMITTED: t("audit_survey_submitted"),
+      VERIFICATION_SENT: t("audit_verification_sent"),
+      VERIFICATION_APPROVED: t("audit_verification_approved"),
+      VERIFICATION_REJECTED: t("audit_verification_rejected"),
+      VERIFICATION_OVERRIDDEN: t("audit_verification_overridden"),
+    };
+    return labels[action] ?? action;
+  }
+
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const picked = Array.from(e.target.files ?? []);
     const valid = picked.filter((f) => {
       if (f.size > MAX_FILE_SIZE) {
-        toast.error(`${f.name} ist zu groß (max. 50MB)`);
+        toast.error(tc("file_too_large", { name: f.name }));
         return false;
       }
       return true;
@@ -137,12 +170,12 @@ export function TrackingView({ order, trackingToken }: { order: TrackingData; tr
       fd.append("orderId", order.id);
       selectedFiles.forEach((f) => fd.append("files", f));
       const res = await fetch("/api/uploads", { method: "POST", body: fd });
-      if (!res.ok) throw new Error("Upload fehlgeschlagen");
-      toast.success("Dateien erfolgreich hochgeladen");
+      if (!res.ok) throw new Error(t("upload_error"));
+      toast.success(t("upload_success"));
       setSelectedFiles([]);
       router.refresh();
     } catch {
-      toast.error("Upload fehlgeschlagen. Bitte erneut versuchen.");
+      toast.error(t("upload_retry"));
     } finally {
       setUploading(false);
     }
@@ -165,7 +198,7 @@ export function TrackingView({ order, trackingToken }: { order: TrackingData; tr
       setVerificationRequests((prev) =>
         prev.map((vr) => (vr.token === verificationToken ? { ...vr, status: newStatus } : vr))
       );
-      toast.success(action === "APPROVE" ? "Freigabe erteilt" : "Freigabe abgelehnt");
+      toast.success(action === "APPROVE" ? t("approve") : t("reject"));
       setRejectingToken(null);
       setRejectReason("");
       router.refresh();
@@ -176,6 +209,13 @@ export function TrackingView({ order, trackingToken }: { order: TrackingData; tr
     }
   }
 
+  const fileCategoryLabels: Record<string, string> = {
+    REFERENCE: t("file_cat_reference"),
+    DESIGN: t("file_cat_design"),
+    RESULT: t("file_cat_result"),
+    OTHER: t("file_cat_other"),
+  };
+
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       {/* Status Header */}
@@ -185,7 +225,7 @@ export function TrackingView({ order, trackingToken }: { order: TrackingData; tr
             <div>
               <CardTitle className="flex items-center gap-2">
                 <Package className="h-5 w-5" />
-                Auftrag von {order.customerName}
+                {t("order_by", { name: order.customerName })}
               </CardTitle>
               <CardDescription>{order.customerEmail}</CardDescription>
             </div>
@@ -200,17 +240,14 @@ export function TrackingView({ order, trackingToken }: { order: TrackingData; tr
         <CardContent>
           <div className="text-sm text-muted-foreground space-y-1">
             <p>
-              <span className="font-medium text-foreground">Eingereicht:</span>{" "}
-              {formatDateTime(order.createdAt)}
+              <span className="font-medium text-foreground">{t("submitted_at", { date: formatDateTime(order.createdAt) })}</span>
             </p>
             <p>
-              <span className="font-medium text-foreground">Zuletzt aktualisiert:</span>{" "}
-              {formatDateTime(order.updatedAt)}
+              <span className="font-medium text-foreground">{t("updated_at", { date: formatDateTime(order.updatedAt) })}</span>
             </p>
             {order.deadline && (
               <p>
-                <span className="font-medium text-foreground">Geplante Fertigstellung:</span>{" "}
-                {new Date(order.deadline).toLocaleDateString("de-DE")}
+                <span className="font-medium text-foreground">{t("planned_completion", { date: new Date(order.deadline).toLocaleDateString("de-DE") })}</span>
               </p>
             )}
           </div>
@@ -220,7 +257,7 @@ export function TrackingView({ order, trackingToken }: { order: TrackingData; tr
       {/* Description */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Beschreibung</CardTitle>
+          <CardTitle className="text-base">{tc("description")}</CardTitle>
         </CardHeader>
         <CardContent>
           <p className="text-sm whitespace-pre-wrap">{order.description}</p>
@@ -231,17 +268,16 @@ export function TrackingView({ order, trackingToken }: { order: TrackingData; tr
       {order.files.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Dateien ({order.files.length})</CardTitle>
+            <CardTitle className="text-base">{t("files_count", { count: order.files.length })}</CardTitle>
           </CardHeader>
           <CardContent>
             <Tabs defaultValue="DESIGN">
               <TabsList className="w-full">
                 {(["REFERENCE", "DESIGN", "RESULT", "OTHER"] as const).map((cat) => {
                   const count = order.files.filter((f) => f.category === cat).length;
-                  const labels: Record<string, string> = { REFERENCE: "Referenz", DESIGN: "Design", RESULT: "Druckergebnis", OTHER: "Sonstiges" };
                   return (
                     <TabsTrigger key={cat} value={cat} className="flex-1 text-xs">
-                      {labels[cat]}{count > 0 && <span className="ml-1 opacity-60">({count})</span>}
+                      {fileCategoryLabels[cat]}{count > 0 && <span className="ml-1 opacity-60">({count})</span>}
                     </TabsTrigger>
                   );
                 })}
@@ -251,7 +287,7 @@ export function TrackingView({ order, trackingToken }: { order: TrackingData; tr
                 return (
                   <TabsContent key={cat} value={cat} className="mt-3 space-y-3">
                     {catFiles.length === 0 && (
-                      <p className="text-sm text-muted-foreground text-center py-4">Keine Dateien in dieser Kategorie</p>
+                      <p className="text-sm text-muted-foreground text-center py-4">{t("no_files_in_category")}</p>
                     )}
                     {catFiles.map((file) => (
                       <div key={file.id} className="space-y-2">
@@ -273,9 +309,9 @@ export function TrackingView({ order, trackingToken }: { order: TrackingData; tr
                             <span className="flex-1 truncate">{file.originalName}</span>
                           )}
                           {file.source === "TEAM" ? (
-                            <Badge variant="secondary" className="text-xs shrink-0">Team</Badge>
+                            <Badge variant="secondary" className="text-xs shrink-0">{t("from_team")}</Badge>
                           ) : (
-                            <Badge variant="outline" className="text-xs shrink-0">Von Ihnen</Badge>
+                            <Badge variant="outline" className="text-xs shrink-0">{t("from_you")}</Badge>
                           )}
                           <span className="text-muted-foreground text-xs shrink-0">{formatFileSize(file.size)}</span>
                           <a
@@ -337,7 +373,7 @@ export function TrackingView({ order, trackingToken }: { order: TrackingData; tr
       {/* Image lightbox */}
       <Dialog open={!!previewUrl} onOpenChange={(open) => { if (!open) setPreviewUrl(null); }}>
         <DialogContent className="max-w-4xl p-2">
-          <DialogTitle className="sr-only">Bildvorschau</DialogTitle>
+          <DialogTitle className="sr-only">{t("image_preview")}</DialogTitle>
           {previewUrl && (
             <div className="relative w-full aspect-video">
               <Image src={previewUrl} alt="Vorschau" fill className="object-contain" />
@@ -349,21 +385,21 @@ export function TrackingView({ order, trackingToken }: { order: TrackingData; tr
       {/* Additional File Upload */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Weitere Dateien hochladen</CardTitle>
+          <CardTitle className="text-base">{t("upload_more")}</CardTitle>
           <CardDescription>
-            Lade überarbeitete Modelle oder zusätzliche Referenzbilder hoch.
+            {t("upload_more_desc")}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary/50 transition-colors">
             <Upload className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
             <p className="text-sm text-muted-foreground mb-2">
-              Bilder (JPG, PNG) oder 3D-Dateien (STL, OBJ, 3MF)
+              {tc("file_types_3d")}
             </p>
-            <p className="text-xs text-muted-foreground mb-3">Max. 50MB pro Datei</p>
+            <p className="text-xs text-muted-foreground mb-3">{tc("max_file_size")}</p>
             <label htmlFor="tracking-file-upload">
               <Button type="button" variant="outline" size="sm" asChild>
-                <span className="cursor-pointer">Dateien auswählen</span>
+                <span className="cursor-pointer">{tc("select_files")}</span>
               </Button>
             </label>
             <input
@@ -391,7 +427,7 @@ export function TrackingView({ order, trackingToken }: { order: TrackingData; tr
                   <button
                     type="button"
                     onClick={() => handleRemoveFile(i)}
-                    aria-label={`Datei entfernen: ${file.name}`}
+                    aria-label={tc("remove_file", { name: file.name })}
                     className="text-muted-foreground hover:text-destructive p-1 rounded"
                   >
                     <X className="h-4 w-4" />
@@ -406,7 +442,7 @@ export function TrackingView({ order, trackingToken }: { order: TrackingData; tr
             disabled={selectedFiles.length === 0 || uploading}
             className="w-full"
           >
-            {uploading ? "Wird hochgeladen..." : "Hochladen"}
+            {uploading ? tc("uploading") : tc("upload")}
           </Button>
         </CardContent>
       </Card>
@@ -427,13 +463,13 @@ export function TrackingView({ order, trackingToken }: { order: TrackingData; tr
                 <ShieldAlert className="h-5 w-5 shrink-0" />
                 Handlung erforderlich:{" "}
                 {vr.type === "DESIGN_REVIEW"
-                  ? partName ? `Designfreigabe für „${partName}"` : "Bitte geben Sie das Design frei"
-                  : "Bitte bestätigen Sie das Angebot"}
+                  ? partName ? `Designfreigabe für „${partName}"` : t("approve_design_prompt")
+                  : t("approve_price_prompt")}
               </CardTitle>
               <CardDescription className="text-amber-700 dark:text-amber-400">
                 {vr.type === "DESIGN_REVIEW"
-                  ? "Wir benötigen Ihre Freigabe des Designs, bevor wir mit dem Druck beginnen können."
-                  : "Wir benötigen Ihre Zustimmung zum Angebot, bevor wir mit dem Druck beginnen können."}
+                  ? t("design_approval_desc")
+                  : t("price_approval_desc")}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -453,18 +489,17 @@ export function TrackingView({ order, trackingToken }: { order: TrackingData; tr
               )}
               {vr.type === "PRICE_APPROVAL" && order.priceEstimate != null && (
                 <p className="text-sm text-amber-800 dark:text-amber-300">
-                  Angebotspreis:{" "}
-                  <strong className="text-lg">{order.priceEstimate.toFixed(2)} €</strong>
+                  {t("price_label", { price: order.priceEstimate.toFixed(2) })}
                 </p>
               )}
               <p className="text-xs text-amber-600 dark:text-amber-500 flex items-center gap-1">
                 <Clock className="h-3 w-3" />
-                Anfrage gestellt {formatRelativeTime(vr.sentAt)}
+                {t("request_sent_at", { time: formatRelativeTime(vr.sentAt) })}
               </p>
               {isRejecting ? (
                 <div className="space-y-2">
                   <Textarea
-                    placeholder="Grund für Ablehnung (optional)"
+                    placeholder={t("rejection_reason")}
                     value={rejectReason}
                     onChange={(e) => setRejectReason(e.target.value)}
                     className="text-sm min-h-[80px] resize-none bg-white"
@@ -477,14 +512,14 @@ export function TrackingView({ order, trackingToken }: { order: TrackingData; tr
                       className="flex-1"
                     >
                       <XCircle className="h-4 w-4 mr-2" />
-                      {verifyingToken === vr.token ? "Wird verarbeitet…" : "Ablehnen bestätigen"}
+                      {verifyingToken === vr.token ? t("processing") : t("confirm_reject")}
                     </Button>
                     <Button
                       variant="outline"
                       onClick={() => { setRejectingToken(null); setRejectReason(""); }}
                       className="flex-1"
                     >
-                      Abbrechen
+                      {tc("cancel")}
                     </Button>
                   </div>
                 </div>
@@ -496,7 +531,7 @@ export function TrackingView({ order, trackingToken }: { order: TrackingData; tr
                     className="flex-1"
                   >
                     <ShieldCheck className="h-4 w-4 mr-2" />
-                    {verifyingToken === vr.token ? "Wird verarbeitet…" : "Freigabe erteilen"}
+                    {verifyingToken === vr.token ? t("processing") : t("approve")}
                   </Button>
                   <Button
                     variant="destructive"
@@ -505,7 +540,7 @@ export function TrackingView({ order, trackingToken }: { order: TrackingData; tr
                     className="flex-1"
                   >
                     <XCircle className="h-4 w-4 mr-2" />
-                    Ablehnen
+                    {t("reject")}
                   </Button>
                 </div>
               )}
@@ -520,7 +555,7 @@ export function TrackingView({ order, trackingToken }: { order: TrackingData; tr
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <ShieldCheck className="h-4 w-4" />
-              Freigaben
+              {t("approvals_section")}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -528,15 +563,16 @@ export function TrackingView({ order, trackingToken }: { order: TrackingData; tr
               <div key={vr.token} className="flex items-start justify-between gap-3 text-sm">
                 <div className="space-y-0.5">
                   <p className="font-medium">
-                    {vr.type === "DESIGN_REVIEW" ? "Designfreigabe" : "Angebotsfreigabe"}
+                    {vr.type === "DESIGN_REVIEW" ? t("design_approval") : t("price_approval")}
                   </p>
                   <p className="text-xs text-muted-foreground">
-                    Anfrage gestellt: {formatDateTime(vr.sentAt)}
+                    {t("request_sent_full", { date: formatDateTime(vr.sentAt) })}
                   </p>
                   {vr.resolvedAt && (
                     <p className="text-xs text-muted-foreground">
-                      {vr.status === "APPROVED" ? "Freigegeben" : "Abgelehnt"} am{" "}
-                      {formatDateTime(vr.resolvedAt)}
+                      {vr.status === "APPROVED"
+                        ? t("approved_at", { date: formatDateTime(vr.resolvedAt) })
+                        : t("rejected_at", { date: formatDateTime(vr.resolvedAt) })}
                     </p>
                   )}
                   {vr.status === "REJECTED" && vr.rejectionReason && (
@@ -548,13 +584,13 @@ export function TrackingView({ order, trackingToken }: { order: TrackingData; tr
                 {vr.status === "APPROVED" && (
                   <span className="flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-green-100 text-green-700 shrink-0">
                     <ShieldCheck className="h-3 w-3" />
-                    Freigegeben
+                    {t("approved")}
                   </span>
                 )}
                 {vr.status === "REJECTED" && (
                   <span className="flex items-center gap-1 text-xs px-2 py-1 rounded-full bg-red-100 text-red-700 shrink-0">
                     <XCircle className="h-3 w-3" />
-                    Abgelehnt
+                    {t("rejected")}
                   </span>
                 )}
               </div>
@@ -569,13 +605,13 @@ export function TrackingView({ order, trackingToken }: { order: TrackingData; tr
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <MessageSquare className="h-4 w-4" />
-              Ihr Feedback
+              {t("feedback_section")}
             </CardTitle>
           </CardHeader>
           <CardContent>
             {order.surveyResponse.submittedAt ? (
               <div className="space-y-3">
-                <p className="text-sm text-muted-foreground">Vielen Dank für Ihr Feedback!</p>
+                <p className="text-sm text-muted-foreground">{t("feedback_thanks")}</p>
                 {order.surveyResponse.answers && order.surveyResponse.answers.length > 0 && (
                   <div className="space-y-2">
                     {order.surveyResponse.answers.map((a, i) => (
@@ -597,11 +633,11 @@ export function TrackingView({ order, trackingToken }: { order: TrackingData; tr
             ) : (
               <div className="space-y-3">
                 <p className="text-sm text-muted-foreground">
-                  Bitte nehmen Sie an unserer kurzen Umfrage teil – es dauert nur 1–2 Minuten.
+                  {t("feedback_prompt")}
                 </p>
                 <Button asChild size="sm">
                   <Link href={`/survey/${order.surveyResponse.token}`}>
-                    Jetzt Feedback geben
+                    {t("feedback_cta")}
                   </Link>
                 </Button>
               </div>
@@ -614,7 +650,7 @@ export function TrackingView({ order, trackingToken }: { order: TrackingData; tr
       {order.auditLogs.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Verlauf</CardTitle>
+            <CardTitle className="text-base">{t("history")}</CardTitle>
           </CardHeader>
           <CardContent>
             <ol className="relative border-l border-border space-y-4 ml-3">
@@ -646,34 +682,4 @@ export function TrackingView({ order, trackingToken }: { order: TrackingData; tr
       )}
     </div>
   );
-}
-
-function formatRelativeTime(dateStr: string): string {
-  const diffMs = Date.now() - new Date(dateStr).getTime();
-  const diffMins = Math.floor(diffMs / 60_000);
-  if (diffMins < 1) return "gerade eben";
-  if (diffMins < 60) return `vor ${diffMins} Minute${diffMins === 1 ? "" : "n"}`;
-  const diffHours = Math.floor(diffMins / 60);
-  if (diffHours < 24) return `vor ${diffHours} Stunde${diffHours === 1 ? "" : "n"}`;
-  const diffDays = Math.floor(diffHours / 24);
-  return `vor ${diffDays} Tag${diffDays === 1 ? "" : "en"}`;
-}
-
-function getActionLabel(action: string): string {
-  const labels: Record<string, string> = {
-    ORDER_CREATED: "Auftrag eingereicht",
-    PHASE_CHANGED: "Status geändert",
-    ASSIGNED: "Bearbeiter zugewiesen",
-    COMMENT_ADDED: "Kommentar hinzugefügt",
-    FILE_UPLOADED: "Datei hochgeladen",
-    TEAM_FILE_UPLOADED: "Designdatei vom Team hochgeladen",
-    PART_ITERATION_INCREMENTED: "Design-Iteration erhöht",
-    SURVEY_SENT: "Umfrage versandt",
-    SURVEY_SUBMITTED: "Umfrage ausgefüllt",
-    VERIFICATION_SENT: "Freigabeanfrage versandt",
-    VERIFICATION_APPROVED: "Freigabe erteilt",
-    VERIFICATION_REJECTED: "Freigabe abgelehnt",
-    VERIFICATION_OVERRIDDEN: "Freigabe durch Team erteilt",
-  };
-  return labels[action] ?? action;
 }

@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { GripVertical, Pencil, Plus, Star, Trash2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 export interface ProjectPhaseData {
   id: string;
@@ -49,6 +50,7 @@ function SortablePhaseRow({
   onEdit: (phase: ProjectPhaseData) => void;
   onDelete: (phase: ProjectPhaseData) => void;
 }) {
+  const t = useTranslations("admin");
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: phase.id,
   });
@@ -81,12 +83,12 @@ function SortablePhaseRow({
       {phase.isDefault && (
         <Badge variant="secondary" className="text-xs shrink-0">
           <Star className="h-3 w-3 mr-1" />
-          Standard
+          {t("project_phase_badge_standard")}
         </Badge>
       )}
 
       <span className="hidden sm:inline text-xs text-muted-foreground shrink-0">
-        {phase._count.projects} Projekte
+        {phase._count.projects} {t("project_phase_badge_projects")}
       </span>
 
       <div className="flex gap-1">
@@ -120,6 +122,8 @@ export function ProjectPhaseManager({
   initialPhases,
   onPhasesChange,
 }: ProjectPhaseManagerProps) {
+  const t = useTranslations("admin");
+  const tc = useTranslations("common");
   const [phases, setPhases] = useState(initialPhases);
   const [editingPhase, setEditingPhase] = useState<ProjectPhaseData | null>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -154,7 +158,7 @@ export function ProjectPhaseManager({
 
   async function handleSave() {
     if (!formData.name.trim()) {
-      toast.error("Name ist erforderlich");
+      toast.error(t("phase_name_required"));
       return;
     }
 
@@ -171,7 +175,7 @@ export function ProjectPhaseManager({
         const newPhases = phases.map((p) => (p.id === updated.id ? { ...p, ...updated } : p));
         setPhases(newPhases);
         onPhasesChange?.(newPhases);
-        toast.success("Phase aktualisiert");
+        toast.success(t("phase_updated"));
       } else {
         const res = await fetch("/api/admin/project-phases", {
           method: "POST",
@@ -183,18 +187,18 @@ export function ProjectPhaseManager({
         const newPhases = [...phases, { ...created, _count: { projects: 0 } }];
         setPhases(newPhases);
         onPhasesChange?.(newPhases);
-        toast.success("Phase erstellt");
+        toast.success(t("phase_created"));
       }
       setIsEditing(false);
     } catch {
-      toast.error("Fehler beim Speichern");
+      toast.error(t("phase_save_failed"));
     } finally {
       setSaving(false);
     }
   }
 
   async function handleDelete(phase: ProjectPhaseData) {
-    if (!confirm(`Phase "${phase.name}" wirklich löschen?`)) return;
+    if (!confirm(t("phase_delete_confirm", { name: phase.name }))) return;
 
     try {
       const res = await fetch(`/api/admin/project-phases/${phase.id}`, { method: "DELETE" });
@@ -206,9 +210,9 @@ export function ProjectPhaseManager({
       const newPhases = phases.filter((p) => p.id !== phase.id);
       setPhases(newPhases);
       onPhasesChange?.(newPhases);
-      toast.success("Phase gelöscht");
+      toast.success(t("phase_deleted"));
     } catch {
-      toast.error("Fehler beim Löschen");
+      toast.error(t("phase_delete_failed"));
     }
   }
 
@@ -238,7 +242,7 @@ export function ProjectPhaseManager({
         )
       );
     } catch {
-      toast.error("Reihenfolge konnte nicht gespeichert werden");
+      toast.error(t("phase_order_failed"));
     }
   }
 
@@ -247,13 +251,13 @@ export function ProjectPhaseManager({
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-lg">
           <DialogHeader>
-            <DialogTitle>Projektphasen verwalten</DialogTitle>
+            <DialogTitle>{t("project_phase_title")}</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <p className="text-sm text-muted-foreground">
-                Konfiguriere die Phasen für den Projekt-Workflow
+                {t("project_phase_desc")}
               </p>
               <Button size="sm" onClick={openCreate}>
                 <Plus className="h-4 w-4 mr-1.5" />
@@ -278,14 +282,14 @@ export function ProjectPhaseManager({
 
             {phases.length === 0 && (
               <div className="text-center py-8 text-muted-foreground text-sm">
-                Noch keine Projektphasen konfiguriert
+                {t("project_phase_empty")}
               </div>
             )}
           </div>
 
           <DialogFooter>
             <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Schließen
+              {tc("close")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -295,22 +299,22 @@ export function ProjectPhaseManager({
       <Dialog open={isEditing} onOpenChange={setIsEditing}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{editingPhase ? "Phase bearbeiten" : "Neue Phase"}</DialogTitle>
+            <DialogTitle>{editingPhase ? t("project_phase_dialog_edit") : t("project_phase_dialog_new")}</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <Label htmlFor="proj-phase-name">Name *</Label>
+              <Label htmlFor="proj-phase-name">{tc("name")} *</Label>
               <Input
                 id="proj-phase-name"
-                placeholder="z.B. In Umsetzung"
+                placeholder={t("project_phase_name_placeholder")}
                 value={formData.name}
                 onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))}
               />
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="proj-phase-color">Farbe</Label>
+              <Label htmlFor="proj-phase-color">{tc("color")}</Label>
               <div className="flex items-center gap-3">
                 <input
                   id="proj-phase-color"
@@ -336,16 +340,16 @@ export function ProjectPhaseManager({
                 onChange={(e) => setFormData((p) => ({ ...p, isDefault: e.target.checked }))}
                 className="h-4 w-4"
               />
-              <Label htmlFor="proj-phase-default">Als Standard-Phase (für neue Projekte)</Label>
+              <Label htmlFor="proj-phase-default">{t("project_phase_is_default")}</Label>
             </div>
           </div>
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsEditing(false)}>
-              Abbrechen
+              {tc("cancel")}
             </Button>
             <Button onClick={handleSave} disabled={saving}>
-              {saving ? "Speichern..." : "Speichern"}
+              {saving ? `${tc("save")}...` : tc("save")}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -6,6 +6,7 @@ export type CustomerPayload = {
   id: string;
   email: string;
   name: string;
+  locale?: string;
 };
 
 const COOKIE_NAME = "customer-session";
@@ -18,7 +19,7 @@ function getSecret(): Uint8Array {
 }
 
 export async function createCustomerSession(customer: CustomerPayload): Promise<string> {
-  return new SignJWT({ id: customer.id, email: customer.email, name: customer.name })
+  return new SignJWT({ id: customer.id, email: customer.email, name: customer.name, locale: customer.locale ?? "de" })
     .setProtectedHeader({ alg: "HS256" })
     .setExpirationTime(EXPIRY)
     .setIssuedAt()

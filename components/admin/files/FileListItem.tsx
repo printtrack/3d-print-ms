@@ -21,6 +21,7 @@ import {
 import { is3DModel } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import { CATEGORY_LABELS, type OrderFileData, type FileCategory } from "./types";
+import { useTranslations } from "next-intl";
 
 const ModelThumbnail = dynamic(
   () => import("@/components/ModelThumbnail").then((m) => m.ModelThumbnail),
@@ -60,6 +61,7 @@ export function FileListItem({
   onPreview,
   onOpenViewer,
 }: FileListItemProps) {
+  const tc = useTranslations("common");
   const fileUrl = `/api/files/${orderId}/${file.filename}`;
 
   return (
@@ -96,7 +98,7 @@ export function FileListItem({
           href={fileUrl}
           download={file.originalName}
           className="text-muted-foreground hover:text-foreground shrink-0"
-          title="Herunterladen"
+          title={tc("download")}
         >
           <Download className="h-4 w-4" />
         </a>
@@ -112,7 +114,7 @@ export function FileListItem({
               <SelectContent>
                 {(Object.keys(CATEGORY_LABELS) as FileCategory[]).map((cat) => (
                   <SelectItem key={cat} value={cat}>
-                    {CATEGORY_LABELS[cat]}
+                    {tc(`file_cat_${cat}`)}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -123,7 +125,7 @@ export function FileListItem({
                   <button
                     type="button"
                     className="text-muted-foreground hover:text-foreground shrink-0 transition-colors"
-                    title="Zu Teil verschieben"
+                    title={tc("move_to_part")}
                   >
                     <FolderInput className="h-4 w-4" />
                   </button>
@@ -159,7 +161,7 @@ export function FileListItem({
               type="button"
               onClick={() => onDelete(file.id)}
               className="text-muted-foreground hover:text-destructive shrink-0 transition-colors"
-              title="Datei löschen"
+              title={tc("delete_file")}
             >
               <Trash2 className="h-4 w-4" />
             </button>

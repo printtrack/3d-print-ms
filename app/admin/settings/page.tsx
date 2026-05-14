@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { getSettings } from "@/lib/settings";
 import { prisma } from "@/lib/db";
+import { getTranslations } from "next-intl/server";
 import { SettingsForm } from "./SettingsForm";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +17,7 @@ export default async function SettingsPage({
 
   if (userRole !== "ADMIN") redirect("/admin");
 
-  const { tab } = await searchParams;
+  const [{ tab }, t] = await Promise.all([searchParams, getTranslations("admin")]);
 
   const [settings, phases, members, machines, partPhases, projectPhases] = await Promise.all([
     getSettings(),
@@ -64,9 +65,9 @@ export default async function SettingsPage({
   return (
     <div className="w-full max-w-4xl mx-auto p-6 space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold">Einstellungen</h1>
+        <h1 className="text-2xl font-semibold">{t("settings_title")}</h1>
         <p className="text-muted-foreground text-sm mt-1">
-          System, Team und Workflow konfigurieren
+          {t("settings_desc")}
         </p>
       </div>
       <SettingsForm

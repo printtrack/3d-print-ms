@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,6 +14,8 @@ export function PortalSignInForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") ?? "/portal";
+  const t = useTranslations("portal");
+  const tc = useTranslations("common");
 
   const [loading, setLoading] = useState(false);
   const [form, setForm] = useState({ email: "", password: "" });
@@ -28,13 +31,13 @@ export function PortalSignInForm() {
       });
       const json = await res.json();
       if (!res.ok) {
-        toast.error(json.error ?? "Anmeldung fehlgeschlagen");
+        toast.error(json.error ?? t("signin_failed"));
         return;
       }
       router.push(callbackUrl);
       router.refresh();
     } catch {
-      toast.error("Anmeldung fehlgeschlagen");
+      toast.error(t("signin_failed"));
     } finally {
       setLoading(false);
     }
@@ -43,17 +46,17 @@ export function PortalSignInForm() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Anmelden</CardTitle>
-        <CardDescription>Melden Sie sich mit Ihrem Kundenkonto an</CardDescription>
+        <CardTitle>{tc("signin")}</CardTitle>
+        <CardDescription>{t("signin_subtitle")}</CardDescription>
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="email">E-Mail</Label>
+            <Label htmlFor="email">{tc("email")}</Label>
             <Input
               id="email"
               type="email"
-              placeholder="ihre@email.de"
+              placeholder={t("signin_email_placeholder")}
               value={form.email}
               onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
               required
@@ -61,7 +64,7 @@ export function PortalSignInForm() {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="password">Passwort</Label>
+            <Label htmlFor="password">{tc("password")}</Label>
             <Input
               id="password"
               type="password"
@@ -72,16 +75,16 @@ export function PortalSignInForm() {
             />
           </div>
           <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? "Wird angemeldet..." : "Anmelden"}
+            {loading ? t("signing_in") : tc("signin")}
           </Button>
           <div className="flex flex-col items-center gap-2 text-sm text-muted-foreground">
             <Link href="/portal/reset-password" className="text-primary hover:underline">
-              Passwort vergessen?
+              {t("forgot_password")}
             </Link>
             <span>
-              Noch kein Konto?{" "}
+              {t("no_account")}{" "}
               <Link href="/portal/register" className="text-primary hover:underline">
-                Jetzt registrieren
+                {t("register_now")}
               </Link>
             </span>
           </div>

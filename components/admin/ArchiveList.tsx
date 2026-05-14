@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import { RotateCcw, Trash2, Package } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -23,6 +24,8 @@ interface ArchiveListProps {
 export function ArchiveList({ orders, isAdmin }: ArchiveListProps) {
   const router = useRouter();
   const [loadingId, setLoadingId] = useState<string | null>(null);
+  const t = useTranslations("admin");
+  const tc = useTranslations("common");
 
   async function handleRestore(id: string) {
     setLoadingId(id);
@@ -33,25 +36,25 @@ export function ArchiveList({ orders, isAdmin }: ArchiveListProps) {
         body: JSON.stringify({ archive: false }),
       });
       if (!res.ok) throw new Error();
-      toast.success("Auftrag wiederhergestellt");
+      toast.success(t("archive_restored"));
       router.refresh();
     } catch {
-      toast.error("Fehler beim Wiederherstellen");
+      toast.error(t("archive_restore_failed"));
     } finally {
       setLoadingId(null);
     }
   }
 
   async function handleDelete(id: string) {
-    if (!confirm("Auftrag endgültig löschen?")) return;
+    if (!confirm(t("archive_delete_confirm"))) return;
     setLoadingId(id);
     try {
       const res = await fetch(`/api/admin/orders/${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error();
-      toast.success("Auftrag gelöscht");
+      toast.success(t("archive_deleted"));
       router.refresh();
     } catch {
-      toast.error("Fehler beim Löschen");
+      toast.error(t("archive_delete_failed"));
     } finally {
       setLoadingId(null);
     }
@@ -61,7 +64,7 @@ export function ArchiveList({ orders, isAdmin }: ArchiveListProps) {
     return (
       <div className="flex flex-col items-center justify-center py-24 text-center">
         <Package className="h-12 w-12 text-muted-foreground/40 mb-4" />
-        <p className="text-muted-foreground">Keine archivierten Aufträge</p>
+        <p className="text-muted-foreground">{t("archive_no_orders")}</p>
       </div>
     );
   }
@@ -71,10 +74,10 @@ export function ArchiveList({ orders, isAdmin }: ArchiveListProps) {
       <table className="hidden md:table w-full text-sm">
         <thead>
           <tr className="bg-muted/50 text-muted-foreground">
-            <th className="text-left px-4 py-3 font-medium">Kunde</th>
-            <th className="text-left px-4 py-3 font-medium">E-Mail</th>
-            <th className="text-left px-4 py-3 font-medium">Phase</th>
-            <th className="text-left px-4 py-3 font-medium">Archiviert am</th>
+            <th className="text-left px-4 py-3 font-medium">{t("archive_customer")}</th>
+            <th className="text-left px-4 py-3 font-medium">{tc("email")}</th>
+            <th className="text-left px-4 py-3 font-medium">{tc("status")}</th>
+            <th className="text-left px-4 py-3 font-medium">{t("archive_archived_at")}</th>
             <th className="px-4 py-3" />
           </tr>
         </thead>
@@ -124,7 +127,7 @@ export function ArchiveList({ orders, isAdmin }: ArchiveListProps) {
                     disabled={loadingId === order.id}
                   >
                     <RotateCcw className="h-3.5 w-3.5 mr-1" />
-                    Wiederherstellen
+                    {t("archive_restore")}
                   </Button>
                   {isAdmin && (
                     <Button
@@ -134,7 +137,7 @@ export function ArchiveList({ orders, isAdmin }: ArchiveListProps) {
                       disabled={loadingId === order.id}
                     >
                       <Trash2 className="h-3.5 w-3.5 mr-1" />
-                      Löschen
+                      {tc("delete")}
                     </Button>
                   )}
                 </div>
@@ -180,7 +183,7 @@ export function ArchiveList({ orders, isAdmin }: ArchiveListProps) {
                 disabled={loadingId === order.id}
               >
                 <RotateCcw className="h-3.5 w-3.5 mr-1" />
-                Wiederherstellen
+                {t("archive_restore")}
               </Button>
               {isAdmin && (
                 <Button
@@ -190,7 +193,7 @@ export function ArchiveList({ orders, isAdmin }: ArchiveListProps) {
                   disabled={loadingId === order.id}
                 >
                   <Trash2 className="h-3.5 w-3.5 mr-1" />
-                  Löschen
+                  {tc("delete")}
                 </Button>
               )}
             </div>

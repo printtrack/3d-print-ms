@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { AlertTriangle, Package, Pencil, Plus, Trash2 } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 const MATERIALS = ["PLA", "PETG", "ABS", "TPU", "ASA", "Nylon", "PC", "Other"] as const;
 type Material = (typeof MATERIALS)[number];
@@ -59,6 +60,8 @@ const emptyForm = {
 };
 
 export function InventoryManager({ filaments: initial, userRole }: InventoryManagerProps) {
+  const t = useTranslations("admin");
+  const tc = useTranslations("common");
   const isAdmin = userRole === "ADMIN";
   const [filaments, setFilaments] = useState(initial);
   const [filterMaterial, setFilterMaterial] = useState<string>("all");
@@ -100,7 +103,7 @@ export function InventoryManager({ filaments: initial, userRole }: InventoryMana
 
   async function handleSave() {
     if (!form.name.trim() || !form.color.trim()) {
-      toast.error("Name und Farbe sind Pflichtfelder");
+      toast.error(t("inventory_required"));
       return;
     }
     setSaving(true);
@@ -137,21 +140,21 @@ export function InventoryManager({ filaments: initial, userRole }: InventoryMana
 
       if (editingFilament) {
         setFilaments((prev) => prev.map((f) => (f.id === updated.id ? updated : f)));
-        toast.success("Filament aktualisiert");
+        toast.success(t("inventory_updated"));
       } else {
         setFilaments((prev) => [...prev, updated]);
-        toast.success("Filament hinzugefügt");
+        toast.success(t("inventory_added"));
       }
       setDialogOpen(false);
     } catch {
-      toast.error("Speichern fehlgeschlagen");
+      toast.error(t("inventory_save_failed"));
     } finally {
       setSaving(false);
     }
   }
 
   async function handleDelete(f: Filament) {
-    if (!confirm(`Filament "${f.name}" wirklich löschen?`)) return;
+    if (!confirm(`t("inventory_delete_confirm")`)) return;
     try {
       const res = await fetch(`/api/admin/inventory/${f.id}`, { method: "DELETE" });
       if (res.status === 409) {
@@ -161,9 +164,9 @@ export function InventoryManager({ filaments: initial, userRole }: InventoryMana
       }
       if (!res.ok) throw new Error();
       setFilaments((prev) => prev.filter((x) => x.id !== f.id));
-      toast.success("Filament gelöscht");
+      toast.success(t("inventory_deleted"));
     } catch {
-      toast.error("Löschen fehlgeschlagen");
+      toast.error(t("inventory_delete_failed"));
     }
   }
 
@@ -173,7 +176,7 @@ export function InventoryManager({ filaments: initial, userRole }: InventoryMana
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center gap-2">
           <Package className="h-5 w-5 text-primary" />
-          <h1 className="text-2xl font-bold">Inventar</h1>
+          <h1 className="text-2xl font-bold">{t("inventory_title")}</h1>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <Select value={filterMaterial} onValueChange={setFilterMaterial}>
@@ -181,7 +184,7 @@ export function InventoryManager({ filaments: initial, userRole }: InventoryMana
               <SelectValue placeholder="Material" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">Alle Materialien</SelectItem>
+              <SelectItem value="all">{t("inventory_all")}</SelectItem>
               {MATERIALS.map((m) => (
                 <SelectItem key={m} value={m}>{m}</SelectItem>
               ))}
@@ -195,13 +198,13 @@ export function InventoryManager({ filaments: initial, userRole }: InventoryMana
               onChange={(e) => setShowInactive(e.target.checked)}
               className="rounded"
             />
-            Inaktive anzeigen
+            {t("inventory_show_inactive")}
           </label>
 
           {isAdmin && (
             <Button onClick={openAdd} size="sm">
               <Plus className="h-4 w-4 mr-2" />
-              Filament hinzufügen
+              {t("inventory_add")}
             </Button>
           )}
         </div>
@@ -210,7 +213,7 @@ export function InventoryManager({ filaments: initial, userRole }: InventoryMana
       {/* Mobile card list */}
       <div className="md:hidden space-y-2">
         {filtered.length === 0 && (
-          <p className="text-center text-muted-foreground py-10">Keine Filamente gefunden</p>
+          <p className="text-center text-muted-foreground py-10">{t("inventory_empty")}</p>
         )}
         {filtered.map((f) => (
           <div
@@ -291,7 +294,7 @@ export function InventoryManager({ filaments: initial, userRole }: InventoryMana
             {filtered.length === 0 && (
               <tr>
                 <td colSpan={isAdmin ? 8 : 7} className="text-center text-muted-foreground py-10 px-4">
-                  Keine Filamente gefunden
+                  {t("inventory_empty")}
                 </td>
               </tr>
             )}

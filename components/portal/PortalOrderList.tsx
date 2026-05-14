@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -24,13 +25,15 @@ interface Order {
 }
 
 export function PortalOrderList({ orders }: { orders: Order[] }) {
+  const t = useTranslations("portal");
+
   if (orders.length === 0) {
     return (
       <div className="text-center py-16 space-y-4">
         <Package className="h-12 w-12 text-muted-foreground mx-auto" />
-        <p className="text-muted-foreground">Noch keine Aufträge.</p>
+        <p className="text-muted-foreground">{t("no_orders")}</p>
         <Link href="/portal/orders/new">
-          <Button variant="outline">Jetzt Auftrag einreichen →</Button>
+          <Button variant="outline">{t("no_orders_cta")}</Button>
         </Link>
       </div>
     );
@@ -59,15 +62,15 @@ export function PortalOrderList({ orders }: { orders: Order[] }) {
                 </div>
                 <p className="text-sm text-foreground line-clamp-2">{order.description}</p>
                 <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
-                  <span>Eingereicht: {new Date(order.createdAt).toLocaleDateString("de-DE")}</span>
+                  <span>{t("submitted_at", { date: new Date(order.createdAt).toLocaleDateString("de-DE") })}</span>
                   {order.deadline && (
-                    <span>Frist: {new Date(order.deadline).toLocaleDateString("de-DE")}</span>
+                    <span>{t("deadline", { date: new Date(order.deadline).toLocaleDateString("de-DE") })}</span>
                   )}
                 </div>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
                 <Link href={`/portal/orders/${order.id}`}>
-                  <Button size="sm">Auftrag ansehen</Button>
+                  <Button size="sm">{t("view_order")}</Button>
                 </Link>
               </div>
             </div>

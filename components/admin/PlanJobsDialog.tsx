@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { Sparkles, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -27,6 +28,8 @@ interface PlanResult {
 }
 
 export function PlanJobsDialog({ open, onOpenChange, onJobsCreated }: PlanJobsDialogProps) {
+  const t = useTranslations("admin");
+  const tc = useTranslations("common");
   const [loading, setLoading] = useState(false);
   const [committing, setCommitting] = useState(false);
   const [result, setResult] = useState<PlanResult | null>(null);
@@ -49,7 +52,7 @@ export function PlanJobsDialog({ open, onOpenChange, onJobsCreated }: PlanJobsDi
       setResult(data);
       setSelected(new Set(data.proposed.map((_, i) => i)));
     } catch {
-      toast.error("Planung konnte nicht geladen werden");
+      toast.error(t("suggest_jobs_load_failed"));
       onOpenChange(false);
     } finally {
       setLoading(false);
@@ -104,11 +107,11 @@ export function PlanJobsDialog({ open, onOpenChange, onJobsCreated }: PlanJobsDi
       onJobsCreated(validJobs);
 
       toast.success(
-        `${created.length} ${created.length === 1 ? "Druckjob wurde" : "Druckjobs wurden"} erstellt`
+        created.length === 1 ? t("suggest_jobs_created") : t("suggest_jobs_created_plural", { count: created.length })
       );
       onOpenChange(false);
     } catch {
-      toast.error("Druckjobs konnten nicht erstellt werden");
+      toast.error(t("suggest_jobs_create_failed"));
     } finally {
       setCommitting(false);
     }
@@ -122,25 +125,25 @@ export function PlanJobsDialog({ open, onOpenChange, onJobsCreated }: PlanJobsDi
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-4 w-4" />
-            Druckjobs vorschlagen
+            {t("suggest_jobs_title")}
           </DialogTitle>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto space-y-4 py-2">
           {loading && (
-            <p className="text-sm text-muted-foreground text-center py-8">Analysiere druckbereite Teile…</p>
+            <p className="text-sm text-muted-foreground text-center py-8">{t("suggest_jobs_loading")}</p>
           )}
 
           {result && result.proposed.length === 0 && result.skipped.length === 0 && (
             <p className="text-sm text-muted-foreground text-center py-8">
-              Keine druckbereiten Teile gefunden, die nicht bereits einem Job zugeordnet sind.
+              {t("suggest_jobs_empty")}
             </p>
           )}
 
           {result && result.proposed.length > 0 && (
             <div className="space-y-2">
               <p className="text-sm font-medium text-muted-foreground">
-                Vorgeschlagene Jobs ({result.proposed.length})
+                {t("suggest_jobs_subtitle")} ({result.proposed.length})
               </p>
               {result.proposed.map((job, i) => (
                 <label
@@ -166,7 +169,7 @@ export function PlanJobsDialog({ open, onOpenChange, onJobsCreated }: PlanJobsDi
                         {job.type === "new" ? `${job.utilizationPct} % Auslastung · ` : ""}
                         {job.type === "new" && job.estimatedGramsTotal !== null ? `~${job.estimatedGramsTotal} g · ` : ""}
                         {job.type === "extend" && job.addedGramsTotal !== null ? `+~${job.addedGramsTotal} g · ` : ""}
-                        {`${job.parts.length} ${job.parts.length === 1 ? "Teil" : "Teile"}`}
+                        {`${job.parts.length} ${job.parts.length === 1 ? t("suggest_jobs_part_singular") : t("suggest_jobs_part_plural")}`}
                       </span>
                     </div>
                     <div className="text-xs text-muted-foreground truncate">
@@ -182,7 +185,7 @@ export function PlanJobsDialog({ open, onOpenChange, onJobsCreated }: PlanJobsDi
             <div className="space-y-2">
               <p className="text-sm font-medium text-muted-foreground flex items-center gap-1.5">
                 <AlertCircle className="h-3.5 w-3.5" />
-                Nicht eingeplant ({result.skipped.length})
+                {t("suggest_jobs_skipped", { count: result.skipped.length })}
               </p>
               <div className="rounded-lg border divide-y">
                 {result.skipped.map((s, i) => (
@@ -198,17 +201,19 @@ export function PlanJobsDialog({ open, onOpenChange, onJobsCreated }: PlanJobsDi
 
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)} disabled={committing}>
-            Abbrechen
+            {tc("cancel")}
           </Button>
           <Button
             onClick={handleCommit}
             disabled={loading || committing || selectedCount === 0}
           >
             {committing
-              ? "Erstelle Jobs…"
+              ? t("suggest_jobs_creating")
               : selectedCount === 0
-              ? "Keine Jobs ausgewählt"
-              : `${selectedCount} ${selectedCount === 1 ? "Job" : "Jobs"} erstellen`}
+              ? t("suggest_jobs_no_selection")
+              : selectedCount === 1
+              ? t("suggest_jobs_create_cta", { count: selectedCount })
+              : t("suggest_jobs_create_cta_plural", { count: selectedCount })}
           </Button>
         </DialogFooter>
       </DialogContent>

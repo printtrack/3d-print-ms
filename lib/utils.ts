@@ -10,22 +10,26 @@ export function generateTrackingToken(): string {
   return crypto.randomBytes(16).toString("hex");
 }
 
-export function formatDate(date: Date | string): string {
-  return new Date(date).toLocaleDateString("de-DE", {
+export function formatDate(date: Date | string, locale = "de-DE"): string {
+  return new Date(date).toLocaleDateString(locale, {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
   });
 }
 
-export function formatDateTime(date: Date | string): string {
-  return new Date(date).toLocaleString("de-DE", {
+export function formatDateTime(date: Date | string, locale = "de-DE"): string {
+  return new Date(date).toLocaleString(locale, {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
   });
+}
+
+export function localeToDateLocale(locale: string): string {
+  return locale === "en" ? "en-GB" : "de-DE";
 }
 
 export function formatFileSize(bytes: number): string {

@@ -8,6 +8,7 @@ import { ThreeMFLoader } from "three/examples/jsm/loaders/3MFLoader.js";
 import { FileText, Box } from "lucide-react";
 import { get3DExtension } from "@/lib/utils";
 import { cn } from "@/lib/utils";
+import { useTranslations } from "next-intl";
 
 const MATERIAL = new THREE.MeshStandardMaterial({
   color: "#6366f1",
@@ -52,6 +53,7 @@ export interface ModelThumbnailProps {
 }
 
 export function ModelThumbnail({ url, filename, noteCount, onClick, className }: ModelThumbnailProps) {
+  const t = useTranslations("model_viewer");
   const containerRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
@@ -114,14 +116,14 @@ export function ModelThumbnail({ url, filename, noteCount, onClick, className }:
       <button
         type="button"
         onClick={onClick}
-        title="3D-Modell ansehen"
+        title={t("view_model")}
         className={cn(
           "relative w-full h-32 rounded-lg bg-muted flex flex-col items-center justify-center gap-1 text-muted-foreground hover:bg-muted/80 transition-colors cursor-pointer",
           className
         )}
       >
         <FileText className="h-6 w-6" />
-        <span className="text-xs">Modell ansehen</span>
+        <span className="text-xs">{t("view_model_short")}</span>
         {noteCount !== undefined && noteCount > 0 && (
           <span className="absolute top-2 right-2 text-xs px-1.5 py-0.5 rounded-full bg-red-500 text-white font-medium leading-none">
             {noteCount}
@@ -139,18 +141,18 @@ export function ModelThumbnail({ url, filename, noteCount, onClick, className }:
         "relative w-full h-32 rounded-lg overflow-hidden bg-muted cursor-pointer group",
         className
       )}
-      title="3D-Modell ansehen"
+      title={t("view_model")}
     >
       {loading && (
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 text-muted-foreground">
           <Box className="h-5 w-5 animate-pulse" />
-          <span className="text-xs">Lädt…</span>
+          <span className="text-xs">{t("loading")}</span>
         </div>
       )}
       <div ref={containerRef} className="w-full h-full" />
       <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors flex items-center justify-center">
         <span className="opacity-0 group-hover:opacity-100 transition-opacity text-xs font-medium text-white bg-black/50 rounded px-2 py-1">
-          Ansehen &amp; Notizen
+          {t("view_notes")}
         </span>
       </div>
       {noteCount !== undefined && noteCount > 0 && (

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { getSetting } from "@/lib/settings";
 import { Card, CardContent } from "@/components/ui/card";
 import { SurveyPageClient } from "./SurveyPageClient";
+import { getTranslations } from "next-intl/server";
 
 export default async function SurveyPage({
   params,
@@ -10,6 +11,7 @@ export default async function SurveyPage({
   params: Promise<{ token: string }>;
 }) {
   const { token } = await params;
+  const t = await getTranslations("survey");
 
   const survey = await prisma.surveyResponse.findUnique({
     where: { token },
@@ -44,9 +46,9 @@ export default async function SurveyPage({
           <Card>
             <CardContent className="pt-8 pb-8 text-center space-y-3">
               <div className="text-4xl">🙏</div>
-              <h1 className="text-xl font-bold">Vielen Dank für Ihr Feedback!</h1>
+              <h1 className="text-xl font-bold">{t("already_submitted_title")}</h1>
               <p className="text-muted-foreground text-sm">
-                Hallo {survey.order.customerName}, Ihre Antworten wurden bereits übermittelt.
+                {t("already_submitted_desc", { name: survey.order.customerName })}
               </p>
               {answers && answers.length > 0 && (
                 <div className="mt-4 text-left space-y-2">

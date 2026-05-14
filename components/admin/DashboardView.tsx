@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { Kanban, GanttChart } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { KanbanBoard } from "./KanbanBoard";
@@ -47,15 +48,16 @@ export function DashboardView({
   users,
 }: DashboardViewProps) {
   const [viewMode, setViewMode] = useState<ViewMode>("kanban");
+  const t = useTranslations("admin");
 
   return (
     <>
       <nav className="flex border-b border-border -mt-2 flex-shrink-0 items-center">
         <Link href="/admin/orders" className={showArchived ? tabInactive : tabActive}>
-          Aufträge
+          {t("view_orders")}
         </Link>
         <Link href="/admin/orders?tab=archiv" className={showArchived ? tabActive : tabInactive}>
-          Archiv ({archiveCount})
+          {t("view_archive")} ({archiveCount})
         </Link>
         {!showArchived && (
           <>
@@ -68,7 +70,7 @@ export function DashboardView({
                 onClick={() => setViewMode("kanban")}
               >
                 <Kanban className="h-3.5 w-3.5" />
-                Kanban
+                {t("view_kanban")}
               </Button>
               <Button
                 variant="ghost"
@@ -77,7 +79,7 @@ export function DashboardView({
                 onClick={() => setViewMode("gantt")}
               >
                 <GanttChart className="h-3.5 w-3.5" />
-                Gantt
+                {t("view_gantt")}
               </Button>
             </div>
           </>

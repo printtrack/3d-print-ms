@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
+import { useTranslations } from "next-intl";
 import { FlaskConical, Paperclip, Plus, RotateCcw } from "lucide-react";
 import Image from "next/image";
 import { PartFileSection, type OrderPartData, type FilamentOption, type PartPhaseOption } from "./PartFileSection";
@@ -91,6 +92,7 @@ export function FileManager({
   const partNameById = Object.fromEntries(parts.map((p) => [p.id, p.name]));
 
   const orderLevelFiles = files.filter((f) => f.orderPartId === null);
+  const tc = useTranslations("common");
   const hasParts = parts.length > 0;
 
   const sections: Array<{
@@ -113,7 +115,7 @@ export function FileManager({
 
   // Order-level section:
   //   - no parts → render as a single default "Dateien" section (no label)
-  //   - parts exist + stray files → render as a subtle "Ohne Teil" section at the bottom
+  //   - parts exist + stray files → render as a subtle tc("without_part") section at the bottom
   //   - parts exist + no stray files → hide entirely
   if (!hasParts) {
     sections.unshift({
@@ -149,13 +151,13 @@ export function FileManager({
       onFilesChange([...files, ...(data.files ?? [])]);
       toast.success(
         filesToUpload.length === 1
-          ? "Datei hochgeladen"
-          : `${filesToUpload.length} Dateien hochgeladen`
+          ? tc("file_uploaded")
+          : tc("files_uploaded", { count: filesToUpload.length })
       );
       await onPartsRefresh();
       router.refresh();
     } catch {
-      toast.error("Upload fehlgeschlagen");
+      toast.error(tc("upload_failed"));
     } finally {
       setUploading(false);
     }
@@ -173,7 +175,7 @@ export function FileManager({
       if (!res.ok) throw new Error();
     } catch {
       onFilesChange(previousFiles);
-      toast.error("Fehler beim Kategorisieren");
+      toast.error(tc("categorize_failed"));
     }
   }
 
@@ -187,11 +189,11 @@ export function FileManager({
         body: JSON.stringify({ orderPartId }),
       });
       if (!res.ok) throw new Error();
-      toast.success("Datei verschoben");
+      toast.success(tc("file_moved"));
       await onPartsRefresh();
     } catch {
       onFilesChange(previousFiles);
-      toast.error("Fehler beim Verschieben");
+      toast.error(tc("move_failed"));
     }
   }
 
@@ -208,11 +210,11 @@ export function FileManager({
         method: "DELETE",
       });
       if (!res.ok) throw new Error();
-      toast.success("Datei gelöscht");
+      toast.success(tc("file_deleted"));
       router.refresh();
     } catch {
       onFilesChange(previousFiles);
-      toast.error("Fehler beim Löschen");
+      toast.error(tc("delete_failed"));
     }
   }
 
@@ -229,7 +231,7 @@ export function FileManager({
         })
       )
     );
-    toast.success(`${ids.length} Datei${ids.length !== 1 ? "en" : ""} verschoben`);
+    toast.success(ids.length === 1 ? tc("files_moved", { count: ids.length }) : tc("files_moved_plural", { count: ids.length }));
   }
 
   async function handleBulkDelete() {
@@ -241,7 +243,7 @@ export function FileManager({
         fetch(`/api/admin/orders/${orderId}/files/${id}`, { method: "DELETE" })
       )
     );
-    toast.success(`${ids.length} Datei${ids.length !== 1 ? "en" : ""} gelöscht`);
+    toast.success(ids.length === 1 ? tc("files_deleted", { count: ids.length }) : tc("files_deleted_plural", { count: ids.length }));
     router.refresh();
   }
 
@@ -264,10 +266,10 @@ export function FileManager({
       });
       if (!res.ok) throw new Error();
       onIterationChange?.(newCount);
-      toast.success(`Prototyp-Iteration #${newCount} gestartet`);
+      toast.success(tc("prototype_iteration_started", { count: newCount }));
       router.refresh();
     } catch {
-      toast.error("Fehler beim Starten der Iteration");
+      toast.error(tc("iteration_start_failed"));
     }
   }
 
@@ -285,15 +287,15 @@ export function FileManager({
       onPartAdded?.(part);
       setNewPartName("");
       setAddingPart(false);
-      toast.success("Teil hinzugefügt");
+      toast.success(tc("part_added"));
     } catch {
-      toast.error("Hinzufügen fehlgeschlagen");
+      toast.error(tc("add_part_failed"));
     } finally {
       setSavingPart(false);
     }
   }
 
-  const cardTitle = parts.length > 0 ? "Dateien & Teile" : "Dateien";
+  const cardTitle = parts.length > 0 ? tc("files_and_parts") : tc("files_only");
 
   return (
     <>
@@ -311,7 +313,7 @@ export function FileManager({
                   onClick={() => setAddingPart(true)}
                 >
                   <Plus className="h-3.5 w-3.5 mr-1" />
-                  Teil
+                  {tc("part")}
                 </Button>
               )}
             </div>
@@ -323,7 +325,7 @@ export function FileManager({
             <div className="flex items-center gap-3 px-3 py-2 rounded-lg bg-purple-50 border border-purple-200">
               <FlaskConical className="h-4 w-4 text-purple-600 shrink-0" />
               <span className="text-sm font-semibold text-purple-700">
-                Prototyp · Iteration #{iterationCount}
+                {tc("prototype_iteration", { count: iterationCount })}
               </span>
               <div className="flex-1" />
               {isAdmin && (
@@ -334,7 +336,7 @@ export function FileManager({
                   onClick={handleNewIteration}
                 >
                   <RotateCcw className="h-3 w-3 mr-1" />
-                  Neue Iteration
+                  {tc("new_iteration")}
                 </Button>
               )}
             </div>
@@ -357,7 +359,7 @@ export function FileManager({
                         : "border-muted-foreground/30 hover:border-muted-foreground/60 hover:bg-muted/50"
                     )}
                   >
-                    {CATEGORY_LABELS[cat]}
+                    {tc(`file_cat_${cat}`)}
                     {count > 0 && <span className="ml-1 opacity-60">({count})</span>}
                   </button>
                 );
@@ -368,7 +370,7 @@ export function FileManager({
                   onClick={() => setShowAllCategories((v) => !v)}
                   className="text-xs px-2 py-1 text-muted-foreground hover:text-foreground transition-colors"
                 >
-                  {showAllCategories ? "Weniger" : "Mehr"}
+                  {showAllCategories ? tc("less") : tc("more")}
                 </button>
               )}
             </div>
@@ -378,7 +380,7 @@ export function FileManager({
           {isAdmin && addingPart && (
             <div className="flex gap-2 p-3 border border-dashed rounded-md bg-muted/20">
               <Input
-                placeholder="Teilname *"
+                placeholder={tc("part_name_placeholder")}
                 value={newPartName}
                 onChange={(e) => setNewPartName(e.target.value)}
                 onKeyDown={(e) => {
@@ -388,14 +390,14 @@ export function FileManager({
                 autoFocus
               />
               <Button size="sm" onClick={handleAddPart} disabled={savingPart || !newPartName.trim()}>
-                {savingPart ? "..." : "Hinzufügen"}
+                {savingPart ? "..." : tc("add")}
               </Button>
               <Button
                 size="sm"
                 variant="outline"
                 onClick={() => { setAddingPart(false); setNewPartName(""); }}
               >
-                Abbrechen
+                {tc("cancel")}
               </Button>
             </div>
           )}

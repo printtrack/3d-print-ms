@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -8,6 +9,9 @@ import { toast } from "sonner";
 import Link from "next/link";
 
 export function ResetPasswordRequestForm() {
+  const t = useTranslations("auth");
+  const tc = useTranslations("common");
+
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
@@ -23,11 +27,11 @@ export function ResetPasswordRequestForm() {
       });
       if (!res.ok) {
         const json = await res.json();
-        throw new Error(json.error ?? "Fehler");
+        throw new Error(json.error ?? tc("error"));
       }
       setSent(true);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Unbekannter Fehler");
+      toast.error(err instanceof Error ? err.message : tc("unknown_error"));
     } finally {
       setLoading(false);
     }
@@ -37,11 +41,10 @@ export function ResetPasswordRequestForm() {
     return (
       <div className="space-y-4 text-center">
         <p className="text-sm">
-          Falls ein Konto mit <strong>{email}</strong> existiert, wurde eine E-Mail mit einem
-          Reset-Link gesendet. Bitte prüfen Sie Ihr Postfach.
+          {t("reset_sent", { email })}
         </p>
         <Link href="/auth/signin" className="text-sm text-primary hover:underline">
-          Zurück zur Anmeldung
+          {t("back_to_signin")}
         </Link>
       </div>
     );
@@ -50,11 +53,11 @@ export function ResetPasswordRequestForm() {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div className="space-y-2">
-        <Label htmlFor="email">E-Mail</Label>
+        <Label htmlFor="email">{tc("email")}</Label>
         <Input
           id="email"
           type="email"
-          placeholder="admin@example.com"
+          placeholder={t("reset_email_placeholder")}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
@@ -62,11 +65,11 @@ export function ResetPasswordRequestForm() {
         />
       </div>
       <Button type="submit" className="w-full" disabled={loading}>
-        {loading ? "Senden..." : "Reset-Link senden"}
+        {loading ? tc("sending") : t("reset_link_label")}
       </Button>
       <p className="text-center text-sm text-muted-foreground">
         <Link href="/auth/signin" className="text-primary hover:underline">
-          Zurück zur Anmeldung
+          {t("back_to_signin")}
         </Link>
       </p>
     </form>

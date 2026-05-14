@@ -4,17 +4,8 @@ import Link from "next/link";
 import { AlertTriangle, ClipboardList, Layers, TrendingUp, Activity } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
+import { useTranslations } from "next-intl";
 
-function timeAgo(isoString: string): string {
-  const diff = Date.now() - new Date(isoString).getTime();
-  const mins = Math.floor(diff / 60000);
-  if (mins < 1) return "gerade eben";
-  if (mins < 60) return `vor ${mins} Min.`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `vor ${hours} Std.`;
-  const days = Math.floor(hours / 24);
-  return `vor ${days} Tag${days !== 1 ? "en" : ""}`;
-}
 
 interface PhaseCount {
   id: string;
@@ -97,33 +88,46 @@ export function DashboardHome({
   phaseBreakdown,
   recentActivity,
 }: DashboardHomeProps) {
+  const t = useTranslations("admin");
+  const tc = useTranslations("common");
   const maxPhaseCount = Math.max(...phaseBreakdown.map((p) => p.orderCount), 1);
+
+  function timeAgo(isoString: string): string {
+    const diff = Date.now() - new Date(isoString).getTime();
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return t("dashboard_just_now");
+    if (mins < 60) return t("dashboard_minutes_ago", { count: mins });
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return t("dashboard_hours_ago", { count: hours });
+    const days = Math.floor(hours / 24);
+    return days === 1 ? t("dashboard_days_ago_1") : t("dashboard_days_ago", { count: days });
+  }
 
   return (
     <div className="space-y-6">
       {/* Metric cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard
-          title="Offene Aufträge"
+          title={t("dashboard_open_orders")}
           value={openOrdersCount}
           href="/admin/orders"
           icon={ClipboardList}
         />
         <MetricCard
-          title="Aktive Druckjobs"
+          title={t("dashboard_active_jobs")}
           value={activeJobsCount}
           href="/admin/jobs"
           icon={Layers}
         />
         <MetricCard
-          title="Überfällig"
+          title={t("dashboard_overdue")}
           value={overdueOrdersCount}
           href="/admin/orders?deadline=overdue"
           icon={AlertTriangle}
           highlight={overdueOrdersCount > 0 ? "red" : undefined}
         />
         <MetricCard
-          title="Neue Aufträge (Woche)"
+          title={t("dashboard_new_this_week")}
           value={ordersThisWeek}
           href="/admin/orders"
           icon={TrendingUp}
@@ -140,7 +144,7 @@ export function DashboardHome({
             >
               <AlertTriangle className="h-4 w-4" />
               {overdueOrdersCount}{" "}
-              {overdueOrdersCount === 1 ? "überfälliger Auftrag" : "überfällige Aufträge"}
+              {overdueOrdersCount === 1 ? t("dashboard_overdue_singular") : t("dashboard_overdue_plural")}
             </Link>
           )}
           {overdueMilestonesCount > 0 && (
@@ -149,8 +153,8 @@ export function DashboardHome({
               className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-orange-500/10 text-orange-600 text-sm font-medium hover:bg-orange-500/15 transition-colors"
             >
               <AlertTriangle className="h-4 w-4" />
-              {overdueMilestonesCount} offene{" "}
-              {overdueMilestonesCount === 1 ? "Meilenstein" : "Meilensteine"} überfällig
+              {overdueMilestonesCount} {t("dashboard_open")}{" "}
+              {overdueMilestonesCount === 1 ? t("dashboard_milestone_singular") : t("dashboard_milestone_plural")} {t("dashboard_overdue")}
             </Link>
           )}
           {unslicedSoonCount > 0 && (
@@ -160,7 +164,7 @@ export function DashboardHome({
             >
               <AlertTriangle className="h-4 w-4" />
               {unslicedSoonCount}{" "}
-              {unslicedSoonCount === 1 ? "Job" : "Jobs"} in 48h noch nicht gesliced
+              {unslicedSoonCount === 1 ? t("dashboard_job_singular") : t("dashboard_job_plural")} {t("dashboard_not_sliced")}
             </Link>
           )}
         </div>
@@ -171,11 +175,11 @@ export function DashboardHome({
         {/* Orders by phase */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Aufträge nach Phase</CardTitle>
+            <CardTitle className="text-base">{t("dashboard_orders_by_phase")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {phaseBreakdown.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Keine aktiven Aufträge</p>
+              <p className="text-sm text-muted-foreground">{t("dashboard_no_active_orders")}</p>
             ) : (
               phaseBreakdown.map((phase) => (
                 <div key={phase.id} className="space-y-1">
@@ -209,12 +213,12 @@ export function DashboardHome({
           <CardHeader>
             <CardTitle className="text-base flex items-center gap-2">
               <Activity className="h-4 w-4 text-muted-foreground" />
-              Letzte Aktivität
+              {t("dashboard_recent_activity")}
             </CardTitle>
           </CardHeader>
           <CardContent>
             {recentActivity.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Noch keine Aktivität</p>
+              <p className="text-sm text-muted-foreground">{t("dashboard_no_activity")}</p>
             ) : (
               <ul className="space-y-3">
                 {recentActivity.map((entry) => (
@@ -231,7 +235,7 @@ export function DashboardHome({
                         <span className="text-muted-foreground"> · {entry.action}</span>
                       </p>
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        {entry.userName ?? "System"} · {timeAgo(entry.createdAt)}
+                        {entry.userName ?? tc("system")} · {timeAgo(entry.createdAt)}
                       </p>
                     </div>
                   </li>

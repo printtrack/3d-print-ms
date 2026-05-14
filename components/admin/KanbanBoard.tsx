@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
 import {
   DndContext,
@@ -59,6 +60,7 @@ interface KanbanBoardProps {
 
 function ArchiveDropZone({ archiveCount, isDragging }: { archiveCount: number; isDragging: boolean }) {
   const { setNodeRef, isOver } = useDroppable({ id: "archive", data: { type: "archive" } });
+  const t = useTranslations("admin");
 
   return (
     <div
@@ -69,7 +71,7 @@ function ArchiveDropZone({ archiveCount, isDragging }: { archiveCount: number; i
     >
       <div className="flex items-center gap-2 mb-3 px-1">
         <Archive className="w-4 h-4 text-muted-foreground" />
-        <span className="text-sm font-semibold text-muted-foreground">Archiv</span>
+        <span className="text-sm font-semibold text-muted-foreground">{t("kanban_archive")}</span>
         <span className="ml-auto text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground">
           {archiveCount}
         </span>
@@ -97,7 +99,7 @@ function ArchiveDropZone({ archiveCount, isDragging }: { archiveCount: number; i
             isOver ? "text-amber-600 font-medium" : "text-muted-foreground/70"
           )}
         >
-          {isOver ? "Loslassen zum Archivieren" : "Hierher ziehen zum Archivieren"}
+          {isOver ? t("kanban_archive_drop") : t("kanban_archive_hint")}
         </p>
       </div>
     </div>

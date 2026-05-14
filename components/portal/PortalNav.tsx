@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { Printer, LogOut } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
 interface Props {
   companyName: string;
@@ -34,6 +35,7 @@ export function PortalNav({ companyName, customerName }: Props) {
         </div>
 
         <div className="flex items-center gap-3">
+          <LanguageSwitcher />
           {customerName ? (
             <>
               <span className="text-sm text-muted-foreground hidden sm:inline">

@@ -112,6 +112,56 @@ async function main() {
       key: "survey_email_body",
       value: "wir würden uns sehr über Ihr Feedback freuen. Es dauert nur 1–2 Minuten.",
     },
+    // English email template variants
+    { key: "email_phase_subject_en", value: "Your order status: {{phaseName}}" },
+    {
+      key: "email_phase_body_en",
+      value: "the status of your 3D print order has been updated:\nNew status: {{phaseName}}",
+    },
+    { key: "email_confirm_subject_en", value: "Your 3D print order has been submitted" },
+    {
+      key: "email_confirm_body_en",
+      value:
+        "thank you for your order! We have received it and will process it as soon as possible.",
+    },
+    { key: "email_reset_subject_en", value: "Reset your password" },
+    {
+      key: "email_reset_body_en",
+      value:
+        "You have requested to reset your password.\n\nThis link is valid for 1 hour. If you did not request this, you can ignore this email.",
+    },
+    { key: "survey_email_subject_en", value: "How was your 3D printing experience?" },
+    {
+      key: "survey_email_body_en",
+      value: "we would love to hear your feedback. It only takes 1–2 minutes.",
+    },
+    {
+      key: "email_verification_design_subject_en",
+      value: "Design approval required",
+    },
+    {
+      key: "email_verification_design_body_en",
+      value:
+        "Your design files are ready and waiting for your approval.\n\nPlease visit your order page to approve or reject them.",
+    },
+    {
+      key: "email_verification_price_subject_en",
+      value: "Quote approval required: {{price}} €",
+    },
+    {
+      key: "email_verification_price_body_en",
+      value:
+        "Your quote of {{price}} € is waiting for your approval.\n\nPlease visit your order page to confirm or reject the quote.",
+    },
+    {
+      key: "email_customer_verify_subject_en",
+      value: "{{companyName}}: Verify your account",
+    },
+    {
+      key: "email_customer_verify_body_en",
+      value:
+        "Hello {{name}},\n\nplease verify your email address to activate your account.\nThis link is valid for 24 hours.",
+    },
   ];
 
   for (const setting of defaultSettings) {
