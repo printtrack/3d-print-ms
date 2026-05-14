@@ -22,6 +22,7 @@ import {
   Layers,
   CalendarRange,
   FolderKanban,
+  LifeBuoy,
 } from "lucide-react";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
@@ -76,6 +77,12 @@ export function AdminNav({ userRole, companyName = "3D Print CMS" }: AdminNavPro
         { href: "/admin/knowledge", label: t("knowledge"), icon: BookOpen },
         { href: "/admin/customers", label: t("customers"), icon: Users2, adminOnly: true },
         { href: "/admin/settings", label: t("settings"), icon: SlidersHorizontal, adminOnly: true },
+      ],
+    },
+    {
+      label: "",
+      items: [
+        { href: "/admin/wiki", label: t("help"), icon: LifeBuoy },
       ],
     },
   ];

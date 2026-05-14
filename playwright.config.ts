@@ -12,6 +12,7 @@ const TEST_BASE_URL = `http://localhost:${TEST_PORT}`;
 
 export default defineConfig({
   testDir: "./tests",
+  testIgnore: ["**/wiki-screenshots.spec.ts"],
   fullyParallel: false,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 1,
