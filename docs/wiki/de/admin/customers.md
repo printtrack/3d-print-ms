@@ -11,6 +11,8 @@ order: 8
 
 Der Kunden-Bereich ist **ausschließlich für Admins** sichtbar. Hier verwaltest du Kunden, die sich über das Kunden-Portal registriert haben.
 
+![Kunden Übersicht](/wiki-screenshots/customers.png)
+
 ## Kundenliste
 
 Die Liste zeigt alle registrierten Kunden mit:

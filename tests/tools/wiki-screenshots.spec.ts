@@ -32,7 +32,8 @@ for (const { slug, route } of routes) {
   test(`screenshot: ${slug} (${route})`, async ({ page }) => {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.goto(route);
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("domcontentloaded");
+    await page.waitForTimeout(800);
     fs.mkdirSync(OUTPUT_DIR, { recursive: true });
     await page.screenshot({
       path: path.join(OUTPUT_DIR, `${slug}.png`),

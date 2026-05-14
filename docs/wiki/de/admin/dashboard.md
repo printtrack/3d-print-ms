@@ -11,6 +11,8 @@ order: 1
 
 Das Dashboard zeigt alle offenen [[Aufträge]] als Kanban-Board, sortiert nach ihrer aktuellen Phase von links nach rechts.
 
+![Dashboard Übersicht](/wiki-screenshots/dashboard.png)
+
 ## Wofür ist diese Seite?
 
 Der tägliche Ausgangspunkt: Auf einen Blick siehst du, wie viele Aufträge sich in welcher Phase befinden und welche als nächstes bearbeitet werden müssen.

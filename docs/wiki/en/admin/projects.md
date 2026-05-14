@@ -11,6 +11,8 @@ order: 4
 
 Projects group multiple [[Orders]] that belong together — for example, all parts of a larger print job.
 
+![Projects overview](/wiki-screenshots/projects.png)
+
 ## What are projects for?
 
 When a customer submits many individual orders for the same undertaking, you can bundle them under one project. This gives you an overview of overall progress without opening each order card individually.

@@ -11,6 +11,8 @@ order: 5
 
 The planning area provides a calendar-based overview of upcoming [[Print Jobs]] and [[Settings|machine]] utilization.
 
+![Planning overview](/wiki-screenshots/planning.png)
+
 ## Calendar view
 
 Shows planned and running jobs on a timeline. Click a job to open it.

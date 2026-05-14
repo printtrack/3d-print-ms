@@ -11,6 +11,8 @@ order: 3
 
 Print jobs manage the actual production on [[Settings|machines]]. A job can bundle multiple [[Orders]].
 
+![Print Jobs overview](/wiki-screenshots/jobs.png)
+
 ## Views
 
 Toggle between **Timeline** (default) and **Queue** at the top left.

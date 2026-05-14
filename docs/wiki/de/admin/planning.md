@@ -11,6 +11,8 @@ order: 5
 
 Der Planungsbereich gibt einen kalenderorientierten Überblick über anstehende [[Druckjobs]] und die Auslastung der [[Einstellungen|Maschinen]].
 
+![Planungsübersicht](/wiki-screenshots/planning.png)
+
 ## Kalenderansicht
 
 Zeigt geplante und laufende Jobs auf einem Zeitstrahl. Per Klick auf einen Job öffnest du den zugehörigen Job-Eintrag.
