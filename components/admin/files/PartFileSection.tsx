@@ -43,6 +43,10 @@ export interface OrderPartData {
   iterationCount: number;
   partPhaseId: string | null;
   partPhase: { id: string; name: string; color: string; isPrintReady: boolean; isReview: boolean; isPrinted: boolean; isMisprint: boolean } | null;
+  orientQx: number;
+  orientQy: number;
+  orientQz: number;
+  orientQw: number;
   createdAt: string;
   updatedAt: string;
   filament: {
@@ -135,6 +139,7 @@ interface PartFileSectionProps {
   };
   onApproveVerification?: (vrId: string) => void;
   onRejectVerification?: (vrId: string, reason: string | null) => void;
+  buildVolume?: { x: number; y: number; z: number };
 }
 
 export function PartFileSection({
@@ -166,6 +171,7 @@ export function PartFileSection({
   verificationRequest,
   onApproveVerification,
   onRejectVerification,
+  buildVolume,
 }: PartFileSectionProps) {
   const router = useRouter();
   const t = useTranslations("admin");
@@ -267,6 +273,13 @@ export function PartFileSection({
   const [viewerFile, setViewerFile] = useState<OrderFileData | null>(null);
   // Tracks note updates per file ID so they survive dialog close/reopen
   const [noteUpdates, setNoteUpdates] = useState<Map<string, NoteData[]>>(new Map());
+  // Local orientation state so saves are reflected immediately without page reload
+  const [currentOrientation, setCurrentOrientation] = useState<{ qx: number; qy: number; qz: number; qw: number }>({
+    qx: partData?.part.orientQx ?? 0,
+    qy: partData?.part.orientQy ?? 0,
+    qz: partData?.part.orientQz ?? 0,
+    qw: partData?.part.orientQw ?? 1,
+  });
 
   // Parts: DESIGN category uses a "current + history" layout instead of grouped list
   const isDesignForPart = activeCategory === "DESIGN" && !!partData;
@@ -1002,6 +1015,10 @@ export function PartFileSection({
             setViewerFile((f) => f ? { ...f, notes: updatedNotes } : null);
             setNoteUpdates((prev) => new Map(prev).set(viewerFile.id, updatedNotes));
           }}
+          orderPartId={partData?.part.id}
+          buildVolume={buildVolume}
+          initialOrientation={currentOrientation}
+          onOrientationSaved={(q) => setCurrentOrientation(q)}
         />
       )}
     </>

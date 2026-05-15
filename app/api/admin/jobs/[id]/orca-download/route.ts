@@ -25,15 +25,22 @@ export async function GET(
       parts: {
         include: {
           orderPart: {
-            include: {
+            select: {
+              orderId: true,
+              name: true,
+              quantity: true,
+              orientQx: true,
+              orientQy: true,
+              orientQz: true,
+              orientQw: true,
               files: {
-                where: {
-                  originalName: { contains: ".stl" },
-                },
+                where: { originalName: { contains: ".stl" } },
                 orderBy: { createdAt: "desc" },
                 take: 1,
               },
-              filament: true,
+              filament: {
+                select: { id: true, name: true, material: true, color: true, colorHex: true, brand: true },
+              },
             },
           },
         },
@@ -56,11 +63,14 @@ export async function GET(
     try {
       const buffer = await readFile(filePath);
       const mesh = parseStl(buffer);
+      const { orientQx, orientQy, orientQz, orientQw } = part;
+      const isIdentity = Math.abs(orientQx) < 1e-9 && Math.abs(orientQy) < 1e-9 && Math.abs(orientQz) < 1e-9 && Math.abs(orientQw - 1) < 1e-9;
       objects.push({
         id: objectId++,
         name: part.name,
         mesh,
         quantity: part.quantity ?? 1,
+        transform: isIdentity ? undefined : { qx: orientQx, qy: orientQy, qz: orientQz, qw: orientQw },
       });
     } catch {
       // Skip files that cannot be read

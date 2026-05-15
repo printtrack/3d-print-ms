@@ -41,6 +41,7 @@ interface FileManagerProps {
     rejectionReason?: string | null;
   }>;
   onVerificationUpdated?: (vrId: string, status: "APPROVED" | "REJECTED", reason?: string | null) => void;
+  buildVolume?: { x: number; y: number; z: number };
 }
 
 export function FileManager({
@@ -62,6 +63,7 @@ export function FileManager({
   teamMembers = [],
   verificationRequests = [],
   onVerificationUpdated,
+  buildVolume,
 }: FileManagerProps) {
   const router = useRouter();
   const [uploading, setUploading] = useState(false);
@@ -457,6 +459,7 @@ export function FileManager({
                   onPartsRefresh();
                 }}
                 onRejectVerification={(vrId, reason) => onVerificationUpdated?.(vrId, "REJECTED", reason ?? undefined)}
+                buildVolume={buildVolume}
               />
             );
           })}

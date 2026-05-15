@@ -37,6 +37,24 @@ Wähle im Dropdown **Phase** die neue Phase. Der Wechsel wird gespeichert und im
 
 Klicke auf eine STL/OBJ/3MF-Datei, um sie direkt im Browser als 3D-Modell anzuzeigen. Im Viewer kannst du das Modell drehen, zoomen und **Notizen** an bestimmten Stellen markieren.
 
+### Druckorientierung festlegen
+
+Admins können im 3D-Viewer die Druckorientierung eines Teils direkt bestimmen — wie in einem Slicer.
+
+1. Klicke auf das **Flächen-Werkzeug** (Layers-Symbol) in der Toolbar des Viewers
+2. Fahre mit der Maus über das Modell — koplanare Flächen werden amber-farbig hervorgehoben
+3. Klicke auf die Fläche, die auf der **Druckplatte** liegen soll
+4. Das Modell dreht sich automatisch so, dass die gewählte Fläche unten liegt
+5. Klicke **Speichern** im erscheinenden Balken
+
+Die gespeicherte Orientierung:
+- Wird bei jedem erneuten Öffnen des Viewers angezeigt (inklusive Bauplattenvorschau)
+- Fließt in den **.3mf-Download** (OrcaSlicer/Bambu) als Transform-Matrix ein
+- Fließt in den **STL-ZIP-Download** als vorgerotierte Geometrie ein
+- Wird von der **automatischen Druckplanung** bevorzugt verwendet (Z-Rotation bleibt frei)
+
+Über **Orientierung zurücksetzen** (erscheint, wenn eine Orientierung gesetzt ist) wird zur Standard-Lage zurückgekehrt.
+
 ### Kommentare
 
 Das Kommentarfeld am unteren Ende ist für interne Notizen des Teams — Kunden sehen diese nicht.

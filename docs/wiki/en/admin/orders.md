@@ -37,6 +37,24 @@ Select the new phase from the **Phase** dropdown. The change is saved immediatel
 
 Click an STL/OBJ/3MF file to view it as a 3D model directly in the browser. You can rotate, zoom, and add **notes** at specific locations on the model.
 
+### Setting the Print Orientation
+
+Admins can set the print orientation of a part directly in the 3D viewer — just like in a slicer.
+
+1. Click the **Face tool** (Layers icon) in the viewer toolbar
+2. Hover over the model — coplanar faces are highlighted in amber
+3. Click the face that should rest on the **print bed**
+4. The model rotates so the selected face is at the bottom
+5. Click **Save** in the bar that appears
+
+The saved orientation:
+- Is displayed every time the viewer is opened (including a build plate preview)
+- Is written into **.3mf downloads** (OrcaSlicer/Bambu) as a transform matrix
+- Is baked into **STL ZIP downloads** as pre-rotated geometry
+- Is preferred by the **automatic job planner** (Z-rotation remains free)
+
+Use **Reset orientation** (appears when an orientation is set) to return to the default pose.
+
 ### Comments
 
 The comment field at the bottom is for internal team notes — customers do not see these.

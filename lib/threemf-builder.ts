@@ -1,11 +1,13 @@
 import JSZip from "jszip";
 import type { ParsedMesh } from "./stl-parser";
+import { quaternionToMatrix3, type Quaternion } from "./stl-transform";
 
 export interface ThreeMFObject {
   id: number;
   name: string;
   mesh: ParsedMesh;
   quantity?: number;
+  transform?: Quaternion;
 }
 
 export interface ThreeMFMetadata {
@@ -95,9 +97,12 @@ function buildModelXml(objects: ThreeMFObject[], metadata: ThreeMFMetadata): str
   lines.push("  <build>");
   for (const obj of objects) {
     const qty = obj.quantity ?? 1;
+    const m = obj.transform ? quaternionToMatrix3(obj.transform) : [1,0,0, 0,1,0, 0,0,1];
     for (let q = 0; q < qty; q++) {
       const tx = q * 50;
-      const transform = `1 0 0 0 1 0 0 0 1 ${tx} 0 0`;
+      // 3MF transform: column-major 3×3 rotation + translation (12 values total)
+      // Our m is row-major: m[row*3+col]. Column-major order: col0(rows0-2), col1(rows0-2), col2(rows0-2), then tx ty tz
+      const transform = `${m[0]} ${m[3]} ${m[6]} ${m[1]} ${m[4]} ${m[7]} ${m[2]} ${m[5]} ${m[8]} ${tx} 0 0`;
       lines.push(`    <item objectid="${obj.id}" transform="${transform}"/>`);
     }
   }

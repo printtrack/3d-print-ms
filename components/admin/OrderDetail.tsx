@@ -164,6 +164,7 @@ interface OrderDetailProps {
   customerCredit: { id: string; balance: number } | null;
   partPhases: Array<{ id: string; name: string; color: string; isPrintReady: boolean; isReview: boolean; isPrinted: boolean; isMisprint: boolean }>;
   machines: Array<{ id: string; name: string }>;
+  buildVolume?: { x: number; y: number; z: number };
   initialMilestones: MilestoneData[];
 }
 
@@ -173,7 +174,7 @@ function getInitials(name: string) {
 
 
 
-export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin, parts: initialParts, availableFilaments, customerCredit: initialCustomerCredit, partPhases, machines, initialMilestones }: OrderDetailProps) {
+export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin, parts: initialParts, availableFilaments, customerCredit: initialCustomerCredit, partPhases, machines, buildVolume, initialMilestones }: OrderDetailProps) {
   const t = useTranslations("admin");
   const tc = useTranslations("common");
   const router = useRouter();
@@ -684,6 +685,7 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
             teamMembers={teamMembers}
             verificationRequests={verificationRequests}
             onVerificationUpdated={handleVerificationUpdated}
+            buildVolume={buildVolume}
           />
 
           {/* Comments */}
