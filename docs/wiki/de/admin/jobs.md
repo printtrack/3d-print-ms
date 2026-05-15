@@ -9,59 +9,71 @@ order: 3
 
 # Druckjobs
 
-Druckjobs verwalten die tatsächliche Produktion auf den [[Einstellungen|Maschinen]]. Ein Job kann mehrere [[Aufträge]] bündeln.
+Druckjobs verwalten die tatsächliche Produktion auf den [[Einstellungen → Maschinen|settings-machines]]. Ein Job kann mehrere [[Aufträge]] bündeln und läuft auf genau einer Maschine.
 
 ![Druckjobs Übersicht](/wiki-screenshots/jobs.png)
 
 ## Ansichten
 
-Oben links schaltest du zwischen **Timeline** (Standard) und **Queue** um.
+Oben rechts schaltest du zwischen **Gantt** (Standard) und **Board** um.
 
-### Timeline-Ansicht
+### Gantt-Ansicht
 
-Zeigt alle Jobs als Zeitstrahl geordnet nach Startzeit und Maschine. So erkennst du auf einen Blick, welche Maschine wann belegt ist.
+Zeigt alle Jobs als horizontalen Zeitstrahl (ähnlich einem Gantt-Diagramm), geordnet nach Startzeit und Maschine. Du siehst auf einen Blick:
 
-### Queue-Ansicht
+- Welche Maschine wann belegt ist
+- Wie lange ein Job dauert (sofern Druckzeit eingetragen)
+- Überlappungen oder freie Zeitfenster
 
-Zeigt Jobs je Maschine als Kanban-Spalte — nützlich zum schnellen Zuordnen neuer Jobs.
+Klick auf einen Job öffnet die Detailansicht rechts.
 
-## Neuen Job erstellen
+### Board-Ansicht
 
-1. Klicke **+ Job** in der Queue-Ansicht bei der gewünschten Maschine.
-2. Wähle Maschine, geplanten Startzeitpunkt und optionale Druckzeit in Minuten.
-3. Weise einen oder mehrere [[Aufträge]] zu.
-4. Wähle verwendete Filamente.
+Zeigt Jobs je Maschine als Kanban-Spalte, von oben nach unten in Warteschlangen-Reihenfolge. Die Board-Ansicht eignet sich besonders zum:
+
+- Erstellen neuer Jobs per **+ Job**-Button in der Maschinenspalte
+- Schnellen Überblick über die aktuelle Auslastung jeder Maschine
+- Manuellen Statuswechseln
+
+> Ausführliche Erklärung des Boards → [[Druckjob erstellen & verwalten|jobs-create]]
 
 ## Job-Status
 
-| Status | Bedeutung |
-|--------|-----------|
-| **Geplant** | Startzeitpunkt liegt in der Zukunft |
-| **In Bearbeitung** | Aktuell auf der Maschine |
-| **Fertig** | Druckzeit abgelaufen oder manuell abgeschlossen |
+| Status | Bedeutung | Farbe |
+|--------|-----------|-------|
+| **Geplant** | Startzeitpunkt liegt in der Zukunft | Grau |
+| **In Bearbeitung** | Aktuell auf der Maschine | Blau |
+| **Fertig** | Druckzeit abgelaufen oder manuell abgeschlossen | Grün |
 
-## Auto-Transition
+## Auto-Transition (automatischer Statuswechsel)
 
-Das System überprüft minütlich, ob Jobs automatisch weiterzuschalten sind:
+Das System überprüft alle 60 Sekunden, ob Jobs automatisch weitergeschaltet werden müssen:
 
-- **Geplant → In Bearbeitung**, wenn der Startzeitpunkt erreicht ist
-- **In Bearbeitung → Fertig**, wenn `Startzeit + Druckzeit` abgelaufen ist
+**Geplant → In Bearbeitung**
+: Sobald der eingetragene Startzeitpunkt erreicht ist.
 
-Jobs **ohne** eingetragene Druckzeit werden nie automatisch abgeschlossen.
+**In Bearbeitung → Fertig**
+: Sobald `Startzeit + Druckzeit (Minuten)` abgelaufen ist. Falls kein `Startzeit` gesetzt ist, wird `plannedAt + Druckzeit` verwendet.
+
+> Jobs **ohne** eingetragene Druckzeit werden **niemals** automatisch abgeschlossen — du musst den Abschluss manuell bestätigen.
+
+Automatische Statuswechsel werden im Audit-Log ohne Benutzerangabe protokolliert.
 
 ## Filament-Verbrauch
 
-Im Job-Detail kannst du verwendete Filamente mit Gramm-Angabe erfassen. Dies aktualisiert den Lagerbestand unter [[Inventar]].
+Im Job-Detail erfasst du verwendete Filamente mit Gramm-Angabe. Der eingetragene Verbrauch wird automatisch vom Lagerbestand im [[Inventar]] abgezogen.
 
-## Automatische Planung und Druckorientierung
+## Automatische Druckplanung
 
-Unter **Druckjobs vorschlagen** berechnet das System automatisch, welche Teile auf welche Maschinen passen.
+Über **Druckjobs vorschlagen** (Zauberstab-Symbol) lässt du das System automatisch berechnen, welche Teile auf welche Maschinen passen:
 
-### Druckorientierung beeinflusst das Packing
+1. Das System liest alle druckbereiten Teile (Teilphase: Druckbereit) aus offenen Aufträgen.
+2. Es berechnet den Footprint jedes Teils anhand seiner Bounding Box.
+3. Es versucht, Teile optimal auf verfügbare Maschinen zu verteilen (Bin-Packing-Algorithmus).
+4. Du bekommst einen Vorschlag präsentiert und kannst ihn annehmen, anpassen oder ablehnen.
 
-Wenn für ein Teil im [[Aufträge|3D-Viewer]] eine **Druckorientierung** gesetzt wurde, verwendet der Planner diese:
-- Der Platzbedarf (Footprint = Breite × Tiefe) wird anhand der rotierten Bounding Box berechnet
-- Die Z-Rotation bleibt frei (der Planner kann das Teil noch auf der Platte drehen)
-- Teile ohne manuell gesetzte Orientierung nutzen weiterhin die automatisch berechnete „kleinste Standfläche"
+Wenn für ein Teil im [[3D-Viewer & Druckorientierung|orders-3dviewer]] eine Druckorientierung gesetzt wurde, verwendet der Planner den Footprint der rotierten Bounding Box — was zu realistischerem Packing führt.
 
-Das Ergebnis ist ein realistischeres Packing, weil z.B. schräge Sockel oder asymmetrische Geometrien korrekt berücksichtigt werden.
+## Subseiten
+
+- [[Druckjob erstellen & verwalten|jobs-create]] — Schritt-für-Schritt: Job anlegen, Aufträge zuweisen, Filament erfassen

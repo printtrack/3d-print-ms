@@ -81,9 +81,11 @@ export function WikiMarkdown({ body, pages }: WikiMarkdownProps) {
           ),
           a: ({ href, children }) => {
             if (href?.startsWith("wikilink:")) {
-              const title = decodeURIComponent(href.slice(9));
+              const lookup = decodeURIComponent(href.slice(9));
               const target = pages.find(
-                (p) => p.title.toLowerCase() === title.toLowerCase()
+                (p) =>
+                  p.title.toLowerCase() === lookup.toLowerCase() ||
+                  p.slug.toLowerCase() === lookup.toLowerCase()
               );
               if (target) {
                 return (

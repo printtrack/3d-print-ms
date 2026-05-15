@@ -1,6 +1,6 @@
 ---
 title: "Aufträge"
-description: "Aufträge verwalten: Phasen ändern, Dateien hochladen, Kommentare, Audit-Log"
+description: "Auftragsübersicht: suchen, filtern, nach Phase sortieren"
 route: "/admin/orders"
 icon: "ClipboardList"
 group: "Aufträge & Produktion"
@@ -13,62 +13,34 @@ Unter **Aufträge** werden alle eingegangenen Bestellungen verwaltet. Jeder Auft
 
 ![Auftragsübersicht](/wiki-screenshots/orders.png)
 
-## Auftragslistenansicht (`/admin/orders`)
+## Auftragslistenansicht
 
-Die Liste zeigt alle Aufträge mit Status, Kundenname, Datum und Dateianzahl.
+Die Liste zeigt alle aktiven Aufträge mit folgenden Spalten:
 
-- **Suche** — filtert nach Kundenname, E-Mail oder Auftragsnummer
-- **Filter** — schränkt auf eine bestimmte Phase ein
-- **Klick auf Auftrag** — öffnet die Detailansicht
+| Spalte | Inhalt |
+|--------|--------|
+| **Kurzcode** | Eindeutige Auftragsnummer (z. B. `A7F3`) — wird auch auf Etiketten gedruckt |
+| **Kunde** | Name und E-Mail-Adresse |
+| **Phase** | Aktuelle Phase mit farbiger Markierung |
+| **Teile** | Anzahl der Einzelteile im Auftrag |
+| **Dateien** | Anzahl hochgeladener Dateien (Kunden- und Team-Dateien) |
+| **Datum** | Eingang des Auftrags |
 
-## Auftrags-Detailansicht (`/admin/orders/[id]`)
+## Suche und Filter
 
-### Phasen ändern
+- **Suchfeld** — filtert in Echtzeit nach Kundenname, E-Mail oder Kurzcode
+- **Phasen-Filter** — schränkt die Liste auf eine bestimmte Phase ein; mehrere Phasen sind kombinierbar
+- **Archiviert-Toggle** — blendet archivierte Aufträge ein oder aus (standardmäßig ausgeblendet)
 
-Wähle im Dropdown **Phase** die neue Phase. Der Wechsel wird gespeichert und im **Audit-Log** unten vermerkt.
+## Auftrag öffnen
 
-### Dateien
+Klicke auf eine Zeile, um in die [[Auftrags-Detailansicht]] zu wechseln.
 
-- **Team-Dateien hochladen** — lade Design-Dateien (STL, OBJ, 3MF, Bilder) hoch, die dem Kunden bereitgestellt werden
-- **Kunden-Dateien** — Dateien, die der Kunde beim Bestellen hochgeladen hat
-- Unterstützte Formate: JPG, PNG, GIF, WebP, STL, OBJ, 3MF (max. 50 MB)
+## Neuen Auftrag anlegen
 
-### 3D-Modell-Viewer
+Aufträge werden vom Kunden über das öffentliche Auftragsformular (`/`) eingereicht. Admins können keinen Auftrag direkt im Backend anlegen — das sichert eine vollständige Kundeneingabe.
 
-Klicke auf eine STL/OBJ/3MF-Datei, um sie direkt im Browser als 3D-Modell anzuzeigen. Im Viewer kannst du das Modell drehen, zoomen und **Notizen** an bestimmten Stellen markieren.
+## Subseiten
 
-### Druckorientierung festlegen
-
-Admins können im 3D-Viewer die Druckorientierung eines Teils direkt bestimmen — wie in einem Slicer.
-
-1. Klicke auf das **Flächen-Werkzeug** (Layers-Symbol) in der Toolbar des Viewers
-2. Fahre mit der Maus über das Modell — koplanare Flächen werden amber-farbig hervorgehoben
-3. Klicke auf die Fläche, die auf der **Druckplatte** liegen soll
-4. Das Modell dreht sich automatisch so, dass die gewählte Fläche unten liegt
-5. Klicke **Speichern** im erscheinenden Balken
-
-Die gespeicherte Orientierung:
-- Wird bei jedem erneuten Öffnen des Viewers angezeigt (inklusive Bauplattenvorschau)
-- Fließt in den **.3mf-Download** (OrcaSlicer/Bambu) als Transform-Matrix ein
-- Fließt in den **STL-ZIP-Download** als vorgerotierte Geometrie ein
-- Wird von der **automatischen Druckplanung** bevorzugt verwendet (Z-Rotation bleibt frei)
-
-Über **Orientierung zurücksetzen** (erscheint, wenn eine Orientierung gesetzt ist) wird zur Standard-Lage zurückgekehrt.
-
-### Kommentare
-
-Das Kommentarfeld am unteren Ende ist für interne Notizen des Teams — Kunden sehen diese nicht.
-
-### Audit-Log
-
-Jede Phasenänderung, jeder Datei-Upload und jeder Kommentar werden automatisch mit Zeitstempel und Benutzer protokolliert.
-
-### Auftrag archivieren
-
-Klicke **Archivieren** (Menü oben rechts), um einen abgeschlossenen Auftrag aus der aktiven Ansicht zu entfernen. Archivierte Aufträge bleiben in der Datenbank und können in der Liste über den Filter **Archiviert** eingeblendet werden.
-
-## Zusammenhänge
-
-- Phasen konfigurieren → [[Einstellungen]]
-- Auftrag einem Druckjob zuweisen → [[Druckjobs]]
-- Auftrag in ein Projekt einbinden → [[Projekte]]
+- [[Auftrags-Detailansicht]] — Phase ändern, Dateien, Kommentare, Audit-Log
+- [[3D-Viewer & Druckorientierung]] — Modelle im Browser öffnen, Orientierung festlegen

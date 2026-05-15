@@ -9,29 +9,50 @@ order: 1
 
 # Dashboard
 
-The dashboard shows all open [[Orders]] as a Kanban board, sorted by their current phase from left to right.
+The dashboard is your daily starting point. It shows all open [[Orders]] as a Kanban board — one column per phase, sorted left to right.
 
 ![Dashboard overview](/wiki-screenshots/dashboard.png)
 
-## What is this page for?
+## Layout
 
-Your daily starting point: see at a glance how many orders are in each phase and which ones need attention next.
+Each column corresponds to an order phase configured under [[Settings → Phases|settings-phases]]:
 
-## How to use it
+- **Column color** — matches the phase color in Settings
+- **Order count** — shown in the column header
+- **Empty columns** — still displayed to maintain the full workflow overview
 
-### Change an order's phase
+## Changing an order's phase
 
-Drag and drop an order card into a different column. The phase change is saved immediately.
+Drag an order card with **drag & drop** into a different column. The new phase is saved immediately. An entry is automatically added to the [[Order detail|orders-detail]] audit log.
 
-### Open an order
+> On mobile devices drag & drop is not available — a scrollable list of all orders is shown instead.
 
-Click on a card to open the [[Orders|order detail view]].
+## Opening an order
 
-### Columns
+Click a card to open the [[Order detail|orders-detail]] view.
 
-Each column corresponds to a phase configured under [[Settings]] → Phases. Columns without orders are still shown.
+## What's on an order card
 
-## Notes
+| Element | Meaning |
+|---------|---------|
+| **Short code** | Unique order number (e.g. `A7F3`) |
+| **Customer name** | Who submitted the order |
+| **File count** | Number of uploaded files |
+| **Part count** | Number of individual parts, if specified |
+| **Assignees** | Avatar chips of assigned team members |
+| **Job indicator** | Shown if the order is assigned to a print job |
 
-- The board reloads automatically when you open the page.
-- On mobile devices, orders are shown as a scrollable list instead of a board.
+## Refresh
+
+The board is loaded when you open the page. If another team member changes phases in parallel, the page is not updated automatically — reload the page to see the current state.
+
+## Archived orders
+
+Archived orders do **not** appear on the Dashboard. Find them in the [[Orders]] list using the **Archived** filter.
+
+## Typical daily workflow
+
+1. Open the Dashboard — see at a glance where orders are in the pipeline.
+2. Drag orders to the next phase when a step is complete.
+3. Click an order to check details or upload files.
+4. Create [[Print Jobs]] for orders that are print-ready.

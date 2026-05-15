@@ -7,7 +7,7 @@ description: "Overview of all help pages for the 3D Print CMS"
 
 Welcome to the help wiki. Here you'll find an explanation for each area of the system: what it does, which actions are available, and how to complete common tasks.
 
-## Areas
+## Main areas
 
 | Area | Purpose |
 |------|---------|
@@ -19,8 +19,20 @@ Welcome to the help wiki. Here you'll find an explanation for each area of the s
 | [[Inventory]] | Manage filament stock |
 | [[Knowledge Base]] | Maintain problem/solution entries |
 | [[Customers]] | Customer data and verification (admin only) |
-| [[Settings]] | Company name, email templates, phases, team, machines |
+| [[Settings]] | Company data, email templates, phases, team, machines |
+
+## Detail pages
+
+| Topic | Content |
+|-------|---------|
+| [[Order detail|orders-detail]] | Phase, parts, files, comments, audit log |
+| [[3D Viewer & Print Orientation|orders-3dviewer]] | View models in browser, set print orientation |
+| [[Create & manage print jobs|jobs-create]] | Create job, assign orders, record filament usage |
+| [[Settings → Email templates|settings-email]] | Configure automatic customer notifications |
+| [[Settings → Phases|settings-phases]] | Manage order, part and project phases |
+| [[Settings → Team|settings-team]] | Invite team members and assign roles |
+| [[Settings → Machines|settings-machines]] | Add 3D printers and configure build volume |
 
 ## Search
 
-Use the search field at the top to find topics.
+Use the search field in the left sidebar to find topics.

@@ -15,7 +15,7 @@ test("wiki search filters pages", async ({ seed, page }) => {
   const search = page.getByTestId("wiki-search");
   await search.fill("Druckjob");
   const sidebar = page.locator("aside").filter({ has: page.getByTestId("wiki-search") });
-  await expect(sidebar.getByRole("link", { name: /Druckjob/i })).toBeVisible();
+  await expect(sidebar.getByRole("link", { name: /Druckjob/i }).first()).toBeVisible();
   await expect(sidebar.getByRole("link", { name: "Inventar" })).toBeHidden();
 });
 

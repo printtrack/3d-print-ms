@@ -1,6 +1,6 @@
 ---
 title: "Customers"
-description: "Manage customer data and email verification (admin only)"
+description: "Manage customer data, control email verification and understand portal access (admin only)"
 route: "/admin/customers"
 icon: "Users2"
 group: "Knowledge & Admin"
@@ -17,27 +17,58 @@ The customers area is **visible to admins only**. Here you manage customers who 
 
 The list shows all registered customers with:
 
-- **Name and email**
-- **Registration date**
-- **Verification status** — whether the email address has been confirmed
+| Column | Content |
+|--------|---------|
+| **Name** | Full name of the customer |
+| **Email** | Registered email address |
+| **Registered** | Registration date |
+| **Verified** | Whether the email address has been confirmed (checkmark or warning icon) |
+| **Actions** | Edit, verify, delete |
+
+## Search
+
+The search field at the top filters the list by name and email in real time.
 
 ## Email verification
 
-If a customer hasn't received their confirmation email, you can:
+Customers must verify their email address via a confirmation link after registration before they can use the portal.
 
-1. **Set verification manually** — click the checkmark icon next to the customer. The email is marked as verified without any action from the customer.
-2. **Reset verification** — click again to remove verification.
+### Manual verification by admin
 
-The customer can also request a new confirmation email by logging into the portal.
+If a customer hasn't received their confirmation link (spam filter, wrong email, etc.):
+
+1. Click the **checkmark icon** next to the customer.
+2. The email is immediately marked as verified — the customer can log in right away.
+
+### Resetting verification
+
+Click the checkmark icon again to remove verification. The customer must then re-verify.
+
+### New verification email by customer
+
+Alternatively, the customer can request a new confirmation email by logging into the portal (`/portal/signin`) and clicking **Resend email**.
 
 ## Editing customers
 
-Click a customer to change their name or email.
+1. Click the **edit icon** (pencil) next to the customer.
+2. Change name or email address.
+3. Click **Save**.
+
+> Changing the email address does **not** reset verification — reset it manually if needed.
 
 ## Deleting customers
 
-Use the menu to permanently delete a customer account. Existing [[Orders]] from that customer are kept.
+1. Click the **trash icon** next to the customer.
+2. Confirm the dialog.
 
-## Relationship with the portal
+The customer account is permanently deleted. Existing **orders** linked to that customer are preserved — only the link to the portal account is removed.
 
-Customers register at `/portal/register`. After verification they can log in at `/portal/signin` and view their own [[Orders]].
+## The customer portal
+
+Customers register themselves at `/portal/register`. After successful email verification they can log in at `/portal/signin` and:
+
+- View their own orders and track status
+- Submit new orders
+- Upload files for their orders
+
+The portal is completely separate from the admin interface — customers cannot see internal notes, comments, or audit logs.
