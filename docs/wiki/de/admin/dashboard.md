@@ -9,29 +9,50 @@ order: 1
 
 # Dashboard
 
-Das Dashboard zeigt alle offenen [[Aufträge]] als Kanban-Board, sortiert nach ihrer aktuellen Phase von links nach rechts.
+Das Dashboard ist der tägliche Ausgangspunkt. Es zeigt alle offenen [[Aufträge]] als Kanban-Board — eine Spalte pro Phase, von links nach rechts sortiert.
 
 ![Dashboard Übersicht](/wiki-screenshots/dashboard.png)
 
-## Wofür ist diese Seite?
+## Aufbau
 
-Der tägliche Ausgangspunkt: Auf einen Blick siehst du, wie viele Aufträge sich in welcher Phase befinden und welche als nächstes bearbeitet werden müssen.
+Jede Spalte entspricht einer Auftragsphase, die unter [[Einstellungen → Phasen|settings-phases]] konfiguriert ist:
 
-## Bedienung
+- **Spaltenfarbe** — passt zur Farbe der Phase in den Einstellungen
+- **Auftragsanzahl** — wird im Spaltenkopf angezeigt
+- **Leere Spalten** — werden trotzdem angezeigt, damit der Gesamtüberblick erhalten bleibt
 
-### Phase eines Auftrags ändern
+## Phase eines Auftrags ändern
 
-Ziehe eine Auftragskarte per Drag & Drop in eine andere Spalte. Die Phase wird sofort gespeichert.
+Ziehe eine Auftragskarte per **Drag & Drop** in eine andere Spalte. Die neue Phase wird sofort gespeichert. Im [[Auftrags-Detailansicht|orders-detail|Audit-Log]] des Auftrags erscheint automatisch ein Eintrag.
 
-### Auftrag öffnen
+> Auf Mobilgeräten ist Drag & Drop nicht verfügbar — dort erscheint stattdessen eine scrollbare Liste aller Aufträge.
 
-Klicke auf eine Karte, um den [[Aufträge|Auftrags-Detailbereich]] zu öffnen.
+## Auftrag öffnen
 
-### Spalten
+Klicke auf eine Karte, um die [[Auftrags-Detailansicht]] zu öffnen.
 
-Jede Spalte entspricht einer Phase, die unter [[Einstellungen]] → Phasen konfiguriert ist. Spalten ohne Aufträge werden trotzdem angezeigt.
+## Inhalt einer Auftragskarte
 
-## Hinweise
+| Element | Bedeutung |
+|---------|-----------|
+| **Kurzcode** | Eindeutige Auftragsnummer (z. B. `A7F3`) |
+| **Kundenname** | Absender des Auftrags |
+| **Dateianzahl** | Anzahl der hochgeladenen Dateien |
+| **Teilanzahl** | Anzahl der Einzelteile, falls angegeben |
+| **Beauftragte** | Avatar-Chips der zugewiesenen Teammitglieder |
+| **Jobanzeige** | Falls der Auftrag einem Druckjob zugeordnet ist |
 
-- Das Board lädt automatisch neu, wenn du die Seite öffnest.
-- Auf Mobilgeräten werden die Aufträge als scrollbare Liste statt als Board angezeigt.
+## Aktualisierung
+
+Das Board wird beim Öffnen der Seite geladen. Wenn ein anderes Teammitglied parallel Phasen ändert, wird die Seite nicht automatisch aktualisiert — lade die Seite neu, um den aktuellen Stand zu sehen.
+
+## Archivierte Aufträge
+
+Archivierte Aufträge erscheinen **nicht** auf dem Dashboard. Du findest sie in der [[Aufträge|Auftragsliste]] über den Filter **Archiviert**.
+
+## Typischer Tagesablauf
+
+1. Öffne das Dashboard — sieh auf einen Blick, wo Aufträge stecken.
+2. Ziehe Aufträge in die nächste Phase, wenn ein Arbeitsschritt abgeschlossen ist.
+3. Klicke auf einen Auftrag, um Details zu prüfen oder Dateien hochzuladen.
+4. Erstelle [[Druckjobs]] für Aufträge, die druckbereit sind.

@@ -33,7 +33,9 @@ for (const { slug, route } of routes) {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.goto(route);
     await page.waitForLoadState("domcontentloaded");
-    await page.waitForTimeout(800);
+    // Settings tabs with more content need a bit longer to settle
+    const waitMs = route.includes("settings") ? 1200 : 800;
+    await page.waitForTimeout(waitMs);
     fs.mkdirSync(OUTPUT_DIR, { recursive: true });
     await page.screenshot({
       path: path.join(OUTPUT_DIR, `${slug}.png`),
@@ -41,3 +43,22 @@ for (const { slug, route } of routes) {
     });
   });
 }
+
+// Custom screenshot: jobs page in Board (queue) view
+test("screenshot: jobs-board (Board view)", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/admin/jobs");
+  await page.waitForLoadState("domcontentloaded");
+  await page.waitForTimeout(800);
+  // Switch from Gantt to Board view
+  const boardButton = page.getByRole("button", { name: "Board" });
+  if (await boardButton.isVisible()) {
+    await boardButton.click();
+    await page.waitForTimeout(400);
+  }
+  fs.mkdirSync(OUTPUT_DIR, { recursive: true });
+  await page.screenshot({
+    path: path.join(OUTPUT_DIR, "jobs-board.png"),
+    fullPage: false,
+  });
+});

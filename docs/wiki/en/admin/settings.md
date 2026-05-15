@@ -1,6 +1,6 @@
 ---
 title: "Settings"
-description: "Company name, email templates, phases, team and machines (admin only)"
+description: "System configuration: company data, email templates, phases, team and machines (admin only)"
 route: "/admin/settings"
 icon: "SlidersHorizontal"
 group: "Knowledge & Admin"
@@ -9,45 +9,38 @@ order: 9
 
 # Settings
 
-The settings area is **visible to admins only**. Here you configure the entire system.
+The Settings area is **admin-only**. This is where you configure the entire system. The page is organized into tabs.
 
 ![Settings overview](/wiki-screenshots/settings.png)
 
-## Company settings
+## Tab overview
 
-- **Company name** — shown in the sidebar and in emails
-- **Contact email** — sender address for outgoing emails
+| Tab | Content |
+|-----|---------|
+| **Company** | Company name and contact email |
+| **Legal** | Imprint and privacy policy |
+| **Emails** | Automatic phase notifications → [[Settings → Email templates|settings-email]] |
+| **Survey** | Customer satisfaction survey configuration |
+| **Phases** | Manage order phases → [[Settings → Phases|settings-phases]] |
+| **Part phases** | Manage phases for individual parts → [[Settings → Phases|settings-phases]] |
+| **Project phases** | Manage phases for projects → [[Settings → Phases|settings-phases]] |
+| **Team** | Invite and manage team members → [[Settings → Team|settings-team]] |
+| **Machines** | Add and configure 3D printers → [[Settings → Machines|settings-machines]] |
 
-## Email templates
+## Company data (Tab: Company)
 
-An automatic email can be sent to the customer on each phase change. Configure for each template:
+- **Company name** — shown in the sidebar navigation and in outgoing emails
+- **Contact email** — sender address for all automated system emails
 
-- **Subject** (German and English)
-- **Message** (German and English)
-- Placeholders: `{customerName}`, `{orderNumber}`, `{phase}`, `{trackingLink}`
+Changes take effect immediately after clicking **Save**.
 
-## Phases
+## Legal (Tab: Legal)
 
-Manage the phases that [[Orders]] pass through:
+Enter imprint and privacy policy text. These appear on the public pages (`/legal/impressum`, `/legal/datenschutz`).
 
-- **Order** — drag and drop to reorder
-- **Name** — in German and English
-- **Color** — shown as the column color on the [[Dashboard]]
+## Sub-pages
 
-## Team
-
-Invite team members and manage their roles:
-
-| Role | Permissions |
-|------|------------|
-| **ADMIN** | Full access including settings, team, customers |
-| **MEMBER** | Orders, jobs, planning, inventory, knowledge base |
-
-New members receive an invitation email with a link to set their password.
-
-## Machines
-
-Create 3D printers that can be selected when scheduling [[Print Jobs]]:
-
-- **Name** and **model**
-- **Active/Inactive** — inactive machines no longer appear when creating new jobs
+- [[Settings → Email templates|settings-email]] — configure automatic customer notifications
+- [[Settings → Phases|settings-phases]] — order phases, part phases and project phases
+- [[Settings → Team|settings-team]] — manage team members
+- [[Settings → Machines|settings-machines]] — add 3D printers
