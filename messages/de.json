@@ -1048,7 +1048,13 @@
     "edit": "Bearbeiten",
     "delete": "Löschen",
     "notes_count": "{count} Notiz",
-    "notes_count_plural": "{count} Notizen"
+    "notes_count_plural": "{count} Notizen",
+    "face_select_label": "Fläche wählen, die auf der Druckplatte liegt",
+    "face_select_short": "Fläche",
+    "face_select_hint": "Fläche anklicken, die auf der Druckplatte liegen soll",
+    "orientation_saved": "Orientierung gespeichert",
+    "orientation_reset": "Orientierung zurücksetzen",
+    "build_plate": "Bauplatte"
   },
 
   "phases": {

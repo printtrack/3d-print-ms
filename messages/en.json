@@ -1048,7 +1048,13 @@
     "edit": "Edit",
     "delete": "Delete",
     "notes_count": "{count} note",
-    "notes_count_plural": "{count} notes"
+    "notes_count_plural": "{count} notes",
+    "face_select_label": "Pick face to rest on print bed",
+    "face_select_short": "Face",
+    "face_select_hint": "Click a face that should rest on the print bed",
+    "orientation_saved": "Orientation saved",
+    "orientation_reset": "Reset orientation",
+    "build_plate": "Build plate"
   },
 
   "phases": {

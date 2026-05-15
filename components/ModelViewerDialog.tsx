@@ -40,7 +40,14 @@ export interface CustomerNoteData {
   createdAt: string;
 }
 
-interface ModelViewerDialogProps {
+export interface OrientationDialogProps {
+  orderPartId?: string;
+  buildVolume?: { x: number; y: number; z: number };
+  initialOrientation?: { qx: number; qy: number; qz: number; qw: number };
+  onOrientationSaved?: (q: { qx: number; qy: number; qz: number; qw: number }) => void;
+}
+
+interface ModelViewerDialogProps extends OrientationDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   fileId: string;
@@ -60,6 +67,10 @@ export function ModelViewerDialog({
   mode,
   initialNotes,
   onNotesChange,
+  orderPartId,
+  buildVolume,
+  initialOrientation,
+  onOrientationSaved,
 }: ModelViewerDialogProps) {
   const router = useRouter();
   const [notes, setNotes] = useState<NoteData[]>(initialNotes as NoteData[]);
@@ -171,6 +182,26 @@ export function ModelViewerDialog({
     onNotesChange?.(updatedNotes);
     if (selectedNoteId === note.id) setSelectedNoteId(null);
     router.refresh();
+  }
+
+  async function autoSaveOrientation(q: { qx: number; qy: number; qz: number; qw: number }) {
+    if (!orderPartId) return;
+    try {
+      const res = await fetch(`/api/admin/parts/${orderPartId}/orientation`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(q),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.error ?? "Orientierung konnte nicht gespeichert werden");
+        return;
+      }
+      toast.success("Orientierung gespeichert");
+      onOrientationSaved?.(q);
+    } catch {
+      toast.error("Orientierung konnte nicht gespeichert werden");
+    }
   }
 
   const viewerNotes = notes.map((n) => ({
@@ -368,6 +399,10 @@ export function ModelViewerDialog({
                 setSelectedNoteId(id);
                 if (!panelOpen) setPanelOpen(true);
               }}
+              buildVolume={buildVolume}
+              initialOrientation={initialOrientation}
+              orientationEditable={mode === "admin" && !!orderPartId}
+              onOrientationChange={orderPartId ? autoSaveOrientation : undefined}
             />
 
             {/* Filename chip — top left of viewer */}

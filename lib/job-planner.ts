@@ -1,7 +1,8 @@
 import fs from "fs/promises";
 import path from "path";
 import { prisma } from "./db";
-import { computeBbox, pickPrintOrientation } from "./stl-bbox";
+import { computeBbox, pickPrintOrientation, applyQuaternionToBbox } from "./stl-bbox";
+import { isIdentityQuaternion } from "./stl-transform";
 import { getUploadDir } from "./uploads";
 
 export interface ProposedNewJob {
@@ -123,15 +124,36 @@ function packGroup(
   }> = [];
 
   for (const { part, bbox } of parts) {
-    const orientation = pickPrintOrientation(bbox, build);
-    if (!orientation) {
-      skipped.push({
-        orderPartId: part.id,
-        partName: part.name,
-        reason: `Zu groß für Maschine "${machine.name}" (${bbox.x}×${bbox.y}×${bbox.z} mm)`,
-      });
-      continue;
+    const q = { qx: part.orientQx, qy: part.orientQy, qz: part.orientQz, qw: part.orientQw };
+    let orientation: { width: number; depth: number; height: number } | null;
+
+    if (!isIdentityQuaternion(q)) {
+      // User picked a face — use the rotated bbox (Z is the print height in Z-up convention)
+      const rotatedBbox = applyQuaternionToBbox(bbox, q);
+      const w = Math.min(rotatedBbox.x, rotatedBbox.y);
+      const d = Math.max(rotatedBbox.x, rotatedBbox.y);
+      const h = rotatedBbox.z;
+      if (h > build.z || (w > build.x && w > build.y) || (d > build.x && d > build.y)) {
+        skipped.push({
+          orderPartId: part.id,
+          partName: part.name,
+          reason: `Zu groß für Maschine "${machine.name}" in gewählter Orientierung (${rotatedBbox.x}×${rotatedBbox.y}×${rotatedBbox.z} mm)`,
+        });
+        continue;
+      }
+      orientation = { width: w, depth: d, height: h };
+    } else {
+      orientation = pickPrintOrientation(bbox, build);
+      if (!orientation) {
+        skipped.push({
+          orderPartId: part.id,
+          partName: part.name,
+          reason: `Zu groß für Maschine "${machine.name}" (${bbox.x}×${bbox.y}×${bbox.z} mm)`,
+        });
+        continue;
+      }
     }
+
     eligible.push({ part, bbox, orientation, footprint: orientation.width * orientation.depth });
   }
 

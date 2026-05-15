@@ -52,3 +52,16 @@ Jobs **ohne** eingetragene Druckzeit werden nie automatisch abgeschlossen.
 ## Filament-Verbrauch
 
 Im Job-Detail kannst du verwendete Filamente mit Gramm-Angabe erfassen. Dies aktualisiert den Lagerbestand unter [[Inventar]].
+
+## Automatische Planung und Druckorientierung
+
+Unter **Druckjobs vorschlagen** berechnet das System automatisch, welche Teile auf welche Maschinen passen.
+
+### Druckorientierung beeinflusst das Packing
+
+Wenn für ein Teil im [[Aufträge|3D-Viewer]] eine **Druckorientierung** gesetzt wurde, verwendet der Planner diese:
+- Der Platzbedarf (Footprint = Breite × Tiefe) wird anhand der rotierten Bounding Box berechnet
+- Die Z-Rotation bleibt frei (der Planner kann das Teil noch auf der Platte drehen)
+- Teile ohne manuell gesetzte Orientierung nutzen weiterhin die automatisch berechnete „kleinste Standfläche"
+
+Das Ergebnis ist ein realistischeres Packing, weil z.B. schräge Sockel oder asymmetrische Geometrien korrekt berücksichtigt werden.

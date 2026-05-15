@@ -233,6 +233,10 @@ model OrderPart {
   bboxXmm        Int?
   bboxYmm        Int?
   bboxZmm        Int?
+  orientQx       Float               @default(0)
+  orientQy       Float               @default(0)
+  orientQz       Float               @default(0)
+  orientQw       Float               @default(1)
   quantity       Int                 @default(1)
   iterationCount Int                 @default(1)
   partPhase      PartPhase?          @relation(fields: [partPhaseId], references: [id], onDelete: SetNull)

@@ -82,7 +82,7 @@ async function getData(id: string) {
     prisma.partPhase.findMany({ orderBy: { position: "asc" } }),
     prisma.machine.findMany({
       where: { isActive: true },
-      select: { id: true, name: true },
+      select: { id: true, name: true, buildVolumeX: true, buildVolumeY: true, buildVolumeZ: true },
       orderBy: { name: "asc" },
     }),
     prisma.milestone.findMany({
@@ -194,7 +194,15 @@ async function getData(id: string) {
     })),
   }));
 
-  return { order: serialized, phases, teamMembers, parts: serializedParts, availableFilaments, customerCredit, partPhases, activeMachines, milestones: serializedMilestones };
+  const buildVolume = activeMachines.length > 0
+    ? {
+        x: Math.max(...activeMachines.map((m) => m.buildVolumeX ?? 0)),
+        y: Math.max(...activeMachines.map((m) => m.buildVolumeY ?? 0)),
+        z: Math.max(...activeMachines.map((m) => m.buildVolumeZ ?? 0)),
+      }
+    : undefined;
+
+  return { order: serialized, phases, teamMembers, parts: serializedParts, availableFilaments, customerCredit, partPhases, activeMachines, buildVolume, milestones: serializedMilestones };
 }
 
 export default async function OrderDetailPage({ params }: PageProps) {
@@ -202,7 +210,7 @@ export default async function OrderDetailPage({ params }: PageProps) {
   const session = await auth();
   // Run before fetching so part phases + job links are current
   await runJobAutoTransition().catch(() => null);
-  const { order, phases, teamMembers, parts, availableFilaments, customerCredit, partPhases, activeMachines, milestones } = await getData(id);
+  const { order, phases, teamMembers, parts, availableFilaments, customerCredit, partPhases, activeMachines, buildVolume, milestones } = await getData(id);
 
   if (!order) notFound();
 
@@ -220,6 +228,7 @@ export default async function OrderDetailPage({ params }: PageProps) {
       customerCredit={customerCredit}
       partPhases={partPhases}
       machines={activeMachines}
+      buildVolume={buildVolume}
       initialMilestones={milestones}
     />
   );

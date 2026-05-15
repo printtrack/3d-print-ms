@@ -1,4 +1,5 @@
 import { parseStl } from "./stl-parser";
+import { quaternionToMatrix3, type Quaternion } from "./stl-transform";
 
 export interface Bbox {
   x: number;
@@ -30,6 +31,18 @@ export function computeBbox(buffer: Buffer): Bbox {
     x: Math.round(maxX - minX),
     y: Math.round(maxY - minY),
     z: Math.round(maxZ - minZ),
+  };
+}
+
+// Computes the axis-aligned bounding box after rotating the part by the given quaternion.
+// Uses the exact AABB formula for rotated boxes: new_half_extent[d] = sum(|R[d][i]| * old_half[i]).
+export function applyQuaternionToBbox(bbox: Bbox, q: Quaternion): Bbox {
+  const m = quaternionToMatrix3(q);
+  const hx = bbox.x / 2, hy = bbox.y / 2, hz = bbox.z / 2;
+  return {
+    x: Math.round((Math.abs(m[0]) * hx + Math.abs(m[1]) * hy + Math.abs(m[2]) * hz) * 2),
+    y: Math.round((Math.abs(m[3]) * hx + Math.abs(m[4]) * hy + Math.abs(m[5]) * hz) * 2),
+    z: Math.round((Math.abs(m[6]) * hx + Math.abs(m[7]) * hy + Math.abs(m[8]) * hz) * 2),
   };
 }
 

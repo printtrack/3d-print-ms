@@ -52,3 +52,16 @@ Jobs **without** a print time are never auto-completed.
 ## Filament usage
 
 In the job detail you can record filaments used with gram amounts. This automatically updates the stock in [[Inventory]].
+
+## Automatic planning and print orientation
+
+Under **Suggest print jobs** the system automatically calculates which parts fit on which machines.
+
+### Print orientation influences packing
+
+If a **print orientation** has been set for a part in the [[Orders|3D viewer]], the planner uses it:
+- The footprint (width × depth) is calculated from the rotated bounding box
+- Z-rotation remains free (the planner can still rotate the part on the bed)
+- Parts without a manually set orientation continue to use the automatically calculated "smallest footprint" pose
+
+This results in more realistic packing because asymmetric geometries and angled bases are accounted for correctly.

@@ -6,6 +6,7 @@ import path from "path";
 import { getUploadDir } from "@/lib/uploads";
 import JSZip from "jszip";
 import { buildLabelMesh, serializeStlBinary } from "@/lib/label-mesh";
+import { rotateStlBuffer } from "@/lib/stl-transform";
 
 export async function GET(
   _req: NextRequest,
@@ -22,11 +23,16 @@ export async function GET(
       parts: {
         include: {
           orderPart: {
-            include: {
+            select: {
+              orderId: true,
+              name: true,
+              quantity: true,
+              orientQx: true,
+              orientQy: true,
+              orientQz: true,
+              orientQw: true,
               files: {
-                where: {
-                  originalName: { contains: ".stl" },
-                },
+                where: { originalName: { contains: ".stl" } },
                 orderBy: { createdAt: "desc" },
                 take: 1,
               },
@@ -50,7 +56,9 @@ export async function GET(
     const filePath = path.join(getUploadDir(), part.orderId, latestStl.filename);
 
     try {
-      const buffer = await readFile(filePath);
+      const rawBuffer = await readFile(filePath);
+      const { orientQx, orientQy, orientQz, orientQw } = part;
+      const buffer = rotateStlBuffer(rawBuffer, { qx: orientQx, qy: orientQy, qz: orientQz, qw: orientQw });
       // Deduplicate zip entry names
       const baseName = `${part.name}_${latestStl.originalName}`;
       const count = usedNames.get(baseName) ?? 0;
