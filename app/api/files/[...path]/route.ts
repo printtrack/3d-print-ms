@@ -3,6 +3,7 @@ import { readFile } from "fs/promises";
 import path from "path";
 import { getUploadDir } from "@/lib/uploads";
 import { auth } from "@/lib/auth";
+import { TUTORIAL_ORDER_ID } from "@/lib/tutorial/sample-data";
 
 const AUTH_REQUIRED_PREFIXES = new Set(["knowledge", "jobs"]);
 
@@ -26,6 +27,24 @@ export async function GET(
   { params }: { params: Promise<{ path: string[] }> }
 ) {
   const { path: segments } = await params;
+
+  // Tutorial order — serve the bundled sample STL
+  if (segments[0] === TUTORIAL_ORDER_ID) {
+    // Prefer atom-modell.stl if the user has provided one, otherwise fall back to sample-chair.stl
+    const preferredPath = path.join(process.cwd(), "public", "tutorial", "atom-modell.stl");
+    const fallbackPath = path.join(process.cwd(), "public", "tutorial", "sample-chair.stl");
+    const { existsSync } = await import("fs");
+    const samplePath = existsSync(preferredPath) ? preferredPath : fallbackPath;
+    try {
+      const buffer = await readFile(samplePath);
+      return new NextResponse(buffer, {
+        status: 200,
+        headers: { "Content-Type": "model/stl", "Cache-Control": "no-store" },
+      });
+    } catch {
+      return NextResponse.json({ error: "Tutorial asset missing" }, { status: 404 });
+    }
+  }
 
   // Auth required for internal file directories
   if (AUTH_REQUIRED_PREFIXES.has(segments[0])) {

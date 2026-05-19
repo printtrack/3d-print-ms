@@ -153,3 +153,11 @@
   background-color: var(--muted);
   border-radius: 4px;
 }
+/* Tutorial spotlight ring pulse */
+@keyframes tutorial-ring-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+.tutorial-ring {
+  animation: tutorial-ring-pulse 2s ease-in-out infinite;
+}

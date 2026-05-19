@@ -81,7 +81,6 @@
     "part_name_placeholder": "Part name *",
     "less": "Less",
     "more": "More",
-    "download": "Download",
     "move_to_part": "Move to part",
     "delete_file": "Delete file",
     "file_uploaded": "File uploaded",
@@ -101,7 +100,6 @@
     "prototype_iteration_started": "Prototype iteration #{count} started",
     "iteration_start_failed": "Error starting iteration"
   },
-
   "nav": {
     "dashboard": "Dashboard",
     "orders": "Orders",
@@ -121,9 +119,9 @@
     "hello_customer": "Hello, {name}",
     "signin": "Sign in",
     "signout": "Sign out",
-    "help": "Help"
+    "help": "Help",
+    "start_tutorial": "Start tutorial"
   },
-
   "wiki": {
     "title": "Help Wiki",
     "search_placeholder": "Search wiki …",
@@ -131,7 +129,6 @@
     "fallback_banner": "This page is not yet available in English — showing German content.",
     "back_to_overview": "Back to overview"
   },
-
   "landing": {
     "start_order_cta": "Start print order",
     "hero_eyebrow": "Your School Makerspace",
@@ -167,7 +164,6 @@
     "imprint": "Imprint",
     "privacy": "Privacy Policy"
   },
-
   "auth": {
     "signin_title": "Sign in",
     "signin_subtitle": "Enter your credentials",
@@ -188,7 +184,6 @@
     "password_changed": "Password changed. Please sign in.",
     "save_password": "Save password"
   },
-
   "order_form": {
     "title": "Submit 3D Print Order",
     "subtitle": "Describe your order and upload files or images. You'll receive a tracking link to follow your order.",
@@ -215,7 +210,6 @@
     "submit_cta": "Submit order",
     "remove_file": "Remove file: {name}"
   },
-
   "track": {
     "title": "Order Status",
     "new_order_cta": "Submit new order",
@@ -284,7 +278,6 @@
     "audit_verification_rejected": "Approval rejected",
     "audit_verification_admin": "Approval granted by team"
   },
-
   "survey": {
     "title": "How was your experience?",
     "greeting": "Hello {name}, we appreciate your feedback.",
@@ -298,7 +291,6 @@
     "already_submitted_title": "Thank you for your feedback!",
     "already_submitted_desc": "Hello {name}, your answers have already been submitted."
   },
-
   "portal": {
     "my_orders": "My Orders",
     "my_orders_desc": "Hello, {name} — here are all your 3D print orders.",
@@ -395,25 +387,20 @@
     "from_team": "Team",
     "image_preview": "Image preview"
   },
-
   "admin": {
     "dashboard_title": "Dashboard",
     "dashboard_desc": "Overview of ongoing orders and activities",
-
     "kanban_archive_drop": "Release to archive",
     "kanban_archive_hint": "Drag here to archive",
     "kanban_archive": "Archive",
-
     "orders_title": "Orders",
     "orders_archive": "Archive",
     "orders_singular": "Order",
     "orders_plural": "Orders",
     "orders_archived": "archived",
     "orders_active": "active",
-
     "settings_title": "Settings",
     "settings_desc": "Configure system, team and workflow",
-
     "jobs_no_machines_title": "No machines configured",
     "jobs_no_machines_desc": "Add printers first to use the job queue.",
     "jobs_manage_machines": "Manage machines",
@@ -425,7 +412,6 @@
     "jobs_suggest": "Suggest print jobs",
     "jobs_not_found": "No job with ID \"{id}\" found",
     "jobs_search_error": "Search error",
-
     "dashboard_open_orders": "Open Orders",
     "dashboard_active_jobs": "Active Print Jobs",
     "dashboard_overdue": "Overdue",
@@ -447,16 +433,13 @@
     "dashboard_hours_ago": "{count} hr. ago",
     "dashboard_days_ago_1": "1 day ago",
     "dashboard_days_ago": "{count} days ago",
-
     "view_kanban": "Kanban",
     "view_gantt": "Gantt",
     "view_archive": "Archive",
     "view_orders": "Orders",
-
     "filter_due_today": "Due today",
     "filter_this_week": "This week",
     "filter_overdue": "Overdue",
-
     "job_status_planned": "Planned",
     "job_status_sliced": "Sliced",
     "job_status_in_progress": "Printing",
@@ -465,7 +448,6 @@
     "job_status_cancelled": "Cancelled",
     "job_card_parts": "Parts",
     "job_card_more": "+{count} more",
-
     "timeline_back": "Back",
     "timeline_forward": "Forward",
     "timeline_today": "Today",
@@ -478,7 +460,6 @@
     "timeline_drag_hint": "Drag to timeline to schedule",
     "timeline_duration_unknown": "Duration unknown",
     "timeline_overlap_error": "Overlap with another print job",
-
     "order_detail_back": "Back to board",
     "order_detail_prototype_prefix": "Prototype · #",
     "order_detail_description": "Description",
@@ -537,7 +518,6 @@
     "order_detail_comment_prefix": "Comment:",
     "order_detail_history": "History",
     "order_detail_deduct_for_order": "Deduction for order from {date}",
-
     "audit_submitted": "Order submitted",
     "audit_phase_changed": "Status changed",
     "audit_assignee_changed": "Assignee changed",
@@ -567,7 +547,6 @@
     "audit_prototype_on": "Prototype mode enabled",
     "audit_prototype_off": "Prototype mode disabled",
     "audit_iteration_inc": "Iteration increased",
-
     "toast_phase_saved": "Phase saved",
     "toast_phase_failed": "Save failed",
     "toast_assignee_saved": "Assignee saved",
@@ -587,7 +566,6 @@
     "toast_send_failed": "Send failed",
     "toast_verification_sent": "Approval request sent",
     "toast_deleted": "Permanently deleted",
-
     "archive_no_orders": "No archived orders",
     "archive_customer": "Customer",
     "archive_email": "Email",
@@ -600,7 +578,6 @@
     "archive_delete_confirm": "Delete order permanently?",
     "archive_deleted": "Order deleted",
     "archive_delete_failed": "Delete failed",
-
     "phase_manager_title": "Phases",
     "phase_manager_desc": "Configure phases for the order workflow",
     "phase_manager_add": "Add phase",
@@ -623,7 +600,6 @@
     "phase_badge_survey": "Survey",
     "phase_badge_prototype": "Prototype",
     "phase_badge_orders": "Orders",
-
     "part_phase_title": "Part Phases",
     "part_phase_desc": "Configure phases for the part workflow",
     "part_phase_add": "Add part phase",
@@ -640,7 +616,6 @@
     "part_phase_badge_standard": "Default",
     "part_phase_badge_print_ready": "Print Ready",
     "part_phase_badge_parts": "Parts",
-
     "project_phase_title": "Manage Project Phases",
     "project_phase_desc": "Configure phases for the project workflow",
     "project_phase_empty": "No project phases configured yet",
@@ -650,7 +625,6 @@
     "project_phase_is_default": "Default phase (for new projects)",
     "project_phase_badge_standard": "Default",
     "project_phase_badge_projects": "Projects",
-
     "team_title": "Team",
     "team_desc": "Manage team members and their roles",
     "team_add": "Add",
@@ -678,7 +652,6 @@
     "team_delete_confirm": "really remove?",
     "team_added": "Team member added",
     "team_removed": "Team member removed",
-
     "machine_title": "Machines",
     "machine_desc": "Manage your 3D printers and their specifications",
     "machine_add": "Add machine",
@@ -704,7 +677,6 @@
     "machine_delete_failed": "Delete failed",
     "machine_badge_inactive": "Inactive",
     "machine_badge_jobs": "Jobs",
-
     "inventory_title": "Inventory",
     "inventory_all": "All materials",
     "inventory_show_inactive": "Show inactive",
@@ -737,7 +709,6 @@
     "inventory_delete_confirm": "Really delete filament?",
     "inventory_deleted": "Filament deleted",
     "inventory_delete_failed": "Delete failed",
-
     "knowledge_title": "Knowledge Base",
     "knowledge_desc": "Document common problems and their solutions",
     "knowledge_new": "Create new",
@@ -777,7 +748,6 @@
     "knowledge_title_required": "Title is required",
     "knowledge_problem_required": "Problem is required",
     "knowledge_solution_required": "Solution is required",
-
     "customer_title": "Customers",
     "customer_desc": "Manage customer accounts and filament credit",
     "customer_add": "Add",
@@ -822,7 +792,6 @@
     "customer_credit_booked": "Credit booked",
     "customer_credit_book_failed": "Booking failed",
     "customer_activate": "Activate",
-
     "job_dialog_parts": "Parts",
     "job_dialog_search_parts": "Search orders, add parts...",
     "job_dialog_no_parts_found": "No parts found",
@@ -853,7 +822,6 @@
     "job_dialog_print_time_gcode": "Extracted from G-Code",
     "job_dialog_notes_placeholder": "Special features, settings...",
     "job_dialog_assignee": "Assigned to",
-
     "verify_dialog_title": "Verify print",
     "verify_dialog_desc": "Check each part from the print bed and mark it as successful or as a misprint.",
     "verify_dialog_no_parts": "No parts in this job.",
@@ -864,14 +832,12 @@
     "verify_dialog_complete": "Complete verification",
     "verify_dialog_load_failed": "Error loading parts",
     "verify_dialog_done": "Verification completed",
-
     "create_job_title": "New print job",
     "create_job_machine_required": "Please select a machine",
     "create_job_created": "Print job created",
     "create_job_failed": "Create failed",
     "create_job_machine_placeholder": "Select machine...",
     "create_job_start": "Planned start date",
-
     "suggest_jobs_title": "Suggest print jobs",
     "suggest_jobs_loading": "Analysing print-ready parts…",
     "suggest_jobs_empty": "No print-ready parts found that are not already assigned to a job.",
@@ -889,7 +855,6 @@
     "suggest_jobs_creating": "Creating jobs…",
     "suggest_jobs_skipped": "Not scheduled ({count})",
     "suggest_jobs_create_failed": "Could not create print jobs",
-
     "part_file_save_failed": "Could not save assignment",
     "part_file_design_approved": "Design approval granted",
     "part_file_approve_failed": "Approval failed",
@@ -925,7 +890,6 @@
     "part_file_no_files": "No files in this category",
     "part_file_earlier_designs": "Earlier designs ({count})",
     "part_file_added_to_job": "Part \"{name}\" added to print job",
-
     "link_job_title": "Add to print job",
     "link_job_active": "Active job",
     "link_job_loading": "Loading jobs...",
@@ -934,7 +898,6 @@
     "link_job_load_failed": "Could not load jobs",
     "link_job_added": "Part \"{name}\" added to job",
     "link_job_add_failed": "Add failed",
-
     "settings_tab_general": "General",
     "settings_tab_company": "Company",
     "settings_tab_legal": "Legal",
@@ -995,7 +958,6 @@
     "settings_legal_email_placeholder": "info@example.com",
     "settings_saved": "Saved",
     "settings_save_failed": "Save failed",
-
     "projects_title": "Projects",
     "projects_new": "New project",
     "project_created": "Project created",
@@ -1018,7 +980,6 @@
     "planning_title": "Planning",
     "planning_today": "Today"
   },
-
   "model_viewer": {
     "no_preview": "Preview not available",
     "rotate_label": "Rotate (left drag)",
@@ -1056,7 +1017,6 @@
     "orientation_reset": "Reset orientation",
     "build_plate": "Build plate"
   },
-
   "phases": {
     "Eingegangen": "Received",
     "In Prüfung": "In Review",
@@ -1073,13 +1033,11 @@
     "Pausiert": "Paused",
     "Archiviert": "Archived"
   },
-
   "filaments": {
     "Weiß": "White",
     "Schwarz": "Black",
     "Transparent Blau": "Transparent Blue"
   },
-
   "errors": {
     "unauthorized": "Unauthorized",
     "forbidden": "Forbidden",
@@ -1093,5 +1051,81 @@
     "no_default_phase": "No default phase found",
     "order_awaiting_approval": "Order is awaiting approval and cannot be moved forward",
     "job_overlap": "Overlap with another print job"
+  },
+  "tutorial": {
+    "welcome": {
+      "title": "Welcome to PrintTrack",
+      "subtitle": "Walk through a real order in 7 steps - see the key features in action.",
+      "story_label": "Your first order:",
+      "story": "Dr. Weber from Leibniz High School needs 3 replacement electrons for the Bohr atom model in his classroom set. The originals are broken - deadline: 2 weeks before the next class.",
+      "story_quantity": "3x Electron Carrier",
+      "story_deadline": "Deadline: 2 weeks",
+      "no_data_saved": "No real data is saved - everything stays in your browser.",
+      "start": "Start tutorial",
+      "skip": "Skip"
+    },
+    "steps": {
+      "kanban_drag": {
+        "title": "Orders board (Kanban)",
+        "body": "Dr. Weber's order just came in. Drag the card from 'Received' to 'In Review' to move it to the next phase.",
+        "hint": "-> Drag the card to the next column"
+      },
+      "open_detail": {
+        "title": "Open order details",
+        "body": "Great! The order is now 'In Review'. Click the card to see all the details.",
+        "hint": "-> Click the card"
+      },
+      "model_viewer": {
+        "title": "Inspect the 3D part",
+        "body": "The part section is already expanded. Click the STL file to load and inspect the 3D model in the viewer.",
+        "hint": "-> Click the STL file"
+      },
+      "filament_select": {
+        "title": "Assign filament",
+        "body": "Assign the right material to this part. Click the filament button on the part row and select 'PLA Grey' from the list.",
+        "hint": "-> Click the filament button and select"
+      },
+      "part_phase": {
+        "title": "Release part for review",
+        "body": "As admin you set the phase directly. Normally the customer receives a design approval link and confirms themselves. Once confirmed, PrintTrack automatically sets the part to Print-ready. Click the phase button and select Review.",
+        "hint": "-> Phase button -> select Review"
+      },
+      "jobs_plan": {
+        "title": "Auto-plan print job",
+        "body": "The electron carriers are ready to print. Click 'Suggest print jobs' - PrintTrack plans the optimal job for the available printer. Confirm to create it.",
+        "hint": "-> Click Suggest, then confirm the job"
+      },
+      "job_verify": {
+        "title": "Verify print result",
+        "body": "The print is done (orange bar = verification pending). Click the bar, open the job, click Verify print. Mark the part as Good or Misprint, then click Complete verification.",
+        "hint": "-> Bar -> Verify -> Good -> Complete"
+      },
+      "viewer_guide": {
+        "title": "Using the 3D viewer",
+        "body": "The 3D viewer opens the model directly in your browser. Rotate with the mouse, zoom with the scroll wheel, and click the model to add annotations.",
+        "hint": "Rotate: left mouse  Zoom: scroll  Annotate: click the model"
+      }
+    },
+    "controls": {
+      "next": "Next",
+      "back": "Back",
+      "skip": "End tutorial",
+      "finish": "Done",
+      "progress": "Step {current} / {total}",
+      "waiting": "Waiting for your interaction..."
+    },
+    "complete": {
+      "title": "Dr. Weber's replacement parts are ready!",
+      "subtitle": "You've explored all the key features. This is how a real order flows through PrintTrack.",
+      "achievement_kanban": "Kanban board - move orders through phases with drag & drop",
+      "achievement_detail": "Order details - description, deadline and customer info at a glance",
+      "achievement_viewer": "3D viewer - inspect, rotate and annotate parts",
+      "achievement_verification": "Filament & phase - assign material and release part for production",
+      "achievement_jobs": "Auto-planner - distribute print jobs across machines automatically",
+      "achievement_verify": "Quality check - approve or flag individual printed parts",
+      "relaunch_hint": "You can restart the tutorial any time from the sidebar.",
+      "restart": "Start again",
+      "finish": "Get started"
+    }
   }
 }

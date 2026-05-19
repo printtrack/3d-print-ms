@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { useTranslations } from "next-intl";
 import { cn } from "@/lib/utils";
@@ -23,8 +23,10 @@ import {
   CalendarRange,
   FolderKanban,
   LifeBuoy,
+  GraduationCap,
 } from "lucide-react";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { useTutorial } from "@/lib/tutorial/use-tutorial";
 
 interface NavItem {
   href: string;
@@ -46,8 +48,10 @@ interface AdminNavProps {
 
 export function AdminNav({ userRole, companyName = "3D Print CMS" }: AdminNavProps) {
   const pathname = usePathname();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const t = useTranslations("nav");
+  const tutorial = useTutorial();
 
   const navSections: NavSection[] = [
     {
@@ -154,6 +158,23 @@ export function AdminNav({ userRole, companyName = "3D Print CMS" }: AdminNavPro
         <div className="flex items-center justify-end px-3 py-1">
           <LanguageSwitcher />
         </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="w-full justify-start gap-3 text-muted-foreground hover:text-foreground"
+          onClick={() => {
+            fetch("/api/admin/me/onboarding", {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ reset: true }),
+            });
+            tutorial.start();
+            router.push("/admin/orders?tutorial=1");
+          }}
+        >
+          <GraduationCap className="h-4 w-4" />
+          {t("start_tutorial")}
+        </Button>
         <Button
           variant="ghost"
           size="sm"

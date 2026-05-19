@@ -176,7 +176,7 @@ export function JobsView({ machines, initialJobs, teamMembers = [] }: JobsViewPr
               {shortCodeSearching ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Suchen"}
             </Button>
           </form>
-          <Button size="sm" className="gap-1.5" onClick={() => setPlannerOpen(true)}>
+          <Button size="sm" className="gap-1.5" data-tutorial="plan-jobs-btn" onClick={() => setPlannerOpen(true)}>
             <Sparkles className="h-4 w-4" />
             Druckjobs vorschlagen
           </Button>

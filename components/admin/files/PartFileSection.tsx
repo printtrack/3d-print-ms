@@ -409,6 +409,7 @@ export function PartFileSection({
 
     return (
       <div
+        data-tutorial={collapsible ? "part-section" : undefined}
         className={cn(
           "border-b bg-muted/40",
           collapsible && "cursor-pointer select-none hover:bg-muted/60 transition-colors"
@@ -467,6 +468,7 @@ export function PartFileSection({
                 <DropdownMenuTrigger asChild>
                   <button
                     type="button"
+                    data-tutorial="part-phase-btn"
                     className={cn(
                       "text-[11px] font-medium px-2 py-0.5 rounded-full flex items-center gap-1.5 border transition-colors",
                       part.partPhase
@@ -496,7 +498,7 @@ export function PartFileSection({
                     <ChevronDown className="h-3 w-3 opacity-60" />
                   </button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-48">
+                <DropdownMenuContent data-tutorial="part-phase-dropdown" align="start" className="w-48">
                   {partData.availablePartPhases.map((pp) => {
                     const blocked = pp.isPrintReady && hasPendingVerification;
                     return (
@@ -655,6 +657,7 @@ export function PartFileSection({
                     <DropdownMenuTrigger asChild>
                       <button
                         type="button"
+                        data-tutorial="filament-btn"
                         className={cn(
                           "flex items-center gap-1.5 text-[11px] px-1.5 py-0.5 rounded border transition-colors",
                           part.filament
@@ -678,7 +681,7 @@ export function PartFileSection({
                         )}
                       </button>
                     </DropdownMenuTrigger>
-                    <DropdownMenuContent align="start" className="w-56">
+                    <DropdownMenuContent data-tutorial="filament-dropdown" align="start" className="w-56">
                       {materials.map((mat) => (
                         <div key={mat}>
                           <DropdownMenuLabel className="text-[10px] uppercase tracking-wide text-muted-foreground py-1">

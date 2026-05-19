@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { getTranslations } from "next-intl/server";
 import { DashboardView } from "@/components/admin/DashboardView";
+import { TutorialAwareOrdersView } from "@/components/admin/tutorial/TutorialAwareOrdersView";
 import { FilterBar } from "@/components/admin/FilterBar";
 import { HighlightHandler } from "@/components/admin/HighlightHandler";
 import { Suspense } from "react";
@@ -140,6 +141,7 @@ interface PageProps {
     prototype?: string;
     internal?: string;
     pendingVerification?: string;
+    tutorial?: string;
   }>;
 }
 
@@ -200,7 +202,7 @@ export default async function OrdersPage({ searchParams }: PageProps) {
         </Suspense>
       )}
 
-      <DashboardView
+      <TutorialAwareOrdersView
         phases={phases}
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         orders={orders as any}

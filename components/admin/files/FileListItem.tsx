@@ -71,6 +71,7 @@ export function FileListItem({
         {is3DModel(file.filename) && onOpenViewer ? (
           <button
             type="button"
+            data-tutorial="stl-file"
             onClick={() => onOpenViewer(file)}
             className="flex-1 truncate font-medium text-left hover:underline cursor-pointer"
           >

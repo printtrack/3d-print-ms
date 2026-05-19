@@ -175,6 +175,8 @@ export function JobVerificationDialog({
                     <div className="flex gap-2 shrink-0">
                       <Button
                         size="sm"
+                        data-tutorial="verify-success-btn"
+                        data-verified={result === "success" ? "true" : undefined}
                         variant={result === "success" ? "default" : "outline"}
                         className={cn(
                           "gap-1.5",
@@ -240,6 +242,7 @@ export function JobVerificationDialog({
             {tc("cancel")}
           </Button>
           <Button
+            data-tutorial="verify-complete-btn"
             disabled={!allDecided || submitting}
             onClick={handleSubmit}
           >

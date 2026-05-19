@@ -757,7 +757,7 @@ export function ModelViewer({
 
       {/* Navigation toolbar — bottom center */}
       {loaded && (
-        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-background/80 backdrop-blur rounded-lg px-1.5 py-1 shadow-sm border text-xs select-none z-10">
+        <div data-tutorial="viewer-controls" className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1 bg-background/80 backdrop-blur rounded-lg px-1.5 py-1 shadow-sm border text-xs select-none z-10">
           <button
             type="button"
             onClick={() => setNavMode("orbit")}

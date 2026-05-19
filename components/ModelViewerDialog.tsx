@@ -387,7 +387,7 @@ export function ModelViewerDialog({
           )}
 
           {/* 3D Viewer — RIGHT side, fills remaining space */}
-          <div className={`relative min-w-0 ${panelOpen ? "flex-1" : "w-full"}`}>
+          <div data-tutorial="viewer-canvas" className={`relative min-w-0 ${panelOpen ? "flex-1" : "w-full"}`}>
             <ModelViewer
               url={fileUrl}
               filename={filename}

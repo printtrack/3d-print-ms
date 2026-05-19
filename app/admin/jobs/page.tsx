@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { JobsView } from "@/components/admin/JobsView";
+import { TutorialAwareJobsView } from "@/components/admin/tutorial/TutorialAwareJobsView";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { Cpu } from "lucide-react";
@@ -95,7 +95,7 @@ export default async function JobsPage() {
   }));
 
   return (
-    <JobsView
+    <TutorialAwareJobsView
       machines={serializedMachines}
       initialJobs={serializedJobs}
       teamMembers={users}

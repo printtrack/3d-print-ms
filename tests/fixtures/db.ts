@@ -130,6 +130,7 @@ export async function seedDb() {
       email: "admin@3dprinting.local",
       password: ADMIN_HASH,
       role: "ADMIN",
+      onboardedAt: new Date(), // skip tutorial auto-start in tests by default
     },
   });
 

@@ -1167,6 +1167,7 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
                   size="sm"
                   variant="outline"
                   className="w-full h-7 text-xs"
+                  data-tutorial="send-verification"
                   onClick={() => handleSendVerification("PRICE_APPROVAL")}
                   disabled={sendingVerification}
                 >

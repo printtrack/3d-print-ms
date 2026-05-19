@@ -204,6 +204,7 @@ export function PlanJobsDialog({ open, onOpenChange, onJobsCreated }: PlanJobsDi
             {tc("cancel")}
           </Button>
           <Button
+            data-tutorial="plan-jobs-confirm"
             onClick={handleCommit}
             disabled={loading || committing || selectedCount === 0}
           >

@@ -1071,6 +1071,7 @@ export function JobTimeline({ machines, jobs, onJobCreated, onJobUpdated, onJobD
                     return (
                       <div
                         key={job.id}
+                        data-tutorial={job.status === "AWAITING_VERIFICATION" ? "awaiting-job" : undefined}
                         className={cn(
                           "absolute top-1.5 bottom-1.5 rounded-md shadow-sm px-2 text-xs font-medium truncate hover:z-20 select-none transition-transform",
                           isBeingDragged ? "opacity-30" : "hover:brightness-95",

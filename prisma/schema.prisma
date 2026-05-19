@@ -56,6 +56,7 @@ model User {
   role             Role                    @default(TEAM_MEMBER)
   locale           String                  @default("de")
   createdAt        DateTime                @default(now())
+  onboardedAt      DateTime?
   assignedOrders   OrderAssignee[]
   comments         OrderComment[]
   auditLogs        AuditLog[]

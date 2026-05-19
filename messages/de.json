@@ -81,7 +81,6 @@
     "part_name_placeholder": "Teilname *",
     "less": "Weniger",
     "more": "Mehr",
-    "download": "Herunterladen",
     "move_to_part": "Zu Teil verschieben",
     "delete_file": "Datei löschen",
     "file_uploaded": "Datei hochgeladen",
@@ -101,7 +100,6 @@
     "prototype_iteration_started": "Prototyp-Iteration #{count} gestartet",
     "iteration_start_failed": "Fehler beim Starten der Iteration"
   },
-
   "nav": {
     "dashboard": "Dashboard",
     "orders": "Aufträge",
@@ -121,9 +119,9 @@
     "hello_customer": "Hallo, {name}",
     "signin": "Anmelden",
     "signout": "Abmelden",
-    "help": "Hilfe"
+    "help": "Hilfe",
+    "start_tutorial": "Tutorial starten"
   },
-
   "wiki": {
     "title": "Bedienungs-Wiki",
     "search_placeholder": "Wiki durchsuchen …",
@@ -131,7 +129,6 @@
     "fallback_banner": "Diese Seite ist noch nicht auf Englisch verfügbar — Inhalt wird auf Deutsch angezeigt.",
     "back_to_overview": "Zur Übersicht"
   },
-
   "landing": {
     "start_order_cta": "Druckauftrag starten",
     "hero_eyebrow": "Dein Schulmakerspace",
@@ -167,7 +164,6 @@
     "imprint": "Impressum",
     "privacy": "Datenschutz"
   },
-
   "auth": {
     "signin_title": "Anmelden",
     "signin_subtitle": "Gib deine Zugangsdaten ein",
@@ -188,7 +184,6 @@
     "password_changed": "Passwort wurde geändert. Bitte melden Sie sich an.",
     "save_password": "Passwort speichern"
   },
-
   "order_form": {
     "title": "3D-Druck Auftrag einreichen",
     "subtitle": "Beschreibe deinen Auftrag und lade Dateien oder Bilder hoch. Du erhältst einen Tracking-Link zum Verfolgen deines Auftrags.",
@@ -215,7 +210,6 @@
     "submit_cta": "Auftrag einreichen",
     "remove_file": "Datei entfernen: {name}"
   },
-
   "track": {
     "title": "Auftragsstatus",
     "new_order_cta": "Neuen Auftrag einreichen",
@@ -284,7 +278,6 @@
     "audit_verification_rejected": "Freigabe abgelehnt",
     "audit_verification_admin": "Freigabe durch Team erteilt"
   },
-
   "survey": {
     "title": "Wie war Ihr Erlebnis?",
     "greeting": "Hallo {name}, wir freuen uns über Ihr Feedback.",
@@ -298,7 +291,6 @@
     "already_submitted_title": "Vielen Dank für Ihr Feedback!",
     "already_submitted_desc": "Hallo {name}, Ihre Antworten wurden bereits übermittelt."
   },
-
   "portal": {
     "my_orders": "Meine Aufträge",
     "my_orders_desc": "Hallo, {name} — hier sind alle Ihre 3D-Druck-Aufträge.",
@@ -395,25 +387,20 @@
     "from_team": "Team",
     "image_preview": "Bildvorschau"
   },
-
   "admin": {
     "dashboard_title": "Dashboard",
     "dashboard_desc": "Übersicht über laufende Aufträge und Aktivitäten",
-
     "kanban_archive_drop": "Loslassen zum Archivieren",
     "kanban_archive_hint": "Hierher ziehen zum Archivieren",
     "kanban_archive": "Archiv",
-
     "orders_title": "Aufträge",
     "orders_archive": "Archiv",
     "orders_singular": "Auftrag",
     "orders_plural": "Aufträge",
     "orders_archived": "archiviert",
     "orders_active": "aktiv",
-
     "settings_title": "Einstellungen",
     "settings_desc": "System, Team und Workflow konfigurieren",
-
     "jobs_no_machines_title": "Keine Maschinen konfiguriert",
     "jobs_no_machines_desc": "Füge zuerst Drucker hinzu, um den Job-Queue zu nutzen.",
     "jobs_manage_machines": "Maschinen verwalten",
@@ -425,7 +412,6 @@
     "jobs_suggest": "Druckjobs vorschlagen",
     "jobs_not_found": "Kein Job mit ID \"{id}\" gefunden",
     "jobs_search_error": "Fehler bei der Suche",
-
     "dashboard_open_orders": "Offene Aufträge",
     "dashboard_active_jobs": "Aktive Druckjobs",
     "dashboard_overdue": "Überfällig",
@@ -447,16 +433,13 @@
     "dashboard_hours_ago": "vor {count} Std.",
     "dashboard_days_ago_1": "vor 1 Tag",
     "dashboard_days_ago": "vor {count} Tagen",
-
     "view_kanban": "Kanban",
     "view_gantt": "Gantt",
     "view_archive": "Archiv",
     "view_orders": "Aufträge",
-
     "filter_due_today": "Fällig heute",
     "filter_this_week": "Diese Woche",
     "filter_overdue": "Überfällig",
-
     "job_status_planned": "Geplant",
     "job_status_sliced": "Gesliced",
     "job_status_in_progress": "Im Druck",
@@ -465,7 +448,6 @@
     "job_status_cancelled": "Storniert",
     "job_card_parts": "Teile",
     "job_card_more": "+{count} weitere",
-
     "timeline_back": "Zurück",
     "timeline_forward": "Vor",
     "timeline_today": "Heute",
@@ -478,7 +460,6 @@
     "timeline_drag_hint": "Auf die Timeline ziehen zum Planen",
     "timeline_duration_unknown": "Dauer unbekannt",
     "timeline_overlap_error": "Überschneidung mit einem anderen Druckauftrag",
-
     "order_detail_back": "Zurück zum Board",
     "order_detail_prototype_prefix": "Prototyp · #",
     "order_detail_description": "Beschreibung",
@@ -537,7 +518,6 @@
     "order_detail_comment_prefix": "Kommentar:",
     "order_detail_history": "Verlauf",
     "order_detail_deduct_for_order": "Abzug für Auftrag vom {date}",
-
     "audit_submitted": "Auftrag eingereicht",
     "audit_phase_changed": "Status geändert",
     "audit_assignee_changed": "Bearbeiter geändert",
@@ -567,7 +547,6 @@
     "audit_prototype_on": "Prototyp-Modus aktiviert",
     "audit_prototype_off": "Prototyp-Modus deaktiviert",
     "audit_iteration_inc": "Iteration erhöht",
-
     "toast_phase_saved": "Phase gespeichert",
     "toast_phase_failed": "Speichern fehlgeschlagen",
     "toast_assignee_saved": "Zuweisung gespeichert",
@@ -587,7 +566,6 @@
     "toast_send_failed": "Fehler beim Senden",
     "toast_verification_sent": "Freigabeanfrage versandt",
     "toast_deleted": "Dauerhaft gelöscht",
-
     "archive_no_orders": "Keine archivierten Aufträge",
     "archive_customer": "Kunde",
     "archive_email": "E-Mail",
@@ -600,7 +578,6 @@
     "archive_delete_confirm": "Auftrag endgültig löschen?",
     "archive_deleted": "Auftrag gelöscht",
     "archive_delete_failed": "Fehler beim Löschen",
-
     "phase_manager_title": "Phasen",
     "phase_manager_desc": "Konfiguriere die Phasen für den Auftrags-Workflow",
     "phase_manager_add": "Phase hinzufügen",
@@ -623,7 +600,6 @@
     "phase_badge_survey": "Umfrage",
     "phase_badge_prototype": "Prototyp",
     "phase_badge_orders": "Aufträge",
-
     "part_phase_title": "Teilphasen",
     "part_phase_desc": "Konfiguriere die Phasen für den Teil-Workflow",
     "part_phase_add": "Teilphase hinzufügen",
@@ -640,7 +616,6 @@
     "part_phase_badge_standard": "Standard",
     "part_phase_badge_print_ready": "Druckbereit",
     "part_phase_badge_parts": "Teile",
-
     "project_phase_title": "Projektphasen verwalten",
     "project_phase_desc": "Konfiguriere die Phasen für den Projekt-Workflow",
     "project_phase_empty": "Noch keine Projektphasen konfiguriert",
@@ -650,7 +625,6 @@
     "project_phase_is_default": "Als Standard-Phase (für neue Projekte)",
     "project_phase_badge_standard": "Standard",
     "project_phase_badge_projects": "Projekte",
-
     "team_title": "Team",
     "team_desc": "Verwalte die Teammitglieder und ihre Rollen",
     "team_add": "Hinzufügen",
@@ -678,7 +652,6 @@
     "team_delete_confirm": "wirklich entfernen?",
     "team_added": "Teammitglied hinzugefügt",
     "team_removed": "Teammitglied entfernt",
-
     "machine_title": "Maschinen",
     "machine_desc": "Verwalte deine 3D-Drucker und deren Spezifikationen",
     "machine_add": "Maschine hinzufügen",
@@ -704,7 +677,6 @@
     "machine_delete_failed": "Fehler beim Löschen",
     "machine_badge_inactive": "Inaktiv",
     "machine_badge_jobs": "Jobs",
-
     "inventory_title": "Inventar",
     "inventory_all": "Alle Materialien",
     "inventory_show_inactive": "Inaktive anzeigen",
@@ -737,7 +709,6 @@
     "inventory_delete_confirm": "Filament wirklich löschen?",
     "inventory_deleted": "Filament gelöscht",
     "inventory_delete_failed": "Löschen fehlgeschlagen",
-
     "knowledge_title": "Wissensdatenbank",
     "knowledge_desc": "Dokumentiere häufige Probleme und deren Lösungen",
     "knowledge_new": "Neu erstellen",
@@ -777,7 +748,6 @@
     "knowledge_title_required": "Titel ist erforderlich",
     "knowledge_problem_required": "Problem ist erforderlich",
     "knowledge_solution_required": "Lösung ist erforderlich",
-
     "customer_title": "Kunden",
     "customer_desc": "Kundenkonten und Filament-Guthaben verwalten",
     "customer_add": "Hinzufügen",
@@ -822,7 +792,6 @@
     "customer_credit_booked": "Guthaben gebucht",
     "customer_credit_book_failed": "Fehler beim Buchen",
     "customer_activate": "Freischalten",
-
     "job_dialog_parts": "Teile",
     "job_dialog_search_parts": "Auftrag suchen, Teile hinzufügen...",
     "job_dialog_no_parts_found": "Keine Teile gefunden",
@@ -853,7 +822,6 @@
     "job_dialog_print_time_gcode": "Aus G-Code extrahiert",
     "job_dialog_notes_placeholder": "Besonderheiten, Einstellungen...",
     "job_dialog_assignee": "Zugewiesen an",
-
     "verify_dialog_title": "Druck verifizieren",
     "verify_dialog_desc": "Prüfe jedes Teil vom Druckbett und markiere es als erfolgreich oder als Fehldruck.",
     "verify_dialog_no_parts": "Keine Teile in diesem Job.",
@@ -864,14 +832,12 @@
     "verify_dialog_complete": "Verifikation abschließen",
     "verify_dialog_load_failed": "Fehler beim Laden der Teile",
     "verify_dialog_done": "Verifikation abgeschlossen",
-
     "create_job_title": "Neuer Druckjob",
     "create_job_machine_required": "Bitte eine Maschine auswählen",
     "create_job_created": "Druckjob erstellt",
     "create_job_failed": "Fehler beim Erstellen",
     "create_job_machine_placeholder": "Maschine wählen...",
     "create_job_start": "Geplanter Starttermin",
-
     "suggest_jobs_title": "Druckjobs vorschlagen",
     "suggest_jobs_loading": "Analysiere druckbereite Teile…",
     "suggest_jobs_empty": "Keine druckbereiten Teile gefunden, die nicht bereits einem Job zugeordnet sind.",
@@ -889,7 +855,6 @@
     "suggest_jobs_creating": "Erstelle Jobs…",
     "suggest_jobs_skipped": "Nicht eingeplant ({count})",
     "suggest_jobs_create_failed": "Druckjobs konnten nicht erstellt werden",
-
     "part_file_save_failed": "Zuweisung konnte nicht gespeichert werden",
     "part_file_design_approved": "Designfreigabe erteilt",
     "part_file_approve_failed": "Freigabe fehlgeschlagen",
@@ -925,7 +890,6 @@
     "part_file_no_files": "Keine Dateien in dieser Kategorie",
     "part_file_earlier_designs": "Frühere Designs ({count})",
     "part_file_added_to_job": "Teil \"{name}\" zum Druckjob hinzugefügt",
-
     "link_job_title": "Zu Druckjob hinzufügen",
     "link_job_active": "Aktiver Job",
     "link_job_loading": "Lade Jobs...",
@@ -934,7 +898,6 @@
     "link_job_load_failed": "Jobs konnten nicht geladen werden",
     "link_job_added": "Teil \"{name}\" zum Job hinzugefügt",
     "link_job_add_failed": "Fehler beim Hinzufügen",
-
     "settings_tab_general": "Allgemein",
     "settings_tab_company": "Unternehmen",
     "settings_tab_legal": "Rechtliches",
@@ -995,7 +958,6 @@
     "settings_legal_email_placeholder": "info@beispiel.de",
     "settings_saved": "Gespeichert",
     "settings_save_failed": "Speichern fehlgeschlagen",
-
     "projects_title": "Projekte",
     "projects_new": "Neues Projekt",
     "project_created": "Projekt erstellt",
@@ -1018,7 +980,6 @@
     "planning_title": "Planung",
     "planning_today": "Heute"
   },
-
   "model_viewer": {
     "no_preview": "Vorschau nicht verfügbar",
     "rotate_label": "Drehen (Links-Drag)",
@@ -1056,7 +1017,6 @@
     "orientation_reset": "Orientierung zurücksetzen",
     "build_plate": "Bauplatte"
   },
-
   "phases": {
     "Eingegangen": "Eingegangen",
     "In Prüfung": "In Prüfung",
@@ -1073,13 +1033,11 @@
     "Pausiert": "Pausiert",
     "Archiviert": "Archiviert"
   },
-
   "filaments": {
     "Weiß": "Weiß",
     "Schwarz": "Schwarz",
     "Transparent Blau": "Transparent Blau"
   },
-
   "errors": {
     "unauthorized": "Nicht authentifiziert",
     "forbidden": "Keine Berechtigung",
@@ -1093,5 +1051,81 @@
     "no_default_phase": "Keine Standardphase gefunden",
     "order_awaiting_approval": "Auftrag wartet auf Freigabe und kann nicht vorwärts verschoben werden",
     "job_overlap": "Überschneidung mit einem anderen Druckauftrag"
+  },
+  "tutorial": {
+    "welcome": {
+      "title": "Willkommen bei PrintTrack",
+      "subtitle": "In 7 Schritten durch einen echten Auftrag — du siehst die wichtigsten Funktionen direkt in Aktion.",
+      "story_label": "Dein erster Auftrag:",
+      "story": "Dr. Weber vom Gymnasium Leibniz braucht 3 Ersatz-Elektronen für das Bohr’sche Atommodell seines Klassensatzes. Die Originalteile sind gebrochen — Frist: 2 Wochen vor der nächsten Schulstunde.",
+      "story_quantity": "3× Elektronen-Träger",
+      "story_deadline": "Frist: 2 Wochen",
+      "no_data_saved": "Keine echten Daten werden gespeichert - alles bleibt im Browser.",
+      "start": "Tutorial starten",
+      "skip": "Überspringen"
+    },
+    "steps": {
+      "kanban_drag": {
+        "title": "Auftrags-Board (Kanban)",
+        "body": "Dr. Webers Auftrag ist gerade eingegangen. Ziehe die Karte von „Eingegangen“ nach „In Prüfung“ um die Phase zu wechseln.",
+        "hint": "→ Karte in die nächste Spalte ziehen"
+      },
+      "open_detail": {
+        "title": "Auftragsdetails öffnen",
+        "body": "Super! Der Auftrag ist in „In Prüfung“. Klicke jetzt auf die Karte um alle Details zu sehen.",
+        "hint": "→ Auf die Karte klicken"
+      },
+      "model_viewer": {
+        "title": "3D-Modell des Bauteils prüfen",
+        "body": "Das Teil ist bereits ausgeklappt. Klicke jetzt auf die STL-Datei um das 3D-Modell im Viewer zu laden und zu prüfen.",
+        "hint": "→ STL-Datei anklicken"
+      },
+      "filament_select": {
+        "title": "Filament zuweisen",
+        "body": "Weise dem Teil das richtige Material zu. Klicke auf den Filament-Button am Bauteil und wähle „PLA Grau“ aus der Liste.",
+        "hint": "→ Filament-Button klicken und auswählen"
+      },
+      "part_phase": {
+        "title": "Teil zur Überprüfung freigeben",
+        "body": "Als Admin setzt du die Phase direkt. Normalerweise bekommt der Kunde einen Link zur Designfreigabe und bestätigt selbst — PrintTrack setzt das Teil dann automatisch auf „Druckbereit“. Klicke auf den Phase-Button und wähle „Überprüfung“.",
+        "hint": "→ Phase-Button klicken → „Überprüfung“ wählen"
+      },
+      "jobs_plan": {
+        "title": "Druckjob automatisch planen",
+        "body": "Die Elektronen-Träger können jetzt gedruckt werden. Klicke „Druckjobs vorschlagen“ — PrintTrack plant den optimalen Job auf dem verfügbaren Drucker. Bestätige anschließend.",
+        "hint": "→ Vorschlagen klicken, dann Job bestätigen"
+      },
+      "job_verify": {
+        "title": "Druckergebnis prüfen",
+        "body": "Der Druck ist fertig (orangener Balken = Verifikation ausstehend). Klicke den Balken, öffne den Job, klicke „Druck verifizieren“. Markiere das Teil als Gut oder Fehldruck — dann „Verifikation abschließen“.",
+        "hint": "→ Balken → Verifizieren → Gut → Abschließen"
+      },
+      "viewer_guide": {
+        "title": "3D-Viewer bedienen",
+        "body": "Der 3D-Viewer zeigt das Modell direkt im Browser. Drehe es mit der Maus, zoome mit dem Scrollrad und klicke auf das Modell um Anmerkungen zu setzen.",
+        "hint": "Drehen: Linke Maustaste  ·  Zoomen: Scrollrad  ·  Anmerkung: auf Modell klicken"
+      }
+    },
+    "controls": {
+      "next": "Weiter",
+      "back": "Zurück",
+      "skip": "Tutorial beenden",
+      "finish": "Fertig",
+      "progress": "Schritt {current} / {total}",
+      "waiting": "Warte auf deine Interaktion…"
+    },
+    "complete": {
+      "title": "Dr. Webers Ersatzteile sind fertig! ✓",
+      "subtitle": "Du hast alle wichtigen Funktionen kennengelernt. So läuft ein echter Auftrag durch PrintTrack.",
+      "achievement_kanban": "Kanban-Board — Aufträge per Drag & Drop durch Phasen führen",
+      "achievement_detail": "Auftragsdetails — Beschreibung, Deadline und Auftragsdaten im Blick",
+      "achievement_viewer": "3D-Viewer — Bauteile prüfen, rotieren und kommentieren",
+      "achievement_verification": "Filament & Phase — Material zuweisen und Bauteil freigeben",
+      "achievement_jobs": "Auto-Planer — Druckjobs automatisch auf Maschinen verteilen",
+      "achievement_verify": "Qualitätsprüfung — Druckergebnisse Teil für Teil freigeben",
+      "relaunch_hint": "Tutorial jederzeit über die Sidebar neu starten.",
+      "restart": "Nochmal starten",
+      "finish": "Loslegen"
+    }
   }
 }

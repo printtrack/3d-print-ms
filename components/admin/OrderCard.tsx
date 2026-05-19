@@ -101,6 +101,7 @@ export function OrderCard({ order, searchQuery }: OrderCardProps) {
   return (
     <div
       id={`order-${order.id}`}
+      data-tutorial={order.id.startsWith("tutorial-") ? "order-card" : undefined}
       ref={setNodeRef}
       style={style}
       {...attributes}

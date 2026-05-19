@@ -656,6 +656,7 @@ export function JobDetailDialog({
           {job.status === "AWAITING_VERIFICATION" && (
             <Button
               variant="default"
+              data-tutorial="druck-verifizieren"
               className="mr-auto bg-orange-600 hover:bg-orange-700 text-white"
               onClick={() => setVerifyOpen(true)}
             >
