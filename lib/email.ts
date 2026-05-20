@@ -398,6 +398,54 @@ export async function sendCustomerVerificationEmail({
   });
 }
 
+export async function sendCustomerMessageEmail({
+  customerEmail,
+  customerName,
+  trackingToken,
+  messageBody,
+}: {
+  customerEmail: string;
+  customerName: string;
+  trackingToken: string;
+  messageBody: string;
+}) {
+  const [settings, locale] = await Promise.all([
+    getSettings(),
+    getRecipientLocale(customerEmail),
+  ]);
+  const companyName = settings.company_name ?? "3D Print CMS";
+  const signature = settings.company_signature ?? (locale === "en" ? "Your 3D Print Team" : "Ihr 3D-Druck-Team");
+  const contactEmail = settings.contact_email ?? "noreply@3dprinting.local";
+  const wrap = getEmailWrappers(locale);
+  const suffix = localeSuffix(locale);
+
+  const trackingUrl = `${BASE_URL}/track/${trackingToken}`;
+  const vars = { customerName, messageBody, trackingUrl, companyName };
+
+  const subject = renderTemplate(
+    settings[`email_customer_message_subject${suffix}`] ?? settings.email_customer_message_subject_de ?? "Nachricht zu deinem Auftrag bei {{companyName}}",
+    vars
+  );
+  const bodyText = renderTemplate(
+    settings[`email_customer_message_body${suffix}`] ?? settings.email_customer_message_body_de ??
+      "wir haben eine Nachricht zu deinem 3D-Druck-Auftrag:\n\n{{messageBody}}\n\nDen aktuellen Status deines Auftrags kannst du jederzeit einsehen:",
+    vars
+  );
+
+  const bodyHtml = `
+    <p>${escapeHtml(wrap.greeting(customerName))}</p>
+    ${bodyText.split("\n").map((line) => line ? `<p>${escapeHtml(line)}</p>` : "<br>").join("")}
+    <p><a href="${trackingUrl}" style="color:#6366f1">${wrap.trackLink}</a></p>`;
+
+  await sendMail({
+    from: `${companyName} <${contactEmail}>`,
+    to: customerEmail,
+    subject,
+    text: [wrap.greeting(customerName), "", bodyText, "", `${wrap.trackLink}: ${trackingUrl}`, "", wrap.closing, signature].join("\n"),
+    html: buildHtml(companyName, bodyHtml, signature),
+  });
+}
+
 function escapeHtml(str: string) {
   return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }

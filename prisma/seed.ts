@@ -162,6 +162,24 @@ async function main() {
       value:
         "Hello {{name}},\n\nplease verify your email address to activate your account.\nThis link is valid for 24 hours.",
     },
+    {
+      key: "email_customer_message_subject_de",
+      value: "Nachricht zu deinem Auftrag bei {{companyName}}",
+    },
+    {
+      key: "email_customer_message_body_de",
+      value:
+        "wir haben eine Nachricht zu deinem 3D-Druck-Auftrag:\n\n{{messageBody}}\n\nDen aktuellen Status deines Auftrags kannst du jederzeit einsehen:",
+    },
+    {
+      key: "email_customer_message_subject_en",
+      value: "Message regarding your order at {{companyName}}",
+    },
+    {
+      key: "email_customer_message_body_en",
+      value:
+        "we have a message regarding your 3D print order:\n\n{{messageBody}}\n\nYou can check the current status of your order at any time:",
+    },
   ];
 
   for (const setting of defaultSettings) {

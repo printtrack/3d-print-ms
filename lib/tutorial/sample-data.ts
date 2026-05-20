@@ -85,7 +85,7 @@ export const TUTORIAL_ORDER_DETAIL = {
       notes: [] as import("@/components/admin/files/types").NoteData[],
     },
   ],
-  comments: [] as Array<{ id: string; content: string; createdAt: string; author: { id: string; name: string; email: string } }>,
+  comments: [] as Array<{ id: string; content: string; sentToCustomer: boolean; createdAt: string; author: { id: string; name: string; email: string } }>,
   auditLogs: [
     { id: "tutorial-log-1", action: "ORDER_CREATED", details: null, createdAt: NOW, user: null },
   ],

@@ -473,6 +473,55 @@ export function SettingsForm({
                 </div>
               </CardContent>
             </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">E-Mail: Kundennachricht</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-xs text-muted-foreground">
+                  Wird versendet, wenn das Team eine direkte Nachricht an den Kunden sendet (Tab „Kundenkontakt" auf der Auftragsseite). Verfügbare Variablen: <code className="font-mono">{"{{customerName}}"}</code>, <code className="font-mono">{"{{messageBody}}"}</code>, <code className="font-mono">{"{{trackingUrl}}"}</code>, <code className="font-mono">{"{{companyName}}"}</code>.
+                </p>
+                <div className="space-y-2">
+                  <Label htmlFor="email_customer_message_subject_de">Betreff (Deutsch)</Label>
+                  <Input
+                    id="email_customer_message_subject_de"
+                    value={settings.email_customer_message_subject_de ?? ""}
+                    onChange={(e) => set("email_customer_message_subject_de", e.target.value)}
+                    placeholder="Nachricht zu deinem Auftrag bei {{companyName}}"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email_customer_message_body_de">Inhalt (Deutsch)</Label>
+                  <Textarea
+                    id="email_customer_message_body_de"
+                    rows={5}
+                    value={settings.email_customer_message_body_de ?? ""}
+                    onChange={(e) => set("email_customer_message_body_de", e.target.value)}
+                    placeholder={"wir haben eine Nachricht zu deinem 3D-Druck-Auftrag:\n\n{{messageBody}}\n\nDen aktuellen Status deines Auftrags kannst du jederzeit einsehen:"}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email_customer_message_subject_en">Betreff (Englisch)</Label>
+                  <Input
+                    id="email_customer_message_subject_en"
+                    value={settings.email_customer_message_subject_en ?? ""}
+                    onChange={(e) => set("email_customer_message_subject_en", e.target.value)}
+                    placeholder="Message regarding your order at {{companyName}}"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email_customer_message_body_en">Inhalt (Englisch)</Label>
+                  <Textarea
+                    id="email_customer_message_body_en"
+                    rows={5}
+                    value={settings.email_customer_message_body_en ?? ""}
+                    onChange={(e) => set("email_customer_message_body_en", e.target.value)}
+                    placeholder={"we have a message regarding your 3D print order:\n\n{{messageBody}}\n\nYou can check the current status of your order at any time:"}
+                  />
+                </div>
+              </CardContent>
+            </Card>
           </div>
         )}
 

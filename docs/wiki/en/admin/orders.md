@@ -42,5 +42,5 @@ Orders are submitted by customers via the public order form (`/`). Admins cannot
 
 ## Sub-pages
 
-- [[Order detail|orders-detail]] — change phase, files, comments, audit log
+- [[Order detail|orders-detail]] — change phase, files, activity tabs (comments, history, customer contact)
 - [[3D Viewer & Print Orientation|orders-3dviewer]] — open models in browser, set print orientation

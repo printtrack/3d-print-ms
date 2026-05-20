@@ -1,6 +1,6 @@
 ---
 title: "Auftrags-Detailansicht"
-description: "Phase ändern, Teile verwalten, Dateien, Kommentare und Audit-Log"
+description: "Phase ändern, Teile verwalten, Dateien, Aktivitäts-Tabs (Kommentare, Verlauf, Kundenkontakt)"
 icon: "ClipboardList"
 group: "Aufträge & Produktion"
 order: 2.1
@@ -61,21 +61,25 @@ Dateien, die der Kunde beim Einreichen des Auftrags hochgeladen hat. Diese könn
 - **Download** — Klicke auf den Dateinamen.
 - **Löschen** — Klicke auf das Papierkorb-Symbol neben der Datei. Diese Aktion ist unwiderruflich.
 
-## Kommentare
+## Aktivität
 
-Im Kommentarfeld am unteren Ende kannst du interne Notizen für das Team hinterlassen.
+Die Aktivitäts-Karte am unteren Ende des Hauptbereichs fasst alle Kommunikation und Änderungen in einem einzigen Ort zusammen — mit vier Tabs:
 
-- Kommentare sind **nur intern** sichtbar — Kunden sehen diese nicht.
+### Tab: Alle
+
+Zeigt einen chronologischen Mix aus internen Kommentaren, Kundennachrichten und Audit-Einträgen (neueste zuerst). Ermöglicht das Schreiben eines internen Kommentars.
+
+### Tab: Kommentare
+
+Zeigt nur **interne Kommentare** des Teams.
+
+- Kommentare sind **nur intern** sichtbar — Kunden sehen sie nicht.
 - Jeder Kommentar wird mit Autor und Zeitstempel versehen.
 - Kommentare können nicht bearbeitet oder gelöscht werden (Revisionssicherheit).
 
-## Umfrage-Ergebnis
+### Tab: Verlauf
 
-Wenn der Auftrag eine Kundenzufriedenheits-Umfrage enthält, wird das Ergebnis hier angezeigt (Bewertung und optionaler Kommentar des Kunden).
-
-## Audit-Log
-
-Das Audit-Log am unteren Ende protokolliert automatisch **jede Änderung** am Auftrag:
+Zeigt das **Audit-Log** — ein automatisches Protokoll jeder Änderung am Auftrag (read-only):
 
 | Ereignis | Eintrag |
 |----------|---------|
@@ -83,8 +87,23 @@ Das Audit-Log am unteren Ende protokolliert automatisch **jede Änderung** am Au
 | Datei hochgeladen | Dateiname, Zeitstempel, Benutzer |
 | Kommentar hinzugefügt | Zeitstempel und Benutzer |
 | Job verknüpft/entfernt | Name des Druckjobs |
+| Kundennachricht versendet | Vorschau der Nachricht |
 
-Das Log ist nicht editierbar.
+### Tab: Kundenkontakt
+
+Ermöglicht das direkte Anschreiben des Kunden per E-Mail ohne das System zu verlassen:
+
+1. Wechsle zum Tab **Kundenkontakt**.
+2. Schreibe deine Nachricht im Textfeld (ein Hinweis zeigt die Ziel-E-Mail-Adresse an).
+3. Klicke **An Kunde senden** — die Nachricht wird sofort per E-Mail zugestellt.
+
+Gesendete Nachrichten erscheinen anschließend im Tab **Kundenkontakt** und im Tab **Alle** mit dem Badge *"An Kunde gesendet"*.
+
+Das E-Mail-Template (Betreff und Rahmtext) kann unter [[Einstellungen → E-Mails|settings]] konfiguriert werden (Abschnitt „E-Mail: Kundennachricht").
+
+## Umfrage-Ergebnis
+
+Wenn der Auftrag eine Kundenzufriedenheits-Umfrage enthält, wird das Ergebnis hier angezeigt (Bewertung und optionaler Kommentar des Kunden).
 
 ## Verknüpfte Druckjobs
 

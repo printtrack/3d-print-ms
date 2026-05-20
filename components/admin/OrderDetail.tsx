@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useCallback, useEffect } from "react";
+import { useRef, useState, useCallback, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useLiveEvents } from "@/lib/use-live-events";
 import { Badge } from "@/components/ui/badge";
@@ -29,9 +29,11 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Separator } from "@/components/ui/separator";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Kbd, KbdGroup } from "@/components/ui/kbd";
 import { toast } from "sonner";
-import { useTranslations } from "next-intl";
-import { formatDateTime } from "@/lib/utils";
+import { useTranslations, useLocale } from "next-intl";
+import { formatDateTime, formatDate, localeToDateLocale } from "@/lib/utils";
 import { FileManager } from "@/components/admin/files/FileManager";
 import { type OrderPartData } from "@/components/admin/files/PartFileSection";
 import type { OrderFileData } from "@/components/admin/files/types";
@@ -39,9 +41,9 @@ import {
   Archive,
   ArrowLeft,
   Check,
-  ChevronDown,
   Clock,
   Flag,
+  Mail,
   MessageSquare,
   Plus,
   RotateCcw,
@@ -128,6 +130,7 @@ interface OrderDetailProps {
     comments: Array<{
       id: string;
       content: string;
+      sentToCustomer: boolean;
       createdAt: string;
       author: { id: string; name: string; email: string };
     }>;
@@ -177,7 +180,9 @@ function getInitials(name: string) {
 export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin, parts: initialParts, availableFilaments, customerCredit: initialCustomerCredit, partPhases, machines, buildVolume, initialMilestones }: OrderDetailProps) {
   const t = useTranslations("admin");
   const tc = useTranslations("common");
+  const locale = localeToDateLocale(useLocale());
   const router = useRouter();
+  const [activeTab, setActiveTab] = useState("all");
 
   function getActionLabel(action: string): string {
     const labels: Record<string, string> = {
@@ -210,6 +215,7 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
       PROTOTYPE_ENABLED: t("audit_prototype_on"),
       PROTOTYPE_DISABLED: t("audit_prototype_off"),
       ITERATION_INCREMENTED: t("audit_iteration_inc"),
+      CUSTOMER_MESSAGE_SENT: t("audit_customer_message_sent"),
     };
     return labels[action] ?? action;
   }
@@ -222,11 +228,11 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
     order.deadline ? new Date(order.deadline).toISOString().split("T")[0] : ""
   );
   const [comment, setComment] = useState("");
+  const [customerMessage, setCustomerMessage] = useState("");
   const [comments, setComments] = useState(order.comments);
   const [priceValue, setPriceValue] = useState(
     order.priceEstimate != null ? order.priceEstimate.toFixed(2) : ""
   );
-  const [auditLogOpen, setAuditLogOpen] = useState(false);
   const [savingPhase, setSavingPhase] = useState(false);
   const [savingAssignees, setSavingAssignees] = useState(false);
   const [savingDeadline, setSavingDeadline] = useState(false);
@@ -239,6 +245,7 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
     order.priceEstimate != null ? order.priceEstimate.toFixed(2) : ""
   );
   const [commenting, setCommenting] = useState(false);
+  const [sendingCustomerMessage, setSendingCustomerMessage] = useState(false);
   const [isPrototype, setIsPrototype] = useState(order.isPrototype);
   const [iterationCount, setIterationCount] = useState(order.iterationCount);
   const [togglingPrototype, setTogglingPrototype] = useState(false);
@@ -296,6 +303,43 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
     setParts(initialParts);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialParts]);
+
+  type ActivityItem =
+    | { kind: "comment"; data: (typeof comments)[0] }
+    | { kind: "customer_message"; data: (typeof comments)[0] }
+    | { kind: "audit"; data: (typeof order.auditLogs)[0] };
+
+  // Ascending (oldest → newest) for chat-style display
+  const allActivityItems = useMemo<ActivityItem[]>(() => {
+    const items: ActivityItem[] = [
+      ...comments.map((c) =>
+        c.sentToCustomer
+          ? ({ kind: "customer_message", data: c } as ActivityItem)
+          : ({ kind: "comment", data: c } as ActivityItem)
+      ),
+      ...order.auditLogs.map((l) => ({ kind: "audit", data: l } as ActivityItem)),
+    ];
+    return items.sort(
+      (a, b) => new Date(a.data.createdAt).getTime() - new Date(b.data.createdAt).getTime()
+    );
+  }, [comments, order.auditLogs]);
+
+  const allFeedRef = useRef<HTMLDivElement>(null);
+  const commentsFeedRef = useRef<HTMLDivElement>(null);
+  const historyFeedRef = useRef<HTMLDivElement>(null);
+  const customerFeedRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll to bottom (newest) whenever items are added
+  useEffect(() => {
+    allFeedRef.current?.scrollTo({ top: allFeedRef.current.scrollHeight, behavior: "instant" });
+  }, [allActivityItems.length]);
+  useEffect(() => {
+    commentsFeedRef.current?.scrollTo({ top: commentsFeedRef.current.scrollHeight, behavior: "instant" });
+    customerFeedRef.current?.scrollTo({ top: customerFeedRef.current.scrollHeight, behavior: "instant" });
+  }, [comments.length]);
+  useEffect(() => {
+    historyFeedRef.current?.scrollTo({ top: historyFeedRef.current.scrollHeight, behavior: "instant" });
+  }, [order.auditLogs.length]);
 
   const currentPhase = phases.find((p) => p.id === selectedPhaseId);
   const currentPhaseIsPrototype = !!currentPhase?.isPrototype;
@@ -504,6 +548,27 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
     }
   }
 
+  async function handleSendCustomerMessage() {
+    if (!customerMessage.trim()) return;
+    setSendingCustomerMessage(true);
+    try {
+      const res = await fetch("/api/admin/comments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderId: order.id, content: customerMessage, sentToCustomer: true }),
+      });
+      if (!res.ok) throw new Error("Send failed");
+      const newComment = await res.json();
+      setComments((prev) => [...prev, newComment]);
+      setCustomerMessage("");
+      toast.success(t("toast_comment_added"));
+    } catch {
+      toast.error(t("toast_comment_failed"));
+    } finally {
+      setSendingCustomerMessage(false);
+    }
+  }
+
   async function handleToggleArchive() {
     setArchiving(true);
     try {
@@ -688,71 +753,247 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
             buildVolume={buildVolume}
           />
 
-          {/* Comments */}
+          {/* Aktivität */}
           <Card>
-            <CardHeader>
-              <CardTitle className="text-base flex items-center gap-2">
-                <MessageSquare className="h-4 w-4" />
-                {t("order_detail_comments")} ({comments.length})
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {comments.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-4">
-                  {t("order_detail_no_comments")}
-                </p>
-              )}
-
-              {comments.map((c) => (
-                <div key={c.id} className="flex gap-3">
-                  <Avatar className="h-8 w-8 shrink-0">
-                    <AvatarFallback className="text-xs bg-primary/10 text-primary">
-                      {getInitials(c.author.name)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <div className="flex-1 space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium">{c.author.name}</span>
-                      <span className="text-xs text-muted-foreground">
-                        {formatDateTime(c.createdAt)}
-                      </span>
-                    </div>
-                    <p className="text-sm whitespace-pre-wrap">{c.content}</p>
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between gap-4 flex-wrap">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <MessageSquare className="h-4 w-4 shrink-0" />
+                    <span className="font-semibold text-base">{t("order_detail_activity_title")}</span>
+                    <span className="text-sm text-muted-foreground font-normal">
+                      {comments.filter((c) => !c.sentToCustomer).length} {t("order_detail_comments")}
+                    </span>
                   </div>
+                  <TabsList className="bg-transparent h-auto p-0 gap-0.5 shrink-0">
+                    {(["all", "comments", "history", "customer"] as const).map((v) => (
+                      <TabsTrigger
+                        key={v}
+                        value={v}
+                        className="rounded-full px-3 py-1 text-sm font-medium h-auto shadow-none data-[state=active]:bg-foreground data-[state=active]:text-background data-[state=active]:shadow-none data-[state=inactive]:bg-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:shadow-none"
+                      >
+                        {v === "all" ? t("order_detail_activity_all")
+                          : v === "comments" ? t("order_detail_comments")
+                          : v === "history" ? t("order_detail_history")
+                          : t("order_detail_activity_customer")}
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
                 </div>
-              ))}
+              </CardHeader>
 
               <Separator />
 
-              <div className="flex gap-3">
-                <Avatar className="h-8 w-8 shrink-0">
-                  <AvatarFallback className="text-xs bg-primary/10 text-primary">
-                    <User className="h-4 w-4" />
-                  </AvatarFallback>
-                </Avatar>
-                <div className="flex-1 space-y-2">
-                  <Textarea
-                    placeholder={t("order_detail_comment_placeholder")}
-                    value={comment}
-                    onChange={(e) => setComment(e.target.value)}
-                    rows={3}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
-                        handleAddComment();
-                      }
-                    }}
-                  />
-                  <Button
-                    size="sm"
-                    onClick={handleAddComment}
-                    disabled={!comment.trim() || commenting}
-                  >
-                    <Send className="h-3 w-3 mr-2" />
-                    {commenting ? t("order_detail_comment_submitting") : t("order_detail_comment_submit")}
-                  </Button>
+              {/* Tab: Alle */}
+              <TabsContent value="all" className="mt-0 flex flex-col">
+                <div ref={allFeedRef} className="max-h-[400px] overflow-y-auto px-6 divide-y divide-border">
+                  {allActivityItems.length === 0 && (
+                    <p className="text-sm text-muted-foreground text-center py-8">{t("order_detail_no_history")}</p>
+                  )}
+                  {allActivityItems.map((item) =>
+                    item.kind === "audit" ? (
+                      <div key={`audit-${item.data.id}`} className="flex gap-3 items-center py-2">
+                        <div className="h-8 w-8 flex items-center justify-center shrink-0">
+                          <div className="h-5 w-5 rounded-full border border-border flex items-center justify-center">
+                            <Clock className="h-3 w-3 text-muted-foreground" />
+                          </div>
+                        </div>
+                        <p className="text-sm text-muted-foreground leading-snug">
+                          {item.data.user && <span className="font-medium text-foreground">{item.data.user.name}</span>}
+                          {" "}{getActionLabel(item.data.action)}
+                          {item.data.details && <span className="italic"> · {item.data.details}</span>}
+                          <span className="ml-2">{formatDate(item.data.createdAt, locale)}</span>
+                        </p>
+                      </div>
+                    ) : (
+                      <div key={`comment-${item.data.id}`} className="flex gap-3 py-3">
+                        <Avatar className="h-8 w-8 shrink-0">
+                          <AvatarFallback className="text-xs bg-primary text-primary-foreground font-semibold">
+                            {getInitials(item.data.author.name)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0 space-y-0.5">
+                          <p className="text-sm leading-snug">
+                            <span className="font-semibold">{item.data.author.name}</span>
+                            {" "}
+                            <span className="text-muted-foreground">
+                              {item.data.sentToCustomer ? t("order_detail_activity_messaged") : t("order_detail_activity_commented")}
+                              {" "}{formatDate(item.data.createdAt, locale)}
+                            </span>
+                            {item.data.sentToCustomer && (
+                              <span className="ml-2 inline-flex items-center gap-1 text-xs text-muted-foreground border rounded-full px-2 py-0.5 align-middle">
+                                <Mail className="h-3 w-3" />
+                                {t("order_detail_customer_message_sent_badge")}
+                              </span>
+                            )}
+                          </p>
+                          <p className="text-sm whitespace-pre-wrap">{item.data.content}</p>
+                        </div>
+                      </div>
+                    )
+                  )}
                 </div>
-              </div>
-            </CardContent>
+                <Separator />
+                <div className="px-6 pt-4 pb-5 space-y-3">
+                  <div className="flex gap-3 items-start">
+                    <Avatar className="h-8 w-8 shrink-0 mt-0.5">
+                      <AvatarFallback className="text-xs bg-primary text-primary-foreground font-semibold">
+                        <User className="h-4 w-4" />
+                      </AvatarFallback>
+                    </Avatar>
+                    <Textarea className="flex-1 resize-none text-sm min-h-[80px]" placeholder={t("order_detail_comment_placeholder")}
+                      value={comment} onChange={(e) => setComment(e.target.value)} rows={3}
+                      onKeyDown={(e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) handleAddComment(); }} />
+                  </div>
+                  <div className="flex items-center justify-between pl-11">
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground select-none">
+                      <span>@ @mention</span><span>·</span>
+                      <KbdGroup><Kbd>⌘</Kbd><Kbd>↩</Kbd></KbdGroup>
+                      <span>senden</span>
+                    </div>
+                    <Button size="sm" onClick={handleAddComment} disabled={!comment.trim() || commenting}>
+                      <Send className="h-3 w-3 mr-1.5" />
+                      {commenting ? t("order_detail_comment_submitting") : t("order_detail_comment_submit")}
+                    </Button>
+                  </div>
+                </div>
+              </TabsContent>
+
+              {/* Tab: Kommentare */}
+              <TabsContent value="comments" className="mt-0 flex flex-col">
+                <div ref={commentsFeedRef} className="max-h-[400px] overflow-y-auto px-6 divide-y divide-border">
+                  {comments.filter((c) => !c.sentToCustomer).length === 0 && (
+                    <p className="text-sm text-muted-foreground text-center py-8">{t("order_detail_no_comments")}</p>
+                  )}
+                  {[...comments].filter((c) => !c.sentToCustomer)
+                    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+                    .map((c) => (
+                      <div key={c.id} className="flex gap-3 py-3">
+                        <Avatar className="h-8 w-8 shrink-0">
+                          <AvatarFallback className="text-xs bg-primary text-primary-foreground font-semibold">
+                            {getInitials(c.author.name)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0 space-y-0.5">
+                          <p className="text-sm leading-snug">
+                            <span className="font-semibold">{c.author.name}</span>
+                            {" "}<span className="text-muted-foreground">{t("order_detail_activity_commented")} {formatDate(c.createdAt, locale)}</span>
+                          </p>
+                          <p className="text-sm whitespace-pre-wrap">{c.content}</p>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+                <Separator />
+                <div className="px-6 pt-4 pb-5 space-y-3">
+                  <div className="flex gap-3 items-start">
+                    <Avatar className="h-8 w-8 shrink-0 mt-0.5">
+                      <AvatarFallback className="text-xs bg-primary text-primary-foreground font-semibold">
+                        <User className="h-4 w-4" />
+                      </AvatarFallback>
+                    </Avatar>
+                    <Textarea className="flex-1 resize-none text-sm min-h-[80px]" placeholder={t("order_detail_comment_placeholder")}
+                      value={comment} onChange={(e) => setComment(e.target.value)} rows={3}
+                      onKeyDown={(e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) handleAddComment(); }} />
+                  </div>
+                  <div className="flex items-center justify-between pl-11">
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground select-none">
+                      <span>@ @mention</span><span>·</span>
+                      <KbdGroup><Kbd>⌘</Kbd><Kbd>↩</Kbd></KbdGroup>
+                      <span>senden</span>
+                    </div>
+                    <Button size="sm" onClick={handleAddComment} disabled={!comment.trim() || commenting}>
+                      <Send className="h-3 w-3 mr-1.5" />
+                      {commenting ? t("order_detail_comment_submitting") : t("order_detail_comment_submit")}
+                    </Button>
+                  </div>
+                </div>
+              </TabsContent>
+
+              {/* Tab: Verlauf */}
+              <TabsContent value="history" className="mt-0">
+                <div ref={historyFeedRef} className="max-h-[400px] overflow-y-auto px-6 py-2 divide-y divide-border">
+                  {order.auditLogs.length === 0 && (
+                    <p className="text-sm text-muted-foreground text-center py-8">{t("order_detail_no_history")}</p>
+                  )}
+                  {[...order.auditLogs].reverse().map((l) => (
+                    <div key={l.id} className="flex gap-3 items-center py-2">
+                      <div className="h-8 w-8 flex items-center justify-center shrink-0">
+                        <div className="h-5 w-5 rounded-full border border-border flex items-center justify-center">
+                          <Clock className="h-3 w-3 text-muted-foreground" />
+                        </div>
+                      </div>
+                      <p className="text-sm text-muted-foreground leading-snug">
+                        {l.user && <span className="font-medium text-foreground">{l.user.name}</span>}
+                        {" "}{getActionLabel(l.action)}
+                        {l.details && <span className="italic"> · {l.details}</span>}
+                        <span className="ml-2">{formatDate(l.createdAt, locale)}</span>
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </TabsContent>
+
+              {/* Tab: Kundenkontakt */}
+              <TabsContent value="customer" className="mt-0 flex flex-col">
+                <div ref={customerFeedRef} className="max-h-[400px] overflow-y-auto px-6 divide-y divide-border">
+                  {comments.filter((c) => c.sentToCustomer).length === 0 && (
+                    <p className="text-sm text-muted-foreground text-center py-8">{t("order_detail_no_customer_messages")}</p>
+                  )}
+                  {[...comments].filter((c) => c.sentToCustomer)
+                    .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
+                    .map((c) => (
+                      <div key={c.id} className="flex gap-3 py-3">
+                        <Avatar className="h-8 w-8 shrink-0">
+                          <AvatarFallback className="text-xs bg-primary text-primary-foreground font-semibold">
+                            {getInitials(c.author.name)}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0 space-y-0.5">
+                          <p className="text-sm leading-snug">
+                            <span className="font-semibold">{c.author.name}</span>
+                            {" "}
+                            <span className="text-muted-foreground">{t("order_detail_activity_messaged")} {formatDate(c.createdAt, locale)}</span>
+                            <span className="ml-2 inline-flex items-center gap-1 text-xs text-muted-foreground border rounded-full px-2 py-0.5 align-middle">
+                              <Mail className="h-3 w-3" />
+                              {t("order_detail_customer_message_sent_badge")}
+                            </span>
+                          </p>
+                          <p className="text-sm whitespace-pre-wrap">{c.content}</p>
+                        </div>
+                      </div>
+                    ))}
+                </div>
+                <Separator />
+                <div className="px-6 pt-4 pb-5 space-y-3">
+                  <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                    <Mail className="h-3 w-3 shrink-0" />
+                    {t("order_detail_customer_message_hint", { email: order.customerEmail })}
+                  </p>
+                  <div className="flex gap-3 items-start">
+                    <Avatar className="h-8 w-8 shrink-0 mt-0.5">
+                      <AvatarFallback className="text-xs bg-primary text-primary-foreground font-semibold">
+                        <User className="h-4 w-4" />
+                      </AvatarFallback>
+                    </Avatar>
+                    <Textarea className="flex-1 resize-none text-sm min-h-[80px]" placeholder={t("order_detail_customer_message_placeholder")}
+                      value={customerMessage} onChange={(e) => setCustomerMessage(e.target.value)} rows={3}
+                      onKeyDown={(e) => { if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) handleSendCustomerMessage(); }} />
+                  </div>
+                  <div className="flex items-center justify-between pl-11">
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground select-none">
+                      <span>@ @mention</span><span>·</span>
+                      <KbdGroup><Kbd>⌘</Kbd><Kbd>↩</Kbd></KbdGroup>
+                      <span>senden</span>
+                    </div>
+                    <Button size="sm" onClick={handleSendCustomerMessage} disabled={!customerMessage.trim() || sendingCustomerMessage}>
+                      <Send className="h-3 w-3 mr-1.5" />
+                      {sendingCustomerMessage ? t("order_detail_customer_message_submitting") : t("order_detail_customer_message_submit")}
+                    </Button>
+                  </div>
+                </div>
+              </TabsContent>
+            </Tabs>
           </Card>
         </div>
 
@@ -1237,47 +1478,6 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
             </CardContent>
           </Card>
 
-          {/* Audit Log */}
-          <Card>
-            <CardHeader
-              className="cursor-pointer select-none"
-              onClick={() => setAuditLogOpen((v) => !v)}
-            >
-              <CardTitle className="text-sm font-semibold text-muted-foreground flex items-center justify-between">
-                <span>{t("order_detail_history")}</span>
-                <ChevronDown
-                  className={`h-4 w-4 text-muted-foreground transition-transform duration-200 ${auditLogOpen ? "rotate-180" : ""}`}
-                />
-              </CardTitle>
-            </CardHeader>
-            {auditLogOpen && (
-              <CardContent>
-                <ol className="relative border-l border-border space-y-4 ml-3">
-                  {order.auditLogs.map((log, idx) => (
-                    <li key={log.id} className="ml-5 text-sm">
-                      <span className="absolute -left-1.5 flex h-3 w-3 items-center justify-center rounded-full bg-background border border-border">
-                        {idx === 0 ? (
-                          <Clock className="h-2 w-2 text-muted-foreground" />
-                        ) : (
-                          <CheckCircle2 className="h-2 w-2 text-primary" />
-                        )}
-                      </span>
-                      <p className="font-medium">{getActionLabel(log.action)}</p>
-                      {log.details && (
-                        <p className="text-xs text-muted-foreground">{log.details}</p>
-                      )}
-                      {log.user && (
-                        <p className="text-xs text-muted-foreground">{log.user.name}</p>
-                      )}
-                      <p className="text-xs text-muted-foreground">
-                        {formatDateTime(log.createdAt)}
-                      </p>
-                    </li>
-                  ))}
-                </ol>
-              </CardContent>
-            )}
-          </Card>
         </div>
       </div>
 

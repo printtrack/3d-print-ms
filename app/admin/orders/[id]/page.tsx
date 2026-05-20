@@ -129,8 +129,11 @@ async function getData(id: string) {
       })),
     })),
     comments: order.comments.map((c) => ({
-      ...c,
+      id: c.id,
+      content: c.content,
+      sentToCustomer: c.sentToCustomer,
       createdAt: c.createdAt.toISOString(),
+      author: c.author,
     })),
     auditLogs: order.auditLogs.map((l) => ({
       ...l,

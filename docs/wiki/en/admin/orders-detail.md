@@ -1,6 +1,6 @@
 ---
 title: "Order detail"
-description: "Change phase, manage parts, files, comments and audit log"
+description: "Change phase, manage parts, files, activity tabs (comments, history, customer contact)"
 icon: "ClipboardList"
 group: "Orders & Production"
 order: 2.1
@@ -61,21 +61,25 @@ Files uploaded by the customer when submitting the order. These can be opened in
 - **Download** — click the filename
 - **Delete** — click the trash icon next to the file. This action is irreversible.
 
-## Comments
+## Activity
 
-The comment field at the bottom is for internal team notes.
+The Activity card at the bottom of the main area consolidates all communication and changes in one place — with four tabs:
+
+### Tab: All
+
+Shows a chronological mix of internal comments, customer messages and audit entries (newest first). You can write an internal comment here.
+
+### Tab: Comments
+
+Shows only **internal team comments**.
 
 - Comments are **internal only** — customers cannot see them.
 - Each comment is recorded with author and timestamp.
 - Comments cannot be edited or deleted (audit integrity).
 
-## Survey result
+### Tab: History
 
-If the order includes a customer satisfaction survey, the result is shown here (rating and optional customer comment).
-
-## Audit log
-
-The audit log at the bottom automatically records **every change** to the order:
+Shows the **audit log** — an automatic record of every change to the order (read-only):
 
 | Event | Entry |
 |-------|-------|
@@ -83,8 +87,23 @@ The audit log at the bottom automatically records **every change** to the order:
 | File uploaded | Filename, timestamp, user |
 | Comment added | Timestamp and user |
 | Job linked/removed | Print job name |
+| Customer message sent | Message preview |
 
-The log is read-only.
+### Tab: Customer Contact
+
+Send a direct message to the customer by email without leaving the system:
+
+1. Switch to the **Customer Contact** tab.
+2. Write your message in the text field (a hint shows the target email address).
+3. Click **Send to customer** — the message is emailed immediately.
+
+Sent messages appear in the **Customer Contact** and **All** tabs with the *"Sent to customer"* badge.
+
+The email template (subject and wrapper text) can be configured under [[Settings → Emails|settings]] (section "Customer Message Email").
+
+## Survey result
+
+If the order includes a customer satisfaction survey, the result is shown here (rating and optional customer comment).
 
 ## Linked print jobs
 

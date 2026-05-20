@@ -324,13 +324,14 @@ model OrderFileNote {
 }
 
 model OrderComment {
-  id        String   @id @default(cuid())
-  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  orderId   String
-  author    User     @relation(fields: [authorId], references: [id])
-  authorId  String
-  content   String   @db.Text
-  createdAt DateTime @default(now())
+  id             String   @id @default(cuid())
+  order          Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId        String
+  author         User     @relation(fields: [authorId], references: [id])
+  authorId       String
+  content        String   @db.Text
+  sentToCustomer Boolean  @default(false)
+  createdAt      DateTime @default(now())
 }
 
 model AuditLog {

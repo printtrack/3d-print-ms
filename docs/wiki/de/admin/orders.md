@@ -42,5 +42,5 @@ Aufträge werden vom Kunden über das öffentliche Auftragsformular (`/`) einger
 
 ## Subseiten
 
-- [[Auftrags-Detailansicht]] — Phase ändern, Dateien, Kommentare, Audit-Log
+- [[Auftrags-Detailansicht]] — Phase ändern, Dateien, Aktivitäts-Tabs (Kommentare, Verlauf, Kundenkontakt)
 - [[3D-Viewer & Druckorientierung]] — Modelle im Browser öffnen, Orientierung festlegen
