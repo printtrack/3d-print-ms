@@ -16,6 +16,7 @@ export default async function InventoryPage() {
 
   const serialized = filaments.map((f) => ({
     ...f,
+    pricePerKg: f.pricePerKg != null ? f.pricePerKg.toString() : null,
     createdAt: f.createdAt.toISOString(),
     updatedAt: f.updatedAt.toISOString(),
   }));

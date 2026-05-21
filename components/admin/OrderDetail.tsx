@@ -164,7 +164,7 @@ interface OrderDetailProps {
   isAdmin: boolean;
   parts: OrderPartData[];
   availableFilaments: FilamentOption[];
-  customerCredit: { id: string; balance: number } | null;
+  customerCredit: { id: string; balanceCents: number } | null;
   partPhases: Array<{ id: string; name: string; color: string; isPrintReady: boolean; isReview: boolean; isPrinted: boolean; isMisprint: boolean }>;
   machines: Array<{ id: string; name: string }>;
   buildVolume?: { x: number; y: number; z: number };
@@ -260,10 +260,7 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
   const [sendingVerification, setSendingVerification] = useState(false);
   const [customerCredit, setCustomerCredit] = useState(initialCustomerCredit);
   const [showCreditForm, setShowCreditForm] = useState(false);
-  const [creditGrams, setCreditGrams] = useState(() => {
-    const total = initialParts.reduce((s, p) => s + (p.gramsEstimated ?? 0) * (p.quantity ?? 1), 0);
-    return total > 0 ? String(total) : "";
-  });
+  const [creditEuros, setCreditEuros] = useState("");
   const [creditReason, setCreditReason] = useState(
     `Abzug für Auftrag vom ${new Date(order.createdAt).toLocaleDateString("de-DE")}`
   );
@@ -350,28 +347,29 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
 
   async function handleDeductCredit() {
     if (!customerCredit) return;
-    const grams = parseInt(creditGrams, 10);
-    if (!grams || grams <= 0) {
-      toast.error(t("toast_invalid_grams"));
+    const euros = parseFloat(creditEuros);
+    if (!euros || euros <= 0) {
+      toast.error(t("toast_invalid_amount"));
       return;
     }
     if (!creditReason.trim()) {
       toast.error(t("toast_reason_required"));
       return;
     }
+    const amountCents = -Math.round(euros * 100);
     setSavingCredit(true);
     try {
       const res = await fetch(`/api/admin/customers/${customerCredit.id}/credits`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount: -grams, reason: creditReason.trim(), orderId: order.id }),
+        body: JSON.stringify({ amountCents, reason: creditReason.trim(), orderId: order.id }),
       });
       if (!res.ok) {
         const data = await res.json();
         toast.error(data.error ?? "Fehler");
         return;
       }
-      setCustomerCredit((prev) => prev ? { ...prev, balance: prev.balance - grams } : prev);
+      setCustomerCredit((prev) => prev ? { ...prev, balanceCents: prev.balanceCents + amountCents } : prev);
       setShowCreditForm(false);
       toast.success(t("toast_credit_deducted"));
     } catch {
@@ -1213,7 +1211,7 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
               <CardContent className="space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-muted-foreground">{t("order_detail_credit_balance")}</span>
-                  <span className="font-semibold text-sm">{customerCredit.balance} g</span>
+                  <span className="font-semibold text-sm">{(customerCredit.balanceCents / 100).toLocaleString("de-DE", { style: "currency", currency: "EUR" })}</span>
                 </div>
                 {!showCreditForm ? (
                   <Button
@@ -1227,13 +1225,14 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
                 ) : (
                   <div className="space-y-2">
                     <div className="space-y-1">
-                      <label className="text-xs font-medium">{t("order_detail_credit_amount")}</label>
+                      <label className="text-xs font-medium">{t("customer_credit_amount_eur")}</label>
                       <Input
                         type="number"
-                        min="1"
-                        placeholder={t("order_detail_credit_amount_placeholder")}
-                        value={creditGrams}
-                        onChange={(e) => setCreditGrams(e.target.value)}
+                        min="0.01"
+                        step="0.01"
+                        placeholder="z.B. 5.00"
+                        value={creditEuros}
+                        onChange={(e) => setCreditEuros(e.target.value)}
                       />
                     </div>
                     <div className="space-y-1">

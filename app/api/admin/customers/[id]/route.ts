@@ -53,7 +53,7 @@ export async function PATCH(
       id: true,
       name: true,
       email: true,
-      creditBalance: true,
+      creditBalanceCents: true,
       emailVerifiedAt: true,
       createdAt: true,
       _count: { select: { orders: true } },

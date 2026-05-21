@@ -13,7 +13,7 @@ test.describe("Locale switch — anonymous visitor", () => {
     await page.goto("/");
 
     await page.getByRole("button", { name: /Switch to English/i }).click();
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("load");
 
     await expect(page.getByRole("heading", { name: /Your idea/i })).toBeVisible();
     await expect(page.getByText("Start print order").first()).toBeVisible();
@@ -28,9 +28,9 @@ test.describe("Locale switch — anonymous visitor", () => {
     await page.goto("/");
 
     await page.getByRole("button", { name: /Switch to English/i }).click();
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("load");
     await page.getByRole("button", { name: /Zu Deutsch wechseln/i }).click();
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("load");
 
     await expect(page.getByRole("heading", { name: /Deine Idee/i })).toBeVisible();
   });
@@ -40,10 +40,15 @@ test.describe("Locale switch — anonymous visitor", () => {
     await page.goto("/");
 
     await page.getByRole("button", { name: /Switch to English/i }).click();
-    await page.waitForLoadState("networkidle");
+    await page.waitForLoadState("load");
+
+    // Verify the locale switch completed on the current page before navigating.
+    // router.refresh() is not a full page reload, so we need this confirmation.
+    await expect(page.getByRole("heading", { name: /Your idea/i })).toBeVisible({ timeout: 10000 });
 
     await page.goto("/auth/signin");
-    await expect(page.getByRole("heading", { name: /Sign in/i })).toBeVisible();
+    // CardTitle is a div, not a heading — match by text content instead
+    await expect(page.getByText("Sign in").first()).toBeVisible();
     await expect(page.getByText("Enter your credentials")).toBeVisible();
   });
 });

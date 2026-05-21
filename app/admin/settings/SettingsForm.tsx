@@ -81,6 +81,7 @@ const NAV_GROUPS = [
     label: "Allgemein",
     items: [
       { key: "general", label: "Unternehmen", icon: Building2 },
+      { key: "abrechnung", label: "Abrechnung", icon: Scale },
       { key: "legal", label: "Rechtliches", icon: Scale },
     ],
   },
@@ -108,7 +109,7 @@ const NAV_GROUPS = [
   },
 ];
 
-const SETTINGS_SECTIONS = new Set(["general", "emails", "survey", "legal"]);
+const SETTINGS_SECTIONS = new Set(["general", "abrechnung", "emails", "survey", "legal"]);
 
 export function SettingsForm({
   initialSettings,
@@ -596,6 +597,47 @@ export function SettingsForm({
                   rows={3}
                   value={settings.survey_email_body ?? ""}
                   onChange={(e) => set("survey_email_body", e.target.value)}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Abrechnung */}
+        {activeSection === "abrechnung" && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Abrechnung</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Lege fest, wie gedruckte Teile dem Kunden über sein Guthaben berechnet werden.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="charge_misprints">Fehldrucke berechnen</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Wird Filament für Fehldrucke dem Kunden in Rechnung gestellt?
+                  </p>
+                </div>
+                <Switch
+                  id="charge_misprints"
+                  checked={settings.charge_misprints === "true"}
+                  onCheckedChange={(checked) => set("charge_misprints", checked ? "true" : "false")}
+                />
+              </div>
+              <Separator />
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="charge_prototypes">Prototypen berechnen</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Werden Prototyp-Aufträge dem Kunden berechnet?
+                  </p>
+                </div>
+                <Switch
+                  id="charge_prototypes"
+                  checked={settings.charge_prototypes === "true"}
+                  onCheckedChange={(checked) => set("charge_prototypes", checked ? "true" : "false")}
                 />
               </div>
             </CardContent>

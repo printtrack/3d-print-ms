@@ -18,6 +18,10 @@ export default defineConfig({
   workers: 1,
   reporter: [["list"], ["html", { open: "on-failure" }]],
   timeout: 45000,
+  // Increase expect() assertion timeout from default 5s to 10s.
+  // Turbopack compiles routes lazily; the first request to an unvisited
+  // route can take >5s, causing toBeVisible() timeouts in the full suite.
+  expect: { timeout: 10000 },
   use: {
     baseURL: TEST_BASE_URL,
     trace: "on-first-retry",
@@ -28,11 +32,15 @@ export default defineConfig({
       name: "setup",
       testMatch: "**/global-setup.ts",
     },
-    // Public tests (no auth)
+    // Public tests (no auth) — higher expect timeout because the landing page
+    // may be slow on first access due to Turbopack lazy compilation.
     {
       name: "public",
       testMatch: "**/public/**/*.spec.ts",
       dependencies: ["setup"],
+      use: {
+        actionTimeout: 15000,
+      },
     },
     // Admin tests (uses saved auth state)
     {

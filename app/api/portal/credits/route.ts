@@ -9,11 +9,11 @@ export async function GET(req: NextRequest) {
   const data = await prisma.customer.findUnique({
     where: { id: customer.id },
     select: {
-      creditBalance: true,
+      creditBalanceCents: true,
       credits: {
         orderBy: { createdAt: "desc" },
         take: 10,
-        select: { id: true, amount: true, reason: true, orderId: true, createdAt: true },
+        select: { id: true, amountCents: true, reason: true, orderId: true, createdAt: true },
       },
     },
   });
@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
   if (!data) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   return NextResponse.json({
-    creditBalance: data.creditBalance,
+    creditBalanceCents: data.creditBalanceCents,
     credits: data.credits.map((c) => ({ ...c, createdAt: c.createdAt.toISOString() })),
   });
 }

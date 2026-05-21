@@ -142,34 +142,34 @@ test.describe("Order detail page", () => {
 
   test("credit section is hidden when customer has no registered account", async ({ page }) => {
     await page.goto(`/admin/orders/${orderId}`);
-    await expect(page.getByText("Filament-Guthaben")).not.toBeVisible();
+    await expect(page.getByText("Guthaben", { exact: true })).not.toBeVisible();
   });
 
   test("credit section is visible when customer has a registered account", async ({ page }) => {
     await createTestCustomer({ email: "detail@example.com" });
 
     await page.goto(`/admin/orders/${orderId}`);
-    await expect(page.getByText("Filament-Guthaben")).toBeVisible();
+    await expect(page.getByText("Guthaben", { exact: true })).toBeVisible();
   });
 
   test("can deduct credits from order detail page", async ({ page }) => {
     const customer = await createTestCustomer({ email: "detail@example.com" });
-    await createTestCreditTransaction(customer.id, 300, "Initial top-up");
+    await createTestCreditTransaction(customer.id, 300, "Initial top-up"); // 3,00 €
 
     await page.goto(`/admin/orders/${orderId}`);
-    await expect(page.getByText("Filament-Guthaben")).toBeVisible();
-    await expect(page.getByText("300 g")).toBeVisible();
+    await expect(page.getByText("Guthaben", { exact: true })).toBeVisible();
+    await expect(page.getByText("3,00 €")).toBeVisible();
 
     await page.getByRole("button", { name: "Guthaben abziehen" }).click();
 
-    await page.getByPlaceholder("z.B. 45").fill("50");
+    await page.getByPlaceholder("z.B. 5.00").fill("1.00");
 
     await page.getByRole("button", { name: /^Abziehen$/ }).click();
 
-    await expect(page.getByText("250 g")).toBeVisible({ timeout: 5000 });
+    await expect(page.getByText("2,00 €")).toBeVisible({ timeout: 5000 });
 
     const updated = await prismaTest.customer.findUnique({ where: { id: customer.id } });
-    expect(updated?.creditBalance).toBe(250);
+    expect(updated?.creditBalanceCents).toBe(200);
   });
 
   test("shows milestones card in sidebar", async ({ page }) => {

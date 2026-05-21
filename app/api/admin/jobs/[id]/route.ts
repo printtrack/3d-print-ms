@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
-import { deductFilamentInventory, restoreFilamentInventory } from "@/lib/filament-inventory";
 import { checkJobOverlap } from "@/lib/overlap-check";
 import { publish } from "@/lib/event-bus";
 
@@ -24,8 +23,8 @@ const jobInclude = {
     include: {
       orderPart: {
         include: {
-          order: { select: { id: true, customerName: true, customerEmail: true, description: true } },
-          filament: { select: { id: true, name: true, material: true, color: true, colorHex: true } },
+          order: { select: { id: true, customerName: true, customerEmail: true, description: true, isPrototype: true } },
+          filament: { select: { id: true, name: true, material: true, color: true, colorHex: true, pricePerKg: true } },
           files: { select: { id: true, filename: true, originalName: true, mimeType: true, orderId: true } },
         },
       },
@@ -78,7 +77,6 @@ export async function PATCH(
       where: { id },
       select: { status: true, printTimeFromGcode: true, machineId: true, plannedAt: true, printTimeMinutes: true },
     });
-    const previousStatus = current?.status ?? null;
 
     if (data.assigneeIds !== undefined) {
       await prisma.printJobAssignee.deleteMany({ where: { printJobId: id } });
@@ -163,22 +161,9 @@ export async function PATCH(
       }
     }
 
-    // Inventory management: deduct when print physically completes (AWAITING_VERIFICATION),
-    // restore if moving back from that point or DONE to an earlier status.
-    const warnings: string[] = [];
-    const deductedStatuses = new Set(["AWAITING_VERIFICATION", "DONE"]);
-    const wasDeducted = previousStatus !== null && deductedStatuses.has(previousStatus);
-    const willBeDeducted = data.status !== undefined && deductedStatuses.has(data.status);
-    if (willBeDeducted && !wasDeducted) {
-      const inventoryWarnings = await deductFilamentInventory(id);
-      warnings.push(...inventoryWarnings);
-    } else if (!willBeDeducted && wasDeducted && data.status !== undefined) {
-      await restoreFilamentInventory(id);
-    }
-
     publish({ type: "job.changed", jobId: id });
 
-    return NextResponse.json({ job, warnings });
+    return NextResponse.json({ job, warnings: [] });
   } catch (err) {
     if (err instanceof z.ZodError) {
       return NextResponse.json({ error: "Ungültige Eingabe" }, { status: 400 });

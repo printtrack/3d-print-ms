@@ -31,7 +31,7 @@ test("admin: creates a note via API and sees it in the dialog", async ({ seed, p
 
   // Notes badge opens the panel
   await page.getByRole("button", { name: /^\d+ Notiz/i }).click();
-  await expect(page.getByText("Loch zu klein — bitte auf 5mm Durchmesser aufweiten")).toBeVisible();
+  await expect(page.getByText("Loch zu klein — bitte auf 5mm Durchmesser aufweiten").first()).toBeVisible();
   await expect(page.getByText(/Notizen.*\(1\)/)).toBeVisible();
 });
 

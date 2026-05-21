@@ -4,6 +4,9 @@ import path from "path";
 test.describe("Order submission form", () => {
   test.beforeEach(async ({ seed, page }) => {
     await page.goto("/");
+    // Wait explicitly for the order form section to be rendered (SSR + hydration
+    // can take >5s on first access due to Turbopack lazy compilation).
+    await page.locator("#order-form").waitFor({ state: "visible", timeout: 30000 });
   });
 
   test("renders the order form", async ({ page }) => {
@@ -11,7 +14,7 @@ test.describe("Order submission form", () => {
     await expect(page.getByLabel("Name *")).toBeVisible();
     await expect(page.getByLabel("E-Mail *")).toBeVisible();
     await expect(page.getByLabel("Beschreibung *")).toBeVisible();
-    await expect(page.locator("#order-form").getByRole("button", { name: /Auftrag einreichen/i })).toBeVisible();
+    await expect(page.locator("#order-form").getByRole("button", { name: /Einreichen/i })).toBeVisible();
   });
 
   test("submits a basic order and shows tracking token", async ({ page }) => {
@@ -19,7 +22,7 @@ test.describe("Order submission form", () => {
     await page.getByLabel("E-Mail *").fill("testkunde@example.com");
     await page.getByLabel("Beschreibung *").fill("Bitte ein 10cm x 10cm Würfel in PLA drucken.");
 
-    await page.locator("#order-form").getByRole("button", { name: /Auftrag einreichen/i }).click();
+    await page.locator("#order-form").getByRole("button", { name: /Einreichen/i }).click();
 
     // Should show success state with tracking link
     await expect(page.getByText(/Auftrag erfolgreich eingereicht/i)).toBeVisible({ timeout: 10000 });
@@ -33,14 +36,14 @@ test.describe("Order submission form", () => {
     await page.getByLabel("Beschreibung *").fill("Dringend bis Freitag!");
     await page.getByLabel("Wunschdatum (optional)").fill("2026-12-31");
 
-    await page.locator("#order-form").getByRole("button", { name: /Auftrag einreichen/i }).click();
+    await page.locator("#order-form").getByRole("button", { name: /Einreichen/i }).click();
 
     await expect(page.getByText(/Auftrag erfolgreich eingereicht/i)).toBeVisible({ timeout: 10000 });
   });
 
   test("shows validation error for empty form submission", async ({ page }) => {
     // The HTML required attributes will prevent submission; button should stay active
-    const submitBtn = page.locator("#order-form").getByRole("button", { name: /Auftrag einreichen/i });
+    const submitBtn = page.locator("#order-form").getByRole("button", { name: /Einreichen/i });
     await expect(submitBtn).toBeEnabled();
     // Attempt submit without filling form — browser native validation prevents it
     await submitBtn.click();
@@ -54,7 +57,7 @@ test.describe("Order submission form", () => {
     await page.getByLabel("E-Mail *").fill("nav@example.com");
     await page.getByLabel("Beschreibung *").fill("Test for navigation to tracking page");
 
-    await page.locator("#order-form").getByRole("button", { name: /Auftrag einreichen/i }).click();
+    await page.locator("#order-form").getByRole("button", { name: /Einreichen/i }).click();
     await expect(page.getByText(/Auftrag erfolgreich eingereicht/i)).toBeVisible({ timeout: 10000 });
 
     await page.getByRole("button", { name: /Zum Auftrag/i }).click();
@@ -76,7 +79,7 @@ test.describe("Order submission form", () => {
     // File should appear in list
     await expect(page.getByText("test-image.png")).toBeVisible();
 
-    await page.locator("#order-form").getByRole("button", { name: /Auftrag einreichen/i }).click();
+    await page.locator("#order-form").getByRole("button", { name: /Einreichen/i }).click();
     await expect(page.getByText(/Auftrag erfolgreich eingereicht/i)).toBeVisible({ timeout: 15000 });
   });
 });

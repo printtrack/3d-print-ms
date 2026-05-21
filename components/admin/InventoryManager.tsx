@@ -35,6 +35,7 @@ interface Filament {
   brand: string | null;
   spoolWeightGrams: number;
   remainingGrams: number;
+  pricePerKg: string | null;
   notes: string | null;
   isActive: boolean;
   createdAt: string;
@@ -55,6 +56,7 @@ const emptyForm = {
   brand: "",
   spoolWeightGrams: 1000,
   remainingGrams: 1000,
+  pricePerKg: "",
   notes: "",
   isActive: true,
 };
@@ -95,6 +97,7 @@ export function InventoryManager({ filaments: initial, userRole }: InventoryMana
       brand: f.brand ?? "",
       spoolWeightGrams: f.spoolWeightGrams,
       remainingGrams: f.remainingGrams,
+      pricePerKg: f.pricePerKg ?? "",
       notes: f.notes ?? "",
       isActive: f.isActive,
     });
@@ -108,6 +111,7 @@ export function InventoryManager({ filaments: initial, userRole }: InventoryMana
     }
     setSaving(true);
     try {
+      const priceStr = String(form.pricePerKg).trim();
       const payload = {
         name: form.name.trim(),
         material: form.material,
@@ -116,6 +120,7 @@ export function InventoryManager({ filaments: initial, userRole }: InventoryMana
         brand: form.brand.trim() || null,
         spoolWeightGrams: Number(form.spoolWeightGrams),
         remainingGrams: Number(form.remainingGrams),
+        pricePerKg: priceStr !== "" ? Number(priceStr) : null,
         notes: form.notes.trim() || null,
         isActive: form.isActive,
       };
@@ -269,6 +274,12 @@ export function InventoryManager({ filaments: initial, userRole }: InventoryMana
                 </span>{" "}
                 / {f.spoolWeightGrams} g
               </span>
+              <span>
+                {f.pricePerKg != null
+                  ? `${Number(f.pricePerKg).toFixed(2)} €/kg`
+                  : <span className="text-amber-600">{t("inventory_no_price_warning")}</span>
+                }
+              </span>
               <span>Aufträge: {f._count.orderParts}</span>
             </div>
           </div>
@@ -285,6 +296,7 @@ export function InventoryManager({ filaments: initial, userRole }: InventoryMana
               <th className="h-10 px-4 text-left font-medium text-muted-foreground">Material</th>
               <th className="h-10 px-4 text-left font-medium text-muted-foreground">Marke</th>
               <th className="h-10 px-4 text-left font-medium text-muted-foreground">Bestand</th>
+              <th className="h-10 px-4 text-left font-medium text-muted-foreground">{t("inventory_price_per_kg")}</th>
               <th className="h-10 px-4 text-left font-medium text-muted-foreground">Aufträge</th>
               <th className="h-10 px-4 text-left font-medium text-muted-foreground">Status</th>
               {isAdmin && <th className="h-10 px-4 text-left font-medium text-muted-foreground w-20">Aktionen</th>}
@@ -293,7 +305,7 @@ export function InventoryManager({ filaments: initial, userRole }: InventoryMana
           <tbody>
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={isAdmin ? 8 : 7} className="text-center text-muted-foreground py-10 px-4">
+                <td colSpan={isAdmin ? 9 : 8} className="text-center text-muted-foreground py-10 px-4">
                   {t("inventory_empty")}
                 </td>
               </tr>
@@ -325,6 +337,13 @@ export function InventoryManager({ filaments: initial, userRole }: InventoryMana
                     </span>
                     <span className="text-xs text-muted-foreground">/ {f.spoolWeightGrams} g</span>
                   </div>
+                </td>
+                <td className="px-4 py-3">
+                  {f.pricePerKg != null ? (
+                    <span>{Number(f.pricePerKg).toFixed(2)} €</span>
+                  ) : (
+                    <span className="text-xs text-amber-600">{t("inventory_no_price_warning")}</span>
+                  )}
                 </td>
                 <td className="px-4 py-3">{f._count.orderParts}</td>
                 <td className="px-4 py-3">
@@ -443,6 +462,23 @@ export function InventoryManager({ filaments: initial, userRole }: InventoryMana
                   onChange={(e) => setForm((p) => ({ ...p, remainingGrams: Number(e.target.value) }))}
                 />
               </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">{t("inventory_price_per_kg")}</label>
+              <div className="relative">
+                <Input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={form.pricePerKg}
+                  onChange={(e) => setForm((p) => ({ ...p, pricePerKg: e.target.value }))}
+                  placeholder="z.B. 24.99"
+                  className="pr-12"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground">€/kg</span>
+              </div>
+              <p className="text-xs text-muted-foreground">{t("inventory_no_price_warning_hint")}</p>
             </div>
 
             <div className="space-y-1.5">

@@ -18,7 +18,7 @@ test("tutorial auto-starts on first login and shows welcome dialog", async ({ se
   await expect(page.getByText("Willkommen bei PrintTrack")).toBeVisible();
   // Story content: Atommodell use case
   await expect(page.getByText("Dr. Weber")).toBeVisible();
-  await expect(page.getByText(/Elektronen/i)).toBeVisible();
+  await expect(page.getByText(/Elektronen/i).first()).toBeVisible();
 });
 
 test("skip: clicking Überspringen closes tutorial and marks onboarded", async ({ seed, page }) => {
@@ -67,7 +67,7 @@ test("tutorial shows mock order on kanban page", async ({ seed, page }) => {
   await page.getByRole("button", { name: "Tutorial starten" }).click();
 
   // Mock order card (Atommodell use case) should be visible on the kanban
-  await expect(page.getByText("Dr. M. Weber")).toBeVisible({ timeout: 5000 });
+  await expect(page.getByText("Dr. M. Weber").first()).toBeVisible({ timeout: 5000 });
 });
 
 test("DB isolation: tutorial actions do not create real orders", async ({ seed, page }) => {
@@ -90,7 +90,7 @@ test("tutorial order detail renders mock data without DB error", async ({ seed, 
   await page.goto("/admin/orders/tutorial-order-1");
 
   // Should see Atommodell mock order content
-  await expect(page.getByText("Dr. M. Weber")).toBeVisible({ timeout: 5000 });
+  await expect(page.getByText("Dr. M. Weber").first()).toBeVisible({ timeout: 5000 });
   await expect(page.getByText(/Elektronen-Träger/i)).toBeVisible();
 });
 

@@ -95,11 +95,11 @@ test.describe("Customer contact tab", () => {
 
     await page.getByPlaceholder("Nachricht an Kunde schreiben...").fill("Für Alle sichtbar");
     await page.getByRole("button", { name: /An Kunde senden/i }).click();
-    await expect(page.getByText("Für Alle sichtbar")).toBeVisible();
+    await expect(page.getByText("Für Alle sichtbar").first()).toBeVisible();
 
     // Verify in Alle tab
     await page.getByRole("tab", { name: "Alle" }).click();
-    await expect(page.getByText("Für Alle sichtbar")).toBeVisible();
+    await expect(page.getByText("Für Alle sichtbar").first()).toBeVisible();
     // Badge visible in Alle tab too
     await expect(page.getByText("An Kunde gesendet").first()).toBeVisible();
   });

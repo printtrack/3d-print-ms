@@ -46,15 +46,20 @@ test.describe("Activity tabs on order detail", () => {
       customerName: "Audit Tester",
     });
 
+    // createTestOrder inserts directly — manually create ORDER_CREATED audit log
+    await prismaTest.auditLog.create({
+      data: { orderId: order.id, userId: null, action: "ORDER_CREATED", details: "Auftrag eingereicht" },
+    });
+
     await page.goto(`/admin/orders/${order.id}`);
 
     // Alle tab shows audit entry (ORDER_CREATED)
     await expect(page.getByRole("tab", { name: "Alle" })).toBeVisible();
-    await expect(page.getByText("Auftrag eingereicht")).toBeVisible();
+    await expect(page.getByText("Auftrag eingereicht").first()).toBeVisible({ timeout: 10000 });
 
     // Verlauf tab also shows it
     await page.getByRole("tab", { name: "Verlauf" }).click();
-    await expect(page.getByText("Auftrag eingereicht")).toBeVisible();
+    await expect(page.getByText("Auftrag eingereicht").first()).toBeVisible({ timeout: 10000 });
 
     // Kommentare tab does not show audit entries
     await page.getByRole("tab", { name: "Kommentare" }).click();

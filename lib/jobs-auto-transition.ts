@@ -1,5 +1,4 @@
 import { prisma } from "@/lib/db";
-import { deductFilamentInventory } from "@/lib/filament-inventory";
 
 export async function runJobAutoTransition(): Promise<{ started: string[]; completed: string[] }> {
   const now = new Date();
@@ -53,9 +52,6 @@ export async function runJobAutoTransition(): Promise<{ started: string[]; compl
       where: { id: job.id },
       data: { status: "AWAITING_VERIFICATION", completedAt: now },
     });
-
-    // Deduct filament now — the print physically completed regardless of verification outcome
-    await deductFilamentInventory(job.id);
 
     const orderIds = [...new Set(job.parts.map((p) => p.orderPart.orderId))];
     if (orderIds.length > 0) {

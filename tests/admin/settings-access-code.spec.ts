@@ -32,17 +32,19 @@ test.describe("Access code gate (enabled)", () => {
 
   test("shows access code field when enabled", async ({ page }) => {
     await page.goto("/");
+    await page.locator("#order-form").waitFor({ state: "visible", timeout: 30000 });
     await expect(page.locator("#accessCode")).toBeVisible({ timeout: 10000 });
   });
 
   test("rejects submission with wrong access code", async ({ page }) => {
     await page.goto("/");
+    await page.locator("#order-form").waitFor({ state: "visible", timeout: 30000 });
     await page.getByLabel("Name *").fill("Test Kunde");
     await page.getByLabel("E-Mail *").fill(FIXTURE_EMAIL);
     await page.getByLabel("Beschreibung *").fill("Bitte ein 10cm Würfel drucken.");
     await page.locator("#accessCode").fill("falschercode");
 
-    await page.locator("#order-form").getByRole("button", { name: /Auftrag einreichen/i }).click();
+    await page.locator("#order-form").getByRole("button", { name: /Einreichen/i }).click();
 
     await expect(page.getByText(/Ungültiger Zugangscode/i)).toBeVisible({ timeout: 10000 });
     await expect(page.getByText(/Auftrag erfolgreich/i)).not.toBeVisible();
@@ -50,12 +52,13 @@ test.describe("Access code gate (enabled)", () => {
 
   test("accepts submission with correct access code", async ({ page }) => {
     await page.goto("/");
+    await page.locator("#order-form").waitFor({ state: "visible", timeout: 30000 });
     await page.getByLabel("Name *").fill("Test Kunde");
     await page.getByLabel("E-Mail *").fill(FIXTURE_EMAIL);
     await page.getByLabel("Beschreibung *").fill("Bitte ein 10cm Würfel drucken.");
     await page.locator("#accessCode").fill(TEST_CODE);
 
-    await page.locator("#order-form").getByRole("button", { name: /Auftrag einreichen/i }).click();
+    await page.locator("#order-form").getByRole("button", { name: /Einreichen/i }).click();
 
     await expect(page.getByText(/Auftrag erfolgreich eingereicht/i)).toBeVisible({ timeout: 10000 });
   });
@@ -68,16 +71,18 @@ test.describe("Access code gate (disabled)", () => {
 
   test("hides access code field when disabled", async ({ page }) => {
     await page.goto("/");
+    await page.locator("#order-form").waitFor({ state: "visible", timeout: 30000 });
     await expect(page.locator("#accessCode")).not.toBeVisible();
   });
 
   test("accepts submission without access code when disabled", async ({ page }) => {
     await page.goto("/");
+    await page.locator("#order-form").waitFor({ state: "visible", timeout: 30000 });
     await page.getByLabel("Name *").fill("Test Kunde");
     await page.getByLabel("E-Mail *").fill(FIXTURE_EMAIL);
     await page.getByLabel("Beschreibung *").fill("Bitte ein 10cm Würfel drucken.");
 
-    await page.locator("#order-form").getByRole("button", { name: /Auftrag einreichen/i }).click();
+    await page.locator("#order-form").getByRole("button", { name: /Einreichen/i }).click();
 
     await expect(page.getByText(/Auftrag erfolgreich eingereicht/i)).toBeVisible({ timeout: 10000 });
   });

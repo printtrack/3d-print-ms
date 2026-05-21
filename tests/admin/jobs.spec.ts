@@ -748,8 +748,8 @@ test("gcode upload: does NOT deduct inventory immediately (deduction happens on 
   expect(afterUpload?.remainingGrams).toBe(200); // unchanged
 });
 
-test("PATCH DONE: deducts grams from inventory", async ({ request }) => {
-  const machine = await createTestMachine({ name: "Deduct-Drucker" });
+test("PATCH DONE: does NOT deduct inventory (deduction now happens at verification)", async ({ request }) => {
+  const machine = await createTestMachine({ name: "NoDeduct-Drucker" });
   const filament = await createTestFilament({ material: "PLA", remainingGrams: 200 });
   const job = await createTestPrintJob(machine.id, { status: "IN_PROGRESS" });
   await prismaTest.printJobFilament.create({
@@ -762,45 +762,10 @@ test("PATCH DONE: deducts grams from inventory", async ({ request }) => {
   expect(res.ok()).toBeTruthy();
 
   const updated = await prismaTest.filament.findUnique({ where: { id: filament.id } });
-  expect(updated?.remainingGrams).toBe(150); // 200 - 50
+  expect(updated?.remainingGrams).toBe(200); // unchanged — deduction happens at verify-parts
 });
 
-test("PATCH DONE: returns low-stock warning when remaining drops below 100g", async ({ request }) => {
-  const machine = await createTestMachine({ name: "LowStock-Drucker" });
-  const filament = await createTestFilament({ material: "PLA", remainingGrams: 80 }); // 80 - 50 = 30g left
-  const job = await createTestPrintJob(machine.id, { status: "IN_PROGRESS" });
-  await prismaTest.printJobFilament.create({
-    data: { printJobId: job.id, filamentId: filament.id, gramsActual: 50 },
-  });
-
-  const res = await request.patch(`/api/admin/jobs/${job.id}`, {
-    data: { status: "DONE" },
-  });
-  expect(res.ok()).toBeTruthy();
-
-  const { warnings } = await res.json();
-  expect(warnings.length).toBeGreaterThan(0);
-  expect(warnings.some((w: string) => w.includes("30 g"))).toBeTruthy();
-});
-
-test("PATCH un-DONE: restores inventory when job is reverted from DONE", async ({ request }) => {
-  const machine = await createTestMachine({ name: "Restore-Drucker" });
-  const filament = await createTestFilament({ material: "PLA", remainingGrams: 150 }); // already deducted 50g
-  const job = await createTestPrintJob(machine.id, { status: "DONE" });
-  await prismaTest.printJobFilament.create({
-    data: { printJobId: job.id, filamentId: filament.id, gramsActual: 50 },
-  });
-
-  const res = await request.patch(`/api/admin/jobs/${job.id}`, {
-    data: { status: "IN_PROGRESS" },
-  });
-  expect(res.ok()).toBeTruthy();
-
-  const updated = await prismaTest.filament.findUnique({ where: { id: filament.id } });
-  expect(updated?.remainingGrams).toBe(200); // 150 + 50 restored
-});
-
-test("auto-transition: deducts filament inventory when job auto-completes", async ({ request }) => {
+test("auto-transition: moves job to AWAITING_VERIFICATION, does NOT deduct inventory", async ({ request }) => {
   const machine = await createTestMachine({ name: "Auto-Filament-Drucker" });
   const filament = await createTestFilament({ material: "PLA", remainingGrams: 200 });
   const startedAt = new Date(Date.now() - 10 * 60_000);
@@ -808,7 +773,7 @@ test("auto-transition: deducts filament inventory when job auto-completes", asyn
     status: "IN_PROGRESS",
     plannedAt: startedAt,
     startedAt,
-    printTimeMinutes: 5, // 5 minutes needed, 10 elapsed → auto-completes
+    printTimeMinutes: 5,
   });
   await prismaTest.printJobFilament.create({
     data: { printJobId: job.id, filamentId: filament.id, gramsActual: 30 },
@@ -818,8 +783,11 @@ test("auto-transition: deducts filament inventory when job auto-completes", asyn
   expect(res.ok()).toBeTruthy();
   expect((await res.json()).completed).toContain(job.id);
 
-  const updated = await prismaTest.filament.findUnique({ where: { id: filament.id } });
-  expect(updated?.remainingGrams).toBe(170); // 200 - 30
+  const updatedJob = await prismaTest.printJob.findUnique({ where: { id: job.id } });
+  expect(updatedJob?.status).toBe("AWAITING_VERIFICATION");
+
+  const updatedFilament = await prismaTest.filament.findUnique({ where: { id: filament.id } });
+  expect(updatedFilament?.remainingGrams).toBe(200); // unchanged — deduction at verify-parts
 });
 
 test("auto-transition: completed job goes to AWAITING_VERIFICATION — parts stay unchanged until manual verification", async ({ seed, request }) => {

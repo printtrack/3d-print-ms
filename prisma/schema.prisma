@@ -148,6 +148,7 @@ model Filament {
   brand            String?
   spoolWeightGrams Int
   remainingGrams   Int
+  pricePerKg       Decimal?           @db.Decimal(10, 2)
   notes            String?            @db.Text
   isActive         Boolean            @default(true)
   createdAt        DateTime           @default(now())
@@ -230,8 +231,10 @@ model OrderPart {
   description    String?             @db.Text
   filament       Filament?           @relation(fields: [filamentId], references: [id])
   filamentId     String?
-  gramsEstimated Int?
-  bboxXmm        Int?
+  gramsEstimated   Int?
+  gramsActualTotal Int?
+  chargedCentsTotal Int?
+  bboxXmm          Int?
   bboxYmm        Int?
   bboxZmm        Int?
   orientQx       Float               @default(0)
@@ -248,6 +251,23 @@ model OrderPart {
   printJobParts         PrintJobPart[]
   assignees             OrderPartAssignee[]
   verificationRequests  VerificationRequest[]
+  iterations            OrderPartIteration[]
+}
+
+model OrderPartIteration {
+  id           String    @id @default(cuid())
+  orderPart    OrderPart @relation(fields: [orderPartId], references: [id], onDelete: Cascade)
+  orderPartId  String
+  pieceIndex   Int
+  result       String
+  gramsActual  Int
+  chargedCents Int?
+  chargeReason String?
+  printJobId   String?
+  verifiedAt   DateTime  @default(now())
+  verifiedBy   String?
+
+  @@unique([orderPartId, pieceIndex])
 }
 
 model OrderAssignee {
@@ -481,12 +501,12 @@ model Customer {
   email              String                          @unique
   name               String
   password           String
-  creditBalance      Int                             @default(0)
+  creditBalanceCents Int                             @default(0)
   locale             String                          @default("de")
   emailVerifiedAt    DateTime?
   createdAt          DateTime                        @default(now())
   updatedAt          DateTime                        @updatedAt
-  credits            FilamentCredit[]
+  credits            CustomerCredit[]
   orders             Order[]
   verificationTokens CustomerEmailVerificationToken[]
 }
@@ -501,11 +521,11 @@ model CustomerEmailVerificationToken {
   @@index([customerId])
 }
 
-model FilamentCredit {
+model CustomerCredit {
   id          String   @id @default(cuid())
   customerId  String
   customer    Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  amount      Int
+  amountCents Int
   reason      String   @db.Text
   orderId     String?
   performedBy String?

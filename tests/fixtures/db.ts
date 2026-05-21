@@ -25,7 +25,7 @@ export async function resetDb() {
     "ProjectAuditLog", "ProjectAssignee", "Project", "ProjectPhase",
     "KnowledgeEntry", "KnowledgeFile",
     "Session", "Account", "PasswordResetToken",
-    "CustomerEmailVerificationToken", "FilamentCredit", "Customer", "User", "VerificationToken",
+    "CustomerEmailVerificationToken", "OrderPartIteration", "CustomerCredit", "Customer", "User", "VerificationToken",
   ]) {
     await prismaTest.$executeRawUnsafe(`TRUNCATE TABLE \`${table}\``);
   }
@@ -34,16 +34,16 @@ export async function resetDb() {
 
 export async function createTestCreditTransaction(
   customerId: string,
-  amount: number,
+  amountCents: number,
   reason: string
 ) {
   const [credit] = await prismaTest.$transaction([
-    prismaTest.filamentCredit.create({
-      data: { customerId, amount, reason },
+    prismaTest.customerCredit.create({
+      data: { customerId, amountCents, reason },
     }),
     prismaTest.customer.update({
       where: { id: customerId },
-      data: { creditBalance: { increment: amount } },
+      data: { creditBalanceCents: { increment: amountCents } },
     }),
   ]);
   return credit;
@@ -71,6 +71,7 @@ export async function createTestCustomer(
     name: string;
     email: string;
     password: string;
+    creditBalanceCents: number;
     emailVerifiedAt: Date | null;
   }> = {}
 ) {
@@ -81,6 +82,7 @@ export async function createTestCustomer(
       name: overrides.name ?? "Test Kunde",
       email: overrides.email ?? "kunde@example.com",
       password: hashedPassword,
+      creditBalanceCents: overrides.creditBalanceCents ?? 0,
       emailVerifiedAt: overrides.emailVerifiedAt === undefined ? new Date() : overrides.emailVerifiedAt,
     },
   });
@@ -105,6 +107,7 @@ export async function createTestFilament(
     brand: string;
     spoolWeightGrams: number;
     remainingGrams: number;
+    pricePerKg: number | null;
     isActive: boolean;
   }> = {}
 ) {
@@ -117,6 +120,7 @@ export async function createTestFilament(
       brand: overrides.brand ?? "Prusament",
       spoolWeightGrams: overrides.spoolWeightGrams ?? 1000,
       remainingGrams: overrides.remainingGrams ?? 800,
+      pricePerKg: overrides.pricePerKg !== undefined ? overrides.pricePerKg : null,
       isActive: overrides.isActive ?? true,
     },
   });

@@ -99,6 +99,8 @@ async function main() {
         "Sie haben eine Anfrage zum Zurücksetzen Ihres Passworts gestellt.\n\nDieser Link ist 1 Stunde gültig. Falls Sie diese Anfrage nicht gestellt haben, können Sie diese E-Mail ignorieren.",
     },
     { key: "survey_enabled", value: "true" },
+    { key: "charge_misprints", value: "false" },
+    { key: "charge_prototypes", value: "false" },
     {
       key: "survey_questions",
       value: JSON.stringify([

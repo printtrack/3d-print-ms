@@ -18,7 +18,7 @@ export async function GET() {
       id: true,
       name: true,
       email: true,
-      creditBalance: true,
+      creditBalanceCents: true,
       emailVerifiedAt: true,
       createdAt: true,
       _count: { select: { orders: true } },
@@ -39,7 +39,7 @@ const createSchema = z.object({
   name: z.string().min(1).max(100),
   email: z.string().email(),
   password: z.string().min(6),
-  creditBalance: z.number().int().min(0).optional(),
+  creditBalanceCents: z.number().int().min(0).optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Ungültige Eingabe", details: parsed.error.issues }, { status: 400 });
   }
 
-  const { name, email, password, creditBalance } = parsed.data;
+  const { name, email, password, creditBalanceCents } = parsed.data;
 
   const existing = await prisma.customer.findUnique({ where: { email } });
   if (existing) {
@@ -65,14 +65,14 @@ export async function POST(req: NextRequest) {
       name,
       email,
       password: hashedPassword,
-      creditBalance: creditBalance ?? 0,
+      creditBalanceCents: creditBalanceCents ?? 0,
       emailVerifiedAt: new Date(),
     },
     select: {
       id: true,
       name: true,
       email: true,
-      creditBalance: true,
+      creditBalanceCents: true,
       emailVerifiedAt: true,
       createdAt: true,
       _count: { select: { orders: true } },

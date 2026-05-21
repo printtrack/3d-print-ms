@@ -13,6 +13,7 @@ const updateSchema = z.object({
   brand: z.string().max(100).optional().or(z.null()),
   spoolWeightGrams: z.number().int().positive().optional(),
   remainingGrams: z.number().int().min(0).optional(),
+  pricePerKg: z.number().positive().optional().or(z.null()),
   notes: z.string().optional().or(z.null()),
   isActive: z.boolean().optional(),
 });

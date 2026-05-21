@@ -6,6 +6,8 @@ import {
   createTestOrder,
   createTestOrderPart,
   createTestPrintJobPart,
+  createTestFilament,
+  createTestCustomer,
 } from "../fixtures/db";
 
 test.use({ storageState: "tests/.auth/admin.json" });
@@ -45,7 +47,7 @@ test("öffnet Verifikations-Dialog über Detail-Dialog", async ({ seed, page }) 
 
   await page.getByRole("button", { name: /Druck verifizieren/i }).click();
   await expect(page.getByRole("heading", { name: "Druck verifizieren" })).toBeVisible();
-  await expect(page.getByText("Verifikations-Teil")).toBeVisible();
+  await expect(page.getByText("Verifikations-Teil").first()).toBeVisible();
   await expect(page.getByRole("button", { name: /Verifikation abschließen/i })).toBeDisabled();
 });
 
@@ -57,8 +59,10 @@ test("happy path: alle Teile erfolgreich → Job wird DONE, Teil auf Gedruckt", 
   await page.getByText("1 Teile").first().click();
   await page.getByRole("button", { name: /Druck verifizieren/i }).click();
 
-  // Mark as successful
+  // Mark as successful and enter weight
   await page.getByRole("button", { name: /^Erfolgreich$/ }).click();
+  // The weight input should be pre-filled (0 if no gramsEstimated), fill it explicitly
+  await page.getByRole("spinbutton").first().fill("15");
   await expect(page.getByText(/1 erfolgreich/)).toBeVisible();
   await expect(page.getByRole("button", { name: /Verifikation abschließen/i })).toBeEnabled();
 
@@ -86,6 +90,7 @@ test("fehldruck-pfad: Teil als Fehldruck markiert → landet in Fehldruck-Phase"
   await page.getByRole("button", { name: /Druck verifizieren/i }).click();
 
   await page.getByRole("button", { name: /^Fehldruck$/ }).click();
+  await page.getByRole("spinbutton").first().fill("10");
   await expect(page.getByText(/1 Fehldrucke/)).toBeVisible();
   await expect(page.getByRole("button", { name: /Verifikation abschließen/i })).toBeEnabled();
 
@@ -112,11 +117,10 @@ test("DELETE auf AWAITING_VERIFICATION-Job gibt 400 zurück", async ({ seed, pag
   expect(stillExists).not.toBeNull();
 });
 
-test("verify-parts mit fehlenden Teilen gibt 400 zurück", async ({ seed, page }) => {
+test("verify-parts mit leeren Iterationen gibt 400 zurück", async ({ seed, page }) => {
   const { job } = await setupJobWithPart("AWAITING_VERIFICATION");
-  // Send empty parts array — misses the required part
   const res = await page.request.post(`/api/admin/jobs/${job.id}/verify-parts`, {
-    data: { parts: [] },
+    data: { iterations: [] },
   });
   expect(res.status()).toBe(400);
 });
@@ -124,7 +128,7 @@ test("verify-parts mit fehlenden Teilen gibt 400 zurück", async ({ seed, page }
 test("verify-parts auf nicht-AWAITING_VERIFICATION-Job gibt 400", async ({ seed, page }) => {
   const { job, part } = await setupJobWithPart("PLANNED");
   const res = await page.request.post(`/api/admin/jobs/${job.id}/verify-parts`, {
-    data: { parts: [{ orderPartId: part.id, result: "success" }] },
+    data: { iterations: [{ orderPartId: part.id, pieceIndex: 0, result: "success", gramsActual: 10 }] },
   });
   expect(res.status()).toBe(400);
   const body = await res.json();
@@ -165,4 +169,107 @@ test("AWAITING_VERIFICATION-Jobs erscheinen in der Board-Ansicht, DONE-Jobs nich
   const col = page.locator(`[data-testid="machine-row"]`).filter({ hasText: "Filter-Test-Drucker" });
   // Fall back: just verify only 1 "Verifikation" badge exists (not 2)
   await expect(page.getByText("Verifikation", { exact: true })).toHaveCount(1);
+});
+
+// --- Billing: API-level tests ---
+
+test("Billing: Verifikation deducts Filament inventory (API)", async ({ seed, page }) => {
+  const filament = await createTestFilament({ remainingGrams: 500, pricePerKg: 25.0 });
+  const machine = await createTestMachine({ name: "Billing-Drucker" });
+  const job = await createTestPrintJob(machine.id, { status: "AWAITING_VERIFICATION" });
+  const defaultPhase = await prismaTest.orderPhase.findFirst({ where: { isDefault: true } });
+  const order = await createTestOrder(defaultPhase!.id, { customerName: "Billing Kunde" });
+  const part = await createTestOrderPart(order.id, { name: "Billing-Teil", filamentId: filament.id });
+  await createTestPrintJobPart(job.id, part.id);
+
+  // Set charge_misprints/charge_prototypes to false (default)
+  const res = await page.request.post(`/api/admin/jobs/${job.id}/verify-parts`, {
+    data: {
+      iterations: [{ orderPartId: part.id, pieceIndex: 0, result: "success", gramsActual: 20 }],
+    },
+  });
+  expect(res.status()).toBe(200);
+
+  const updatedFilament = await prismaTest.filament.findUnique({ where: { id: filament.id } });
+  expect(updatedFilament?.remainingGrams).toBe(480); // 500 - 20
+});
+
+test("Billing: Kundenguthaben wird abgezogen wenn berechnet (API)", async ({ seed, page }) => {
+  const customer = await createTestCustomer({ email: "billing@example.com", creditBalanceCents: 1000 });
+  const filament = await createTestFilament({ remainingGrams: 500, pricePerKg: 25.0 });
+  const machine = await createTestMachine({ name: "Billing-Drucker2" });
+  const job = await createTestPrintJob(machine.id, { status: "AWAITING_VERIFICATION" });
+  const defaultPhase = await prismaTest.orderPhase.findFirst({ where: { isDefault: true } });
+  const order = await createTestOrder(defaultPhase!.id, { customerEmail: customer.email, customerName: "Billing Kunde" });
+  const part = await createTestOrderPart(order.id, { name: "Billing-Teil2", filamentId: filament.id });
+  await createTestPrintJobPart(job.id, part.id);
+
+  // Enable charge_misprints=true so success parts are always charged
+  await prismaTest.setting.upsert({ where: { key: "charge_misprints" }, update: { value: "false" }, create: { key: "charge_misprints", value: "false" } });
+  await prismaTest.setting.upsert({ where: { key: "charge_prototypes" }, update: { value: "false" }, create: { key: "charge_prototypes", value: "false" } });
+
+  // 20g × 25€/kg = 0.50€ = 50 Cent
+  const res = await page.request.post(`/api/admin/jobs/${job.id}/verify-parts`, {
+    data: {
+      iterations: [{ orderPartId: part.id, pieceIndex: 0, result: "success", gramsActual: 20 }],
+    },
+  });
+  expect(res.status()).toBe(200);
+
+  const updatedCustomer = await prismaTest.customer.findUnique({ where: { id: customer.id } });
+  expect(updatedCustomer?.creditBalanceCents).toBe(950); // 1000 - 50
+
+  const credits = await prismaTest.customerCredit.findMany({ where: { customerId: customer.id } });
+  expect(credits).toHaveLength(1);
+  expect(credits[0].amountCents).toBe(-50);
+});
+
+test("Billing: Fehldruck wird nicht berechnet wenn Setting aus (API)", async ({ seed, page }) => {
+  const customer = await createTestCustomer({ email: "misprint-test@example.com", creditBalanceCents: 500 });
+  const filament = await createTestFilament({ remainingGrams: 500, pricePerKg: 25.0 });
+  const machine = await createTestMachine({ name: "Billing-Drucker3" });
+  const job = await createTestPrintJob(machine.id, { status: "AWAITING_VERIFICATION" });
+  const defaultPhase = await prismaTest.orderPhase.findFirst({ where: { isDefault: true } });
+  const order = await createTestOrder(defaultPhase!.id, { customerEmail: customer.email, customerName: "Misprint Kunde" });
+  const part = await createTestOrderPart(order.id, { name: "Misprint-Teil", filamentId: filament.id });
+  await createTestPrintJobPart(job.id, part.id);
+
+  await prismaTest.setting.upsert({ where: { key: "charge_misprints" }, update: { value: "false" }, create: { key: "charge_misprints", value: "false" } });
+
+  const res = await page.request.post(`/api/admin/jobs/${job.id}/verify-parts`, {
+    data: {
+      iterations: [{ orderPartId: part.id, pieceIndex: 0, result: "misprint", gramsActual: 20 }],
+    },
+  });
+  expect(res.status()).toBe(200);
+
+  // Inventory deducted, but customer balance unchanged
+  const updatedFilament = await prismaTest.filament.findUnique({ where: { id: filament.id } });
+  expect(updatedFilament?.remainingGrams).toBe(480);
+  const updatedCustomer = await prismaTest.customer.findUnique({ where: { id: customer.id } });
+  expect(updatedCustomer?.creditBalanceCents).toBe(500); // unchanged
+});
+
+test("Billing: Filament ohne Preis — kein Crash, Inventar abgezogen, kein Kundenbetrag (API)", async ({ seed, page }) => {
+  const customer = await createTestCustomer({ email: "noprice@example.com", creditBalanceCents: 300 });
+  const filament = await createTestFilament({ remainingGrams: 300, pricePerKg: null });
+  const machine = await createTestMachine({ name: "Billing-Drucker4" });
+  const job = await createTestPrintJob(machine.id, { status: "AWAITING_VERIFICATION" });
+  const defaultPhase = await prismaTest.orderPhase.findFirst({ where: { isDefault: true } });
+  const order = await createTestOrder(defaultPhase!.id, { customerEmail: customer.email, customerName: "NoPrice Kunde" });
+  const part = await createTestOrderPart(order.id, { name: "NoPriceTeil", filamentId: filament.id });
+  await createTestPrintJobPart(job.id, part.id);
+
+  const res = await page.request.post(`/api/admin/jobs/${job.id}/verify-parts`, {
+    data: {
+      iterations: [{ orderPartId: part.id, pieceIndex: 0, result: "success", gramsActual: 15 }],
+    },
+  });
+  expect(res.status()).toBe(200);
+
+  const updatedFilament = await prismaTest.filament.findUnique({ where: { id: filament.id } });
+  expect(updatedFilament?.remainingGrams).toBe(285); // 300 - 15
+
+  const updatedCustomer = await prismaTest.customer.findUnique({ where: { id: customer.id } });
+  expect(updatedCustomer?.creditBalanceCents).toBe(300); // unchanged
 });

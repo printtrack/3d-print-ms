@@ -103,7 +103,7 @@ async function getData(id: string) {
   // Look up customer credit by email
   const customerCreditRaw = await prisma.customer.findUnique({
     where: { email: order.customerEmail },
-    select: { id: true, creditBalance: true },
+    select: { id: true, creditBalanceCents: true },
   });
 
   // Serialize dates to strings for client components
@@ -181,7 +181,7 @@ async function getData(id: string) {
   }));
 
   const customerCredit = customerCreditRaw
-    ? { id: customerCreditRaw.id, balance: customerCreditRaw.creditBalance }
+    ? { id: customerCreditRaw.id, balanceCents: customerCreditRaw.creditBalanceCents }
     : null;
 
   const serializedMilestones = milestones.map((m) => ({

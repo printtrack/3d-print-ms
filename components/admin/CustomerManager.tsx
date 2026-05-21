@@ -33,7 +33,7 @@ interface CustomerRow {
   id: string;
   name: string;
   email: string;
-  creditBalance: number;
+  creditBalanceCents: number;
   emailVerifiedAt: string | null;
   createdAt: string;
   _count: { orders: number };
@@ -41,15 +41,19 @@ interface CustomerRow {
 
 interface CreditEntry {
   id: string;
-  amount: number;
+  amountCents: number;
   reason: string;
   orderId: string | null;
   createdAt: string;
 }
 
-function BalanceBadge({ balance }: { balance: number }) {
-  const variant = balance > 100 ? "default" : balance > 0 ? "secondary" : "destructive";
-  return <Badge variant={variant}>{balance} g</Badge>;
+function formatEur(cents: number) {
+  return (cents / 100).toLocaleString("de-DE", { style: "currency", currency: "EUR" });
+}
+
+function BalanceBadge({ balanceCents }: { balanceCents: number }) {
+  const variant = balanceCents > 100 ? "default" : balanceCents > 0 ? "secondary" : "destructive";
+  return <Badge variant={variant}>{formatEur(balanceCents)}</Badge>;
 }
 
 function VerifyBadge({ emailVerifiedAt }: { emailVerifiedAt: string | null }) {
@@ -87,7 +91,7 @@ function CreditDialog({
   const [amount, setAmount] = useState("");
   const [reason, setReason] = useState("");
   const [saving, setSaving] = useState(false);
-  const [balance, setBalance] = useState(customer.creditBalance);
+  const [balance, setBalance] = useState(customer.creditBalanceCents);
 
   async function loadHistory() {
     setLoadingHistory(true);
@@ -95,7 +99,7 @@ function CreditDialog({
       const res = await fetch(`/api/admin/customers/${customer.id}/credits`);
       const data = await res.json();
       setHistory(data.credits);
-      setBalance(data.creditBalance);
+      setBalance(data.creditBalanceCents);
     } catch {
       toast.error("Fehler beim Laden");
     } finally {
@@ -109,21 +113,21 @@ function CreditDialog({
   }
 
   async function handleSubmit() {
-    const grams = parseInt(amount, 10);
-    if (!grams || grams <= 0) { toast.error(t("customer_credit_grams_invalid")); return; }
+    const euros = parseFloat(amount);
+    if (!euros || euros <= 0) { toast.error(t("customer_credit_grams_invalid")); return; }
     if (!reason.trim()) { toast.error(t("customer_credit_reason_required")); return; }
 
-    const finalAmount = mode === "deduct" ? -grams : grams;
+    const amountCents = Math.round(euros * 100) * (mode === "deduct" ? -1 : 1);
     setSaving(true);
     try {
       const res = await fetch(`/api/admin/customers/${customer.id}/credits`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount: finalAmount, reason: reason.trim() }),
+        body: JSON.stringify({ amountCents, reason: reason.trim() }),
       });
       if (!res.ok) { toast.error((await res.json()).error ?? "Fehler"); return; }
       const credit = await res.json();
-      const newBalance = balance + finalAmount;
+      const newBalance = balance + amountCents;
       setBalance(newBalance);
       onBalanceUpdated(customer.id, newBalance);
       if (history !== null) setHistory((prev) => (prev ? [credit, ...prev] : [credit]));
@@ -150,7 +154,7 @@ function CreditDialog({
         <div className="space-y-4">
           <div className="flex items-center justify-between rounded-lg border px-4 py-3 bg-muted/50">
             <span className="text-sm font-medium">Aktuelles Guthaben</span>
-            <BalanceBadge balance={balance} />
+            <BalanceBadge balanceCents={balance} />
           </div>
           <Separator />
           <div className="space-y-3">
@@ -163,8 +167,8 @@ function CreditDialog({
               </Button>
             </div>
             <div className="space-y-2">
-              <Label>Menge (g) *</Label>
-              <Input type="number" min="1" placeholder="z.B. 100" value={amount} onChange={(e) => setAmount(e.target.value)} />
+              <Label>{t("customer_credit_amount_eur")}</Label>
+              <Input type="number" min="0.01" step="0.01" placeholder="z.B. 5.00" value={amount} onChange={(e) => setAmount(e.target.value)} />
             </div>
             <div className="space-y-2">
               <Label>Grund *</Label>
@@ -186,8 +190,8 @@ function CreditDialog({
                       <span className="text-muted-foreground text-xs">{formatDateTime(c.createdAt)}</span>
                       <p className="truncate text-xs">{c.reason}</p>
                     </div>
-                    <span className={c.amount > 0 ? "text-green-600 font-medium shrink-0" : "text-red-600 font-medium shrink-0"}>
-                      {c.amount > 0 ? "+" : ""}{c.amount} g
+                    <span className={c.amountCents > 0 ? "text-green-600 font-medium shrink-0" : "text-red-600 font-medium shrink-0"}>
+                      {c.amountCents > 0 ? "+" : ""}{formatEur(c.amountCents)}
                     </span>
                   </div>
                 ))}
@@ -358,7 +362,7 @@ export function CustomerManager({ initialCustomers }: { initialCustomers: Custom
   const [verifying, setVerifying] = useState<string | null>(null);
 
   function handleBalanceUpdated(id: string, newBalance: number) {
-    setCustomers((prev) => prev.map((c) => (c.id === id ? { ...c, creditBalance: newBalance } : c)));
+    setCustomers((prev) => prev.map((c) => (c.id === id ? { ...c, creditBalanceCents: newBalance } : c)));
   }
 
   async function handleVerify(customer: CustomerRow) {
@@ -401,7 +405,7 @@ export function CustomerManager({ initialCustomers }: { initialCustomers: Custom
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Kunden</h1>
-          <p className="text-muted-foreground text-sm">Kundenkonten und Filament-Guthaben verwalten</p>
+          <p className="text-muted-foreground text-sm">Kundenkonten und Guthaben verwalten</p>
         </div>
         <Button size="sm" onClick={() => setShowCreate(true)}>
           <Plus className="h-4 w-4 mr-1.5" />
@@ -420,7 +424,7 @@ export function CustomerManager({ initialCustomers }: { initialCustomers: Custom
 
               <div className="flex items-center gap-2 flex-wrap justify-end">
                 <VerifyBadge emailVerifiedAt={customer.emailVerifiedAt} />
-                <BalanceBadge balance={customer.creditBalance} />
+                <BalanceBadge balanceCents={customer.creditBalanceCents} />
                 <span className="text-xs text-muted-foreground hidden sm:block">
                   {customer._count.orders} Aufträge
                 </span>

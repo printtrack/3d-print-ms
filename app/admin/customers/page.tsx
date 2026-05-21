@@ -16,7 +16,7 @@ export default async function CustomersPage() {
       id: true,
       name: true,
       email: true,
-      creditBalance: true,
+      creditBalanceCents: true,
       emailVerifiedAt: true,
       createdAt: true,
       _count: { select: { orders: true } },

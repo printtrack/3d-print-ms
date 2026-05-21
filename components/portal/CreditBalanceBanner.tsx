@@ -5,17 +5,21 @@ import { Wallet } from "lucide-react";
 
 interface CreditEntry {
   id: string;
-  amount: number;
+  amountCents: number;
   reason: string;
   createdAt: string;
 }
 
 interface CreditBalanceBannerProps {
-  balance: number;
+  balanceCents: number;
   recentCredits: CreditEntry[];
 }
 
-export function CreditBalanceBanner({ balance, recentCredits }: CreditBalanceBannerProps) {
+function formatEur(cents: number) {
+  return (cents / 100).toLocaleString("de-DE", { style: "currency", currency: "EUR" });
+}
+
+export function CreditBalanceBanner({ balanceCents, recentCredits }: CreditBalanceBannerProps) {
   const [showHistory, setShowHistory] = useState(false);
 
   return (
@@ -23,14 +27,18 @@ export function CreditBalanceBanner({ balance, recentCredits }: CreditBalanceBan
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Wallet className="h-4 w-4 text-muted-foreground" />
-          <span className="font-medium text-sm">Filamentguthaben</span>
+          <span className="font-medium text-sm">Guthaben</span>
         </div>
-        <span className="text-lg font-bold">
-          {balance > 0 ? `${balance} g` : (
-            <span className="text-muted-foreground text-sm font-normal">Kein Guthaben verfügbar</span>
+        <span className={`text-lg font-bold ${balanceCents < 0 ? "text-destructive" : ""}`}>
+          {balanceCents !== 0 ? formatEur(balanceCents) : (
+            <span className="text-muted-foreground text-sm font-normal">Kein Guthaben</span>
           )}
         </span>
       </div>
+
+      {balanceCents < 0 && (
+        <p className="text-xs text-destructive">Ihr Guthaben ist negativ. Bitte laden Sie Ihr Konto auf.</p>
+      )}
 
       {recentCredits.length > 0 && (
         <button
@@ -51,8 +59,8 @@ export function CreditBalanceBanner({ balance, recentCredits }: CreditBalanceBan
                 </span>
                 <p className="text-muted-foreground truncate">{c.reason}</p>
               </div>
-              <span className={c.amount > 0 ? "text-green-600 font-medium shrink-0" : "text-red-600 font-medium shrink-0"}>
-                {c.amount > 0 ? "+" : ""}{c.amount} g
+              <span className={c.amountCents > 0 ? "text-green-600 font-medium shrink-0" : "text-red-600 font-medium shrink-0"}>
+                {c.amountCents > 0 ? "+" : ""}{formatEur(c.amountCents)}
               </span>
             </div>
           ))}

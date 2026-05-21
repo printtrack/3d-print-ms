@@ -22,11 +22,11 @@ export default async function PortalPage() {
     prisma.customer.findUnique({
       where: { id: customer.id },
       select: {
-        creditBalance: true,
+        creditBalanceCents: true,
         credits: {
           orderBy: { createdAt: "desc" },
           take: 10,
-          select: { id: true, amount: true, reason: true, createdAt: true },
+          select: { id: true, amountCents: true, reason: true, createdAt: true },
         },
       },
     }),
@@ -60,7 +60,7 @@ export default async function PortalPage() {
         </Link>
       </div>
       <CreditBalanceBanner
-        balance={customerData?.creditBalance ?? 0}
+        balanceCents={customerData?.creditBalanceCents ?? 0}
         recentCredits={recentCredits}
       />
       <PortalOrderList orders={serialized} />

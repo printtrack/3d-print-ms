@@ -10,27 +10,27 @@ async function loginAsCustomer(page: Page, email: string, password: string) {
   await page.waitForURL("/portal");
 }
 
-test("shows Filamentguthaben banner with zero balance", async ({ seed, page }) => {
+test("shows Guthaben banner with zero balance", async ({ seed, page }) => {
   await createTestCustomer({ email: "zero@example.com", password: "passwort123" });
   await loginAsCustomer(page, "zero@example.com", "passwort123");
 
-  await expect(page.getByText("Filamentguthaben")).toBeVisible();
-  await expect(page.getByText("Kein Guthaben verfügbar")).toBeVisible();
+  await expect(page.getByText("Guthaben", { exact: true })).toBeVisible();
+  await expect(page.getByText("Kein Guthaben")).toBeVisible();
 });
 
 test("shows correct balance when customer has credits", async ({ seed, page }) => {
   const customer = await createTestCustomer({ email: "rich@example.com", password: "passwort123" });
-  await createTestCreditTransaction(customer.id, 450, "Guthaben-Kauf");
+  await createTestCreditTransaction(customer.id, 450, "Guthaben-Kauf"); // 4,50 €
 
   await loginAsCustomer(page, "rich@example.com", "passwort123");
 
-  await expect(page.getByText("Filamentguthaben")).toBeVisible();
-  await expect(page.getByText("450 g")).toBeVisible();
+  await expect(page.getByText("Guthaben", { exact: true })).toBeVisible();
+  await expect(page.getByText("4,50 €")).toBeVisible();
 });
 
 test("can toggle transaction history", async ({ seed, page }) => {
   const customer = await createTestCustomer({ email: "hist@example.com", password: "passwort123" });
-  await createTestCreditTransaction(customer.id, 200, "Einkauf Guthaben");
+  await createTestCreditTransaction(customer.id, 200, "Einkauf Guthaben"); // 2,00 €
 
   await loginAsCustomer(page, "hist@example.com", "passwort123");
 
@@ -41,7 +41,7 @@ test("can toggle transaction history", async ({ seed, page }) => {
   await page.getByRole("button", { name: /Verlauf anzeigen/ }).click();
 
   await expect(page.getByText("Einkauf Guthaben")).toBeVisible();
-  await expect(page.getByText("+200 g")).toBeVisible();
+  await expect(page.getByText("+2,00 €")).toBeVisible();
 
   // Can collapse again
   await page.getByRole("button", { name: /Verlauf ausblenden/ }).click();

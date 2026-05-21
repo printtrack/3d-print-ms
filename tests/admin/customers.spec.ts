@@ -10,11 +10,11 @@ test.describe("Customer credit management", () => {
     await expect(page.getByText("anna@example.com")).toBeVisible();
   });
 
-  test("shows balance badge for customer", async ({ seed, page }) => {
+  test("shows balance badge for customer (0,00 € for new customer)", async ({ seed, page }) => {
     await createTestCustomer({ email: "balance@example.com" });
 
     await page.goto("/admin/customers");
-    await expect(page.getByText("0 g")).toBeVisible();
+    await expect(page.getByText("0,00 €")).toBeVisible();
   });
 
   test("can top up credits for a customer", async ({ seed, page }) => {
@@ -26,17 +26,17 @@ test.describe("Customer credit management", () => {
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
 
-    await page.getByPlaceholder("z.B. 100").fill("250");
-    await page.getByPlaceholder("z.B. Guthaben-Kauf, Abzug für Auftrag...").fill("Guthaben-Kauf 250g");
+    await page.getByPlaceholder("z.B. 5.00").fill("2.50");
+    await page.getByPlaceholder("z.B. Guthaben-Kauf, Abzug für Auftrag...").fill("Guthaben-Kauf");
 
     await page.getByRole("button", { name: /^Buchen$/ }).click();
 
-    await expect(dialog.getByText("250 g")).toBeVisible({ timeout: 5000 });
+    await expect(dialog.getByText("2,50 €")).toBeVisible({ timeout: 5000 });
   });
 
   test("can deduct credits from a customer", async ({ seed, page }) => {
     const customer = await createTestCustomer({ name: "Deduct Tester", email: "deduct@example.com" });
-    await createTestCreditTransaction(customer.id, 500, "Initial top-up");
+    await createTestCreditTransaction(customer.id, 500, "Initial top-up"); // 5,00 €
 
     await page.goto("/admin/customers");
     await page.getByRole("button", { name: "Guthaben" }).first().click();
@@ -45,17 +45,17 @@ test.describe("Customer credit management", () => {
     await expect(dialog).toBeVisible();
     await dialog.getByRole("button", { name: "Abziehen" }).click();
 
-    await page.getByPlaceholder("z.B. 100").fill("100");
+    await page.getByPlaceholder("z.B. 5.00").fill("1.00");
     await page.getByPlaceholder("z.B. Guthaben-Kauf, Abzug für Auftrag...").fill("Abzug für Druck");
 
     await page.getByRole("button", { name: /^Buchen$/ }).click();
 
-    await expect(dialog.getByText("400 g")).toBeVisible({ timeout: 5000 });
+    await expect(dialog.getByText("4,00 €")).toBeVisible({ timeout: 5000 });
   });
 
   test("shows transaction history on request", async ({ seed, page }) => {
     const customer = await createTestCustomer({ name: "History Tester", email: "history@example.com" });
-    await createTestCreditTransaction(customer.id, 300, "Erstes Guthaben");
+    await createTestCreditTransaction(customer.id, 300, "Erstes Guthaben"); // 3,00 €
 
     await page.goto("/admin/customers");
     await page.getByRole("button", { name: "Guthaben" }).first().click();
@@ -64,7 +64,7 @@ test.describe("Customer credit management", () => {
     await page.getByRole("button", { name: /Verlauf anzeigen/ }).click();
 
     await expect(page.getByText("Erstes Guthaben")).toBeVisible({ timeout: 5000 });
-    await expect(page.getByText("+300 g")).toBeVisible();
+    await expect(page.getByText("+3,00 €")).toBeVisible();
   });
 
   test("shows empty state when no customers", async ({ seed, page }) => {

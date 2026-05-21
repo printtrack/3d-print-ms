@@ -13,6 +13,7 @@ const createSchema = z.object({
   brand: z.string().max(100).optional().or(z.null()),
   spoolWeightGrams: z.number().int().positive(),
   remainingGrams: z.number().int().min(0),
+  pricePerKg: z.number().positive().optional().or(z.null()),
   notes: z.string().optional().or(z.null()),
   isActive: z.boolean().default(true),
 });
@@ -49,6 +50,7 @@ export async function POST(req: NextRequest) {
         colorHex: data.colorHex || null,
         brand: data.brand || null,
         notes: data.notes || null,
+        pricePerKg: data.pricePerKg ?? null,
       },
       include: { _count: { select: { orderParts: true } } },
     });
