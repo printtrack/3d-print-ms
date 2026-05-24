@@ -19,12 +19,13 @@ export async function POST(req: NextRequest) {
   const customer = await prisma.customer.findUnique({ where: { email } });
 
   if (customer) {
-    // Delete any existing token for this email
-    await prisma.passwordResetToken.deleteMany({ where: { email } });
+    // Delete any existing token for this email + kind
+    await prisma.passwordResetToken.deleteMany({ where: { email, kind: "CUSTOMER" } });
 
     const record = await prisma.passwordResetToken.create({
       data: {
         email,
+        kind: "CUSTOMER",
         expires: new Date(Date.now() + 60 * 60 * 1000), // 1 hour
       },
     });

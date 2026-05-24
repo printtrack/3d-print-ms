@@ -47,6 +47,8 @@ COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
 # Prisma migrations, schema, and compiled seed.js
 COPY --from=builder /app/prisma ./prisma
+# Wiki markdown files (read at runtime by lib/wiki.ts)
+COPY --from=builder /app/docs ./docs
 # Full node_modules for Prisma CLI + engines
 COPY --from=builder /app/node_modules ./node_modules
 RUN npx prisma generate

@@ -90,6 +90,11 @@ enum PaymentMethod {
   OTHER
 }
 
+enum PasswordResetKind {
+  USER
+  CUSTOMER
+}
+
 
 model User {
   id               String                  @id @default(cuid())
@@ -664,11 +669,14 @@ model Setting {
 }
 
 model PasswordResetToken {
-  id        String   @id @default(cuid())
-  token     String   @unique @default(cuid())
+  id        String            @id @default(cuid())
+  token     String            @unique @default(cuid())
   email     String
+  kind      PasswordResetKind
   expires   DateTime
-  createdAt DateTime @default(now())
+  createdAt DateTime          @default(now())
+
+  @@index([email, kind])
 }
 
 model Customer {

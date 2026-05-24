@@ -6,21 +6,27 @@
 import { test } from "@playwright/test";
 import * as fs from "fs";
 import * as path from "path";
-import matter from "gray-matter";
+import * as yaml from "js-yaml";
 
 test.use({ storageState: "tests/.auth/admin.json" });
 
 const WIKI_DE_DIR = path.join(process.cwd(), "docs/wiki/de/admin");
 const OUTPUT_DIR = path.join(process.cwd(), "public/wiki-screenshots");
 
+function parseFrontmatter(content: string): Record<string, unknown> {
+  const match = content.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+  if (!match) return {};
+  return (yaml.load(match[1]) as Record<string, unknown>) ?? {};
+}
+
 function getPagedRoutes(): { slug: string; route: string }[] {
   const files = fs.readdirSync(WIKI_DE_DIR).filter((f) => f.endsWith(".md") && !f.startsWith("_"));
   const result: { slug: string; route: string }[] = [];
   for (const file of files) {
     const content = fs.readFileSync(path.join(WIKI_DE_DIR, file), "utf-8");
-    const { data } = matter(content);
+    const data = parseFrontmatter(content);
     if (data.route) {
-      result.push({ slug: file.replace(/\.md$/, ""), route: data.route });
+      result.push({ slug: file.replace(/\.md$/, ""), route: data.route as string });
     }
   }
   return result;

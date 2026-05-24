@@ -11,7 +11,7 @@ export default async function PortalResetPasswordConfirmPage({ params }: PagePro
   const t = await getTranslations("portal");
 
   const record = await prisma.passwordResetToken.findUnique({ where: { token } });
-  const isValid = record && record.expires > new Date();
+  const isValid = record && record.kind === "CUSTOMER" && record.expires > new Date();
 
   return (
     <div className="flex items-center justify-center min-h-[calc(100vh-8rem)]">

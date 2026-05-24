@@ -11,7 +11,7 @@ export default async function ResetPasswordConfirmPage({ params }: PageProps) {
   const t = await getTranslations("auth");
 
   const record = await prisma.passwordResetToken.findUnique({ where: { token } });
-  const isValid = record && record.expires > new Date();
+  const isValid = record && record.kind === "USER" && record.expires > new Date();
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background px-4">

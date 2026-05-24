@@ -28,12 +28,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true });
     }
 
-    // Delete any existing tokens for this email
-    await prisma.passwordResetToken.deleteMany({ where: { email } });
+    // Delete any existing tokens for this email + kind
+    await prisma.passwordResetToken.deleteMany({ where: { email, kind: "USER" } });
 
     const expires = new Date(Date.now() + 60 * 60 * 1000); // 1 hour
     const record = await prisma.passwordResetToken.create({
-      data: { email, expires },
+      data: { email, kind: "USER", expires },
     });
 
     const baseUrl = process.env.AUTH_URL ?? "http://localhost:3000";

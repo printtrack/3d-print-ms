@@ -18,7 +18,7 @@ export async function POST(req: NextRequest, { params }: RouteContext) {
   }
 
   const record = await prisma.passwordResetToken.findUnique({ where: { token } });
-  if (!record || record.expires < new Date()) {
+  if (!record || record.kind !== "CUSTOMER" || record.expires < new Date()) {
     return NextResponse.json({ error: "Link ungültig oder abgelaufen" }, { status: 400 });
   }
 
