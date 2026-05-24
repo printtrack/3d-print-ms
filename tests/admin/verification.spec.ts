@@ -3,16 +3,17 @@ import { prismaTest, createTestOrder, createTestOrderPart, createTestVerificatio
 
 test.use({ storageState: "tests/.auth/admin.json" });
 
-test("order detail: Angebotsfreigabe card always visible", async ({ seed, page }) => {
+test("order detail: quote editor always visible without design review", async ({ seed, page }) => {
   const defaultPhase = await prismaTest.orderPhase.findFirst({ where: { isDefault: true } });
   if (!defaultPhase) { test.skip(); return; }
 
-  const order = await createTestOrder(defaultPhase.id, { customerName: "Freigabe Visible Test" });
+  const order = await createTestOrder(defaultPhase.id, { customerName: "Quote Always Visible Test" });
 
   await page.goto(`/admin/orders/${order.id}`);
 
-  await expect(page.getByText("Angebotsfreigabe", { exact: true })).toBeVisible({ timeout: 5000 });
-  await expect(page.getByText("Erst nach Designfreigabe verfügbar")).toBeVisible();
+  // QuoteEditor replaced the old Angebotsfreigabe card — always visible, no design review required
+  await expect(page.getByText("Noch kein Angebot erstellt.")).toBeVisible({ timeout: 5000 });
+  await expect(page.getByRole("button", { name: /Angebot erstellen/ })).toBeVisible();
 });
 
 test("order detail: admin approves per-part VR via inline button", async ({ seed, page }) => {

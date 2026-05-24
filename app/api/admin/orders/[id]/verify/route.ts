@@ -141,6 +141,18 @@ export async function PATCH(
       },
     });
 
+    if (vr.quoteId) {
+      await prisma.quote.update({
+        where: { id: vr.quoteId },
+        data: {
+          status: isApprove ? "APPROVED" : "REJECTED",
+          ...(isApprove
+            ? { approvedAt: new Date() }
+            : { rejectedAt: new Date(), rejectionReason: data.message ?? null }),
+        },
+      });
+    }
+
     if (vr.orderPartId) {
       if (isApprove) {
         const printReadyPhase = await prisma.partPhase.findFirst({ where: { isPrintReady: true } });

@@ -4,6 +4,8 @@ import { useRef, useState } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import { QuoteCustomerView } from "@/components/customer/QuoteCustomerView";
+import { InvoiceCustomerView, type InvoiceCustomer } from "@/components/customer/InvoiceCustomerView";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -89,8 +91,32 @@ interface TrackingData {
     resolvedAt?: string | null;
     resolvedBy?: string | null;
     orderPartId?: string | null;
+    quoteId?: string | null;
     rejectionReason?: string | null;
   }>;
+  activeQuote?: {
+    id: string;
+    version: number;
+    status: "SENT" | "APPROVED" | "REJECTED";
+    totalCents: number;
+    taxCents: number;
+    validUntil: string | null;
+    sentAt: string | null;
+    approvedAt: string | null;
+    rejectedAt: string | null;
+    rejectionReason: string | null;
+    notes: string | null;
+    items: Array<{
+      id: string;
+      description: string;
+      quantity: number;
+      unitPriceCents: number;
+      taxRatePercent: number;
+      category: string;
+      source: "ESTIMATE" | "FIXED" | "ACTUAL";
+    }>;
+  } | null;
+  activeInvoice?: InvoiceCustomer | null;
 }
 
 function isImage(mimeType: string) {
@@ -446,6 +472,21 @@ export function TrackingView({ order, trackingToken }: { order: TrackingData; tr
           </Button>
         </CardContent>
       </Card>
+
+      {/* Active invoice — once issued, takes precedence over quote */}
+      {order.activeInvoice ? (
+        <InvoiceCustomerView
+          invoice={order.activeInvoice}
+          pdfUrl={`/api/orders/${trackingToken}/invoice-pdf`}
+        />
+      ) : (
+        order.activeQuote && (
+          <QuoteCustomerView
+            quote={order.activeQuote}
+            pdfUrl={`/api/orders/${trackingToken}/quote-pdf`}
+          />
+        )
+      )}
 
       {/* Verification Requests — pending ones rendered as prominent CTA */}
       {verificationRequests.filter((vr) => vr.status === "PENDING").map((vr) => {

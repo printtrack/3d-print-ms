@@ -45,6 +45,18 @@ export async function POST(
       },
     });
 
+    if (vr.quoteId) {
+      await prisma.quote.update({
+        where: { id: vr.quoteId },
+        data: {
+          status: isApprove ? "APPROVED" : "REJECTED",
+          ...(isApprove
+            ? { approvedAt: new Date() }
+            : { rejectedAt: new Date(), rejectionReason: data.rejectionReason ?? null }),
+        },
+      });
+    }
+
     if (vr.orderPartId) {
       if (isApprove) {
         const printReadyPhase = await prisma.partPhase.findFirst({ where: { isPrintReady: true } });

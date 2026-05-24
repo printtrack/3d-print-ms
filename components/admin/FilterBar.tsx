@@ -117,7 +117,7 @@ export function FilterBar({ results = [], users }: FilterBarProps) {
         >
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
           <Input
-            placeholder="Aufträge suchen..."
+            placeholder={t("filter_search_placeholder")}
             value={query}
             onChange={(e) => handleSearch(e.target.value)}
             onFocus={() => setDropdownOpen(true)}
@@ -148,6 +148,9 @@ export function FilterBar({ results = [], users }: FilterBarProps) {
                   <span className="flex-1 min-w-0">
                     <span className="font-medium truncate block">{r.customerName}</span>
                     <span className="text-xs text-muted-foreground truncate block">{r.customerEmail}</span>
+                  </span>
+                  <span className="font-mono text-[10.5px] text-muted-foreground/70 flex-shrink-0">
+                    #{r.id.slice(-6).toUpperCase()}
                   </span>
                   <span className="text-xs text-muted-foreground flex-shrink-0">{r.phase.name}</span>
                 </button>

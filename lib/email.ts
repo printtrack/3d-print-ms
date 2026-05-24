@@ -446,6 +446,251 @@ export async function sendCustomerMessageEmail({
   });
 }
 
+export async function sendQuoteEmail({
+  customerEmail,
+  customerName,
+  verificationToken,
+  trackingToken,
+  quoteId,
+  quoteNumber,
+  totalCents,
+}: {
+  customerEmail: string;
+  customerName: string;
+  verificationToken: string;
+  trackingToken: string;
+  quoteId: string;
+  quoteNumber: string;
+  totalCents: number;
+}) {
+  const [settings, rawLocale] = await Promise.all([
+    getSettings(),
+    getRecipientLocale(customerEmail),
+  ]);
+  const locale: "de" | "en" = rawLocale === "en" ? "en" : "de";
+  const companyName = settings.company_name ?? "3D Print CMS";
+  const signature = settings.company_signature ?? (locale === "en" ? "Your 3D Print Team" : "Ihr 3D-Druck-Team");
+  const contactEmail = settings.contact_email ?? "noreply@3dprinting.local";
+  const wrap = getEmailWrappers(locale);
+  const suffix = localeSuffix(locale);
+
+  const trackingUrl = `${BASE_URL}/track/${trackingToken}`;
+  const price = (totalCents / 100).toLocaleString(locale === "en" ? "en-GB" : "de-DE", {
+    style: "currency",
+    currency: "EUR",
+  });
+  const vars = { customerName, trackingUrl, quoteNumber, price };
+
+  void verificationToken;
+
+  const subject = renderTemplate(
+    settings[`email_quote_subject${suffix}`] ?? settings.email_quote_subject_de ?? "Ihr Angebot {{quoteNumber}}",
+    vars
+  );
+  const bodyText = renderTemplate(
+    settings[`email_quote_body${suffix}`] ?? settings.email_quote_body_de ??
+      "wir haben Ihnen ein neues Angebot erstellt. Die Details finden Sie im angehängten PDF.\n\nÜber den folgenden Link können Sie das Angebot bestätigen oder ablehnen.",
+    vars
+  );
+
+  // Render PDF
+  let pdfBuffer: Buffer | null = null;
+  try {
+    const { renderQuotePdf } = await import("@/lib/billing-render");
+    const { buildBranding, quoteToDocumentData } = await import("@/lib/billing-pdf");
+    const { prisma } = await import("@/lib/db");
+
+    const fullQuote = await prisma.quote.findUnique({
+      where: { id: quoteId },
+      include: {
+        items: true,
+        order: { select: { customerName: true, customerEmail: true } },
+      },
+    });
+    if (fullQuote) {
+      const branding = await buildBranding(settings);
+      if (locale === "en" && settings.billing_footer_en) {
+        branding.footer = settings.billing_footer_en;
+      }
+      const doc = quoteToDocumentData(
+        {
+          ...fullQuote,
+          items: fullQuote.items.map((i) => ({
+            position: i.position,
+            description: i.description,
+            quantity: Number(i.quantity.toString()),
+            unitPriceCents: i.unitPriceCents,
+            taxRatePercent: Number(i.taxRatePercent.toString()),
+          })),
+        },
+        quoteNumber
+      );
+      pdfBuffer = await renderQuotePdf({ document: doc, branding, locale });
+    }
+  } catch (err) {
+    console.error("[email] Quote PDF render failed:", err);
+  }
+
+  const bodyHtml = `
+    <p>${escapeHtml(wrap.greeting(customerName))}</p>
+    ${bodyText.split("\n").map((line) => `<p>${escapeHtml(line)}</p>`).join("")}
+    <p><a href="${trackingUrl}" style="color:#6366f1;font-weight:bold">${wrap.approvalLink}</a></p>`;
+
+  await sendMail({
+    from: `${companyName} <${contactEmail}>`,
+    to: customerEmail,
+    subject,
+    text: [wrap.greeting(customerName), "", bodyText, "", `${wrap.approvalLink}: ${trackingUrl}`, "", wrap.closing, signature].join("\n"),
+    html: buildHtml(companyName, bodyHtml, signature),
+    attachments: pdfBuffer
+      ? [{ filename: `${quoteNumber}.pdf`, content: pdfBuffer, contentType: "application/pdf" }]
+      : undefined,
+  });
+}
+
+export async function sendInvoiceEmail({
+  customerEmail,
+  customerName,
+  invoiceId,
+  invoiceNumber,
+  totalCents,
+  dueAt,
+  pdfBuffer,
+}: {
+  customerEmail: string;
+  customerName: string;
+  invoiceId: string;
+  invoiceNumber: string;
+  totalCents: number;
+  dueAt: Date | null;
+  pdfBuffer?: Buffer | null;
+}) {
+  void invoiceId;
+  const [settings, rawLocale] = await Promise.all([
+    getSettings(),
+    getRecipientLocale(customerEmail),
+  ]);
+  const locale: "de" | "en" = rawLocale === "en" ? "en" : "de";
+  const companyName = settings.company_name ?? "3D Print CMS";
+  const signature = settings.company_signature ?? (locale === "en" ? "Your 3D Print Team" : "Ihr 3D-Druck-Team");
+  const contactEmail = settings.contact_email ?? "noreply@3dprinting.local";
+  const wrap = getEmailWrappers(locale);
+  const suffix = localeSuffix(locale);
+
+  const price = (totalCents / 100).toLocaleString(locale === "en" ? "en-GB" : "de-DE", {
+    style: "currency",
+    currency: "EUR",
+  });
+  const dueDate = dueAt
+    ? dueAt.toLocaleDateString(locale === "en" ? "en-GB" : "de-DE")
+    : "";
+  const vars = { customerName, invoiceNumber, price, dueDate, companyName };
+
+  const subject = renderTemplate(
+    settings[`email_invoice_subject${suffix}`] ?? settings.email_invoice_subject_de ?? "Ihre Rechnung {{invoiceNumber}}",
+    vars
+  );
+  const bodyText = renderTemplate(
+    settings[`email_invoice_body${suffix}`] ?? settings.email_invoice_body_de ??
+      "anbei erhalten Sie Ihre Rechnung {{invoiceNumber}} über {{price}}.\nZahlungsziel: {{dueDate}}.\n\nVielen Dank für Ihren Auftrag.",
+    vars
+  );
+
+  const bodyHtml = `
+    <p>${escapeHtml(wrap.greeting(customerName))}</p>
+    ${bodyText.split("\n").map((line) => line ? `<p>${escapeHtml(line)}</p>` : "<br>").join("")}`;
+
+  await sendMail({
+    from: `${companyName} <${contactEmail}>`,
+    to: customerEmail,
+    subject,
+    text: [wrap.greeting(customerName), "", bodyText, "", wrap.closing, signature].join("\n"),
+    html: buildHtml(companyName, bodyHtml, signature),
+    attachments: pdfBuffer
+      ? [{ filename: `${invoiceNumber}.pdf`, content: pdfBuffer, contentType: "application/pdf" }]
+      : undefined,
+  });
+}
+
+export async function sendPaymentReminderEmail({
+  customerEmail,
+  customerName,
+  invoiceNumber,
+  stage,
+  totalCents,
+  outstandingCents,
+  feeCents,
+  dueAt,
+  pdfBuffer,
+}: {
+  customerEmail: string;
+  customerName: string;
+  invoiceNumber: string;
+  stage: 0 | 1 | 2 | 3;
+  totalCents: number;
+  outstandingCents: number;
+  feeCents: number;
+  dueAt: Date | null;
+  pdfBuffer?: Buffer | null;
+}) {
+  const [settings, rawLocale] = await Promise.all([
+    getSettings(),
+    getRecipientLocale(customerEmail),
+  ]);
+  const locale: "de" | "en" = rawLocale === "en" ? "en" : "de";
+  const companyName = settings.company_name ?? "3D Print CMS";
+  const signature = settings.company_signature ?? (locale === "en" ? "Your 3D Print Team" : "Ihr 3D-Druck-Team");
+  const contactEmail = settings.contact_email ?? "noreply@3dprinting.local";
+  const wrap = getEmailWrappers(locale);
+  const suffix = localeSuffix(locale);
+  const stageKey = stage === 0 ? "pre" : String(stage);
+
+  const fmt = (cents: number) =>
+    (cents / 100).toLocaleString(locale === "en" ? "en-GB" : "de-DE", {
+      style: "currency",
+      currency: "EUR",
+    });
+
+  const vars = {
+    customerName,
+    invoiceNumber,
+    price: fmt(totalCents),
+    outstanding: fmt(outstandingCents),
+    fee: fmt(feeCents),
+    newTotal: fmt(outstandingCents + feeCents),
+    dueDate: dueAt ? dueAt.toLocaleDateString(locale === "en" ? "en-GB" : "de-DE") : "",
+    companyName,
+  };
+
+  const subject = renderTemplate(
+    settings[`email_payment_reminder_${stageKey}_subject${suffix}`] ??
+      settings[`email_payment_reminder_${stageKey}_subject_de`] ??
+      `Erinnerung: ${invoiceNumber}`,
+    vars
+  );
+  const bodyText = renderTemplate(
+    settings[`email_payment_reminder_${stageKey}_body${suffix}`] ??
+      settings[`email_payment_reminder_${stageKey}_body_de`] ??
+      "",
+    vars
+  );
+
+  const bodyHtml = `
+    <p>${escapeHtml(wrap.greeting(customerName))}</p>
+    ${bodyText.split("\n").map((line) => line ? `<p>${escapeHtml(line)}</p>` : "<br>").join("")}`;
+
+  await sendMail({
+    from: `${companyName} <${contactEmail}>`,
+    to: customerEmail,
+    subject,
+    text: [wrap.greeting(customerName), "", bodyText, "", wrap.closing, signature].join("\n"),
+    html: buildHtml(companyName, bodyHtml, signature),
+    attachments: pdfBuffer
+      ? [{ filename: `${invoiceNumber}.pdf`, content: pdfBuffer, contentType: "application/pdf" }]
+      : undefined,
+  });
+}
+
 function escapeHtml(str: string) {
   return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }

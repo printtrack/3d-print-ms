@@ -49,10 +49,10 @@ test.describe("Order detail page", () => {
   test("can change order phase", async ({ page }) => {
     await page.goto(`/admin/orders/${orderId}`);
 
-    const phaseSelect = page.getByRole("combobox").first();
-    await phaseSelect.click();
-
-    await page.getByRole("option", { name: "In Prüfung" }).click();
+    // PhaseChip is a Popover trigger (not a native combobox)
+    await page.getByTestId("phase-chip").click();
+    // Phase items are buttons inside the Popover
+    await page.getByRole("button", { name: "In Prüfung" }).last().click();
 
     await expect(page.getByText("In Prüfung").first()).toBeVisible();
   });
@@ -72,36 +72,31 @@ test.describe("Order detail page", () => {
       (r) => r.url().includes(`/api/admin/orders/${orderId}`) && r.request().method() === "PATCH"
     );
 
+    // Archive is now in the OverflowMenu (MoreHorizontal button)
+    await page.getByTestId("order-overflow-menu").click();
     const archiveBtn = page.getByRole("button", { name: /Archivieren/i });
     await expect(archiveBtn).toBeVisible();
     await archiveBtn.click();
-
-    const confirmBtn = page.getByRole("button", { name: /Bestätigen|Ja|Archivieren/i }).last();
-    if (await confirmBtn.isVisible({ timeout: 2000 })) {
-      await confirmBtn.click();
-    }
 
     await archiveDone;
     const updated = await prismaTest.order.findUnique({ where: { id: orderId } });
     expect(updated?.archivedAt).not.toBeNull();
   });
 
-  test("shows price estimation section", async ({ page }) => {
+  test("shows quote editor section", async ({ page }) => {
     await page.goto(`/admin/orders/${orderId}`);
-    await expect(page.getByText(/Angebot \/ Preis/i)).toBeVisible();
-    await expect(page.getByPlaceholder("0.00")).toBeVisible();
+    // QuoteEditor replaced the old price estimate field
+    await expect(page.getByText("Noch kein Angebot erstellt.")).toBeVisible();
+    await expect(page.getByRole("button", { name: /Angebot erstellen/ })).toBeVisible();
   });
 
-  test("can save a price estimate", async ({ page }) => {
-    await page.goto(`/admin/orders/${orderId}`);
-
-    const priceInput = page.getByPlaceholder("0.00");
-    await priceInput.fill("24.99");
-    const saveRes = page.waitForResponse(
-      (r) => r.url().includes(`/api/admin/orders/${orderId}`) && r.request().method() === "PATCH"
-    );
-    await priceInput.blur();
-    await saveRes;
+  test("can save a price estimate via API", async ({ page }) => {
+    // priceEstimate UI was replaced by QuoteEditor; field is still saved via PATCH API
+    const res = await page.request.patch(`/api/admin/orders/${orderId}`, {
+      data: { priceEstimate: 24.99 },
+      headers: { "Content-Type": "application/json" },
+    });
+    expect(res.ok()).toBe(true);
 
     const updated = await prismaTest.order.findUnique({ where: { id: orderId } });
     expect(Number(updated?.priceEstimate)).toBeCloseTo(24.99, 1);

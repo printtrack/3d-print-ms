@@ -23,6 +23,11 @@ async function getData(
   const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
   const endOfWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
 
+  // Normalise an ID query: users see "#PPIGAP" in the header, but the underlying
+  // cuid is lowercase like "cmpfkzlyk000onthhl9ppigap". Strip a leading "#" and
+  // lowercase so a contains-match against `id` works either way.
+  const idQuery = search ? search.replace(/^#/, "").toLowerCase() : "";
+
   const andConditions = [
     ...(search
       ? [{
@@ -30,6 +35,7 @@ async function getData(
             { customerName: { contains: search } },
             { customerEmail: { contains: search } },
             { description: { contains: search } },
+            ...(idQuery.length >= 3 ? [{ id: { contains: idQuery } }] : []),
           ],
         }]
       : []),

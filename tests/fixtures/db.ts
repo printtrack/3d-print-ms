@@ -18,6 +18,8 @@ export async function resetDb() {
   await prismaTest.$executeRawUnsafe(`SET FOREIGN_KEY_CHECKS = 0`);
   for (const table of [
     "AuditLog", "OrderComment", "OrderFileNote", "OrderFile", "SurveyResponse", "VerificationRequest",
+    "PaymentReminder", "Payment", "InvoiceItem", "Invoice", "InvoiceNumberCounter",
+    "QuoteItem", "Quote",
     "PrintJobAssignee", "PrintJobFilament", "PrintJobPart", "PrintJobFile", "PrintJob",
     "OrderPartAssignee", "OrderPart", "OrderAssignee", "Machine",
     "MilestoneTaskAssignee", "MilestoneTask", "Milestone", "Order",
@@ -144,7 +146,8 @@ export async function seedDb() {
       { name: "In Prüfung", color: "#f59e0b", position: 1 },
       { name: "In Bearbeitung", color: "#3b82f6", position: 2 },
       { name: "Abholbereit", color: "#10b981", position: 3 },
-      { name: "Abgeschlossen", color: "#6b7280", position: 4 },
+      { name: "Rechnung offen", color: "#a855f7", position: 4 },
+      { name: "Abgeschlossen", color: "#6b7280", position: 5 },
     ],
   });
   const phases = await prismaTest.orderPhase.findMany({ orderBy: { position: "asc" } });

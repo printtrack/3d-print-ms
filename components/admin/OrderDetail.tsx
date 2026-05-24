@@ -9,57 +9,35 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { AssigneePicker } from "@/components/admin/AssigneePicker";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Kbd, KbdGroup } from "@/components/ui/kbd";
 import { toast } from "sonner";
 import { useTranslations, useLocale } from "next-intl";
-import { formatDateTime, formatDate, localeToDateLocale } from "@/lib/utils";
+import { formatDate, localeToDateLocale } from "@/lib/utils";
 import { FileManager } from "@/components/admin/files/FileManager";
 import { type OrderPartData } from "@/components/admin/files/PartFileSection";
 import type { OrderFileData } from "@/components/admin/files/types";
+import { QuoteEditor } from "@/components/admin/QuoteEditor";
+import { InvoiceCard, type InvoiceUI } from "@/components/admin/InvoiceCard";
+import { OrderHeaderMinimal } from "@/components/admin/OrderHeaderMinimal";
 import {
-  Archive,
-  ArrowLeft,
   Check,
   Clock,
   Flag,
   Mail,
   MessageSquare,
   Plus,
-  RotateCcw,
   Send,
   ShieldAlert,
   ShieldCheck,
-  Trash2,
   User,
   Wallet,
   X,
   CheckCircle2,
   Circle,
-  FlaskConical,
 } from "lucide-react";
 import { MilestoneDialog } from "@/components/admin/MilestoneDialog";
-import { Switch } from "@/components/ui/switch";
 import Link from "next/link";
 
 
@@ -155,8 +133,11 @@ interface OrderDetailProps {
       sentAt: string;
       resolvedAt: string | null;
       orderPartId: string | null;
+      quoteId?: string | null;
       rejectionReason?: string | null;
     }>;
+    quotes?: import("@/components/admin/QuoteEditor").QuoteUI[];
+    invoices?: InvoiceUI[];
   };
   phases: Array<{ id: string; name: string; color: string; isPrototype?: boolean }>;
   teamMembers: Array<{ id: string; name: string; email: string }>;
@@ -216,6 +197,16 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
       PROTOTYPE_DISABLED: t("audit_prototype_off"),
       ITERATION_INCREMENTED: t("audit_iteration_inc"),
       CUSTOMER_MESSAGE_SENT: t("audit_customer_message_sent"),
+      QUOTE_CREATED: t("audit_quote_created"),
+      QUOTE_UPDATED: t("audit_quote_updated"),
+      QUOTE_SENT: t("audit_quote_sent"),
+      QUOTE_DELETED: t("audit_quote_deleted"),
+      INVOICE_DRAFT_CREATED: t("audit_invoice_draft_created"),
+      INVOICE_ISSUED: t("audit_invoice_issued"),
+      INVOICE_CANCELLED: t("audit_invoice_cancelled"),
+      PAYMENT_RECORDED: t("audit_payment_recorded"),
+      PAYMENT_REMOVED: t("audit_payment_removed"),
+      REMINDER_SENT: t("audit_reminder_sent"),
     };
     return labels[action] ?? action;
   }
@@ -230,19 +221,12 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
   const [comment, setComment] = useState("");
   const [customerMessage, setCustomerMessage] = useState("");
   const [comments, setComments] = useState(order.comments);
-  const [priceValue, setPriceValue] = useState(
-    order.priceEstimate != null ? order.priceEstimate.toFixed(2) : ""
-  );
   const [savingPhase, setSavingPhase] = useState(false);
   const [savingAssignees, setSavingAssignees] = useState(false);
   const [savingDeadline, setSavingDeadline] = useState(false);
-  const [savingPrice, setSavingPrice] = useState(false);
   const savedAssigneeIds = useRef<string[]>(order.assignees.map((a) => a.id));
   const savedDeadlineValue = useRef(
     order.deadline ? new Date(order.deadline).toISOString().split("T")[0] : ""
-  );
-  const savedPriceValue = useRef(
-    order.priceEstimate != null ? order.priceEstimate.toFixed(2) : ""
   );
   const [commenting, setCommenting] = useState(false);
   const [sendingCustomerMessage, setSendingCustomerMessage] = useState(false);
@@ -436,20 +420,36 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
     }
   }
 
-  async function handleSavePhase(phaseId: string) {
+  async function handleSavePhase(phaseId: string, opts: { override?: boolean } = {}) {
+    const previousPhaseId = selectedPhaseId;
     setSelectedPhaseId(phaseId);
     setSavingPhase(true);
     try {
       const res = await fetch(`/api/admin/orders/${order.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phaseId }),
+        body: JSON.stringify({
+          phaseId,
+          ...(opts.override ? { quoteGateOverride: true } : {}),
+        }),
       });
-      if (!res.ok) throw new Error();
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        if (err.code === "QUOTE_GATE" && err.requiresOverride) {
+          setSelectedPhaseId(previousPhaseId);
+          if (window.confirm(`${err.error}\n\n${t("quote_gate_override")}?`)) {
+            await handleSavePhase(phaseId, { override: true });
+            return;
+          }
+          return;
+        }
+        throw new Error(err.error ?? "Phase change failed");
+      }
       toast.success(t("toast_phase_saved"));
       router.refresh();
-    } catch {
-      toast.error(t("toast_phase_failed"));
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : t("toast_phase_failed");
+      toast.error(msg);
     } finally {
       setSavingPhase(false);
     }
@@ -497,31 +497,6 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
     }
   }
 
-
-  async function handleSavePrice() {
-    if (priceValue === savedPriceValue.current) return;
-    const parsed = priceValue.trim() === "" ? null : parseFloat(priceValue.replace(",", "."));
-    if (parsed !== null && (isNaN(parsed) || parsed < 0)) {
-      toast.error(t("toast_invalid_amount"));
-      return;
-    }
-    setSavingPrice(true);
-    try {
-      const res = await fetch(`/api/admin/orders/${order.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ priceEstimate: parsed }),
-      });
-      if (!res.ok) throw new Error();
-      savedPriceValue.current = priceValue;
-      toast.success(t("toast_price_saved"));
-      router.refresh();
-    } catch {
-      toast.error(t("toast_phase_failed"));
-    } finally {
-      setSavingPrice(false);
-    }
-  }
 
   async function handleAddComment() {
     if (!comment.trim()) return;
@@ -682,40 +657,41 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
   }
 
   return (
-    <div className="w-full max-w-5xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <Link
-          href="/admin/orders"
-          className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          {t("order_detail_back")}
-        </Link>
-      </div>
+    <div className="w-full">
+      <OrderHeaderMinimal
+        orderId={order.id}
+        trackingToken={order.trackingToken}
+        customerName={order.customerName}
+        customerEmail={order.customerEmail}
+        deadline={order.deadline}
+        isPrototype={isPrototype}
+        iterationCount={iterationCount}
+        currentPhaseIsPrototype={currentPhaseIsPrototype}
+        onTogglePrototype={handleTogglePrototype}
+        togglingPrototype={togglingPrototype}
+        phases={phases}
+        selectedPhaseId={selectedPhaseId}
+        onPhaseChange={handleSavePhase}
+        onDeadlineChange={async (iso) => {
+          const value = iso ? iso.split("T")[0] : "";
+          setDeadlineValue(value);
+          await handleSaveDeadline(value);
+        }}
+        assigneeIds={selectedAssigneeIds}
+        onAssigneesChange={async (ids) => {
+          setSelectedAssigneeIds(ids);
+          await handleSaveAssignees(ids);
+        }}
+        teamMembers={teamMembers}
+        isArchived={isArchived}
+        archiving={archiving}
+        onToggleArchive={handleToggleArchive}
+        isAdmin={isAdmin}
+        deleting={deleting}
+        onDelete={handleDelete}
+      />
 
-      <div
-        className="flex flex-wrap items-start justify-between gap-4 pl-4 border-l-[3px]"
-        style={{ borderLeftColor: order.phase.color }}
-      >
-        <div>
-          <h1 className="text-2xl font-bold">{order.customerName}</h1>
-          <p className="text-muted-foreground">{order.customerEmail}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          {isPrototype && (
-            <Badge className="bg-purple-100 text-purple-700 hover:bg-purple-100 border-purple-200">
-              <FlaskConical className="h-3 w-3 mr-1" />
-              {t("order_detail_prototype_prefix")}{iterationCount}
-            </Badge>
-          )}
-          <Badge style={{ backgroundColor: order.phase.color }} className="text-white">
-            {order.phase.name}
-          </Badge>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="mx-auto max-w-5xl pt-6 grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main Content */}
         <div className="lg:col-span-2 space-y-6">
           {/* Description */}
@@ -997,92 +973,6 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
 
         {/* Sidebar */}
         <div className="space-y-4">
-          {/* Status, Assignment & Deadline */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm font-semibold text-muted-foreground">{t("order_detail_control")}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">{t("order_detail_phase")}</label>
-                <Select value={selectedPhaseId} onValueChange={handleSavePhase} disabled={savingPhase}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {phases.map((phase) => (
-                      <SelectItem key={phase.id} value={phase.id}>
-                        <div className="flex items-center gap-2">
-                          <div
-                            className="w-2.5 h-2.5 rounded-full"
-                            style={{ backgroundColor: phase.color }}
-                          />
-                          {phase.name}
-                        </div>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">{t("order_detail_assignee")}</label>
-                <AssigneePicker
-                  users={teamMembers}
-                  value={selectedAssigneeIds}
-                  onChange={async (ids) => {
-                    setSelectedAssigneeIds(ids);
-                    await handleSaveAssignees(ids);
-                  }}
-                />
-              </div>
-
-              {savingAssignees && (
-                <p className="text-xs text-muted-foreground text-center">{tc("saving")}</p>
-              )}
-
-              {currentPhaseIsPrototype && (
-                <div className="space-y-1 pt-2 border-t">
-                  <div className="flex items-center justify-between">
-                    <label className="text-sm font-medium flex items-center gap-2">
-                      <FlaskConical className="h-4 w-4 text-purple-600" />
-                      {t("order_detail_prototype_mode")}
-                    </label>
-                    <Switch
-                      checked={isPrototype}
-                      onCheckedChange={handleTogglePrototype}
-                      disabled={togglingPrototype}
-                    />
-                  </div>
-                  {isPrototype && (
-                    <p className="text-xs text-purple-600 font-medium">{t("order_detail_iteration")}{iterationCount}</p>
-                  )}
-                </div>
-              )}
-              <Separator />
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">{t("order_detail_deadline")}</label>
-                <input
-                  type="date"
-                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  value={deadlineValue}
-                  disabled={savingDeadline}
-                  onChange={(e) => {
-                    setDeadlineValue(e.target.value);
-                    handleSaveDeadline(e.target.value);
-                  }}
-                />
-                {savingDeadline && (
-                  <p className="text-xs text-muted-foreground">{tc("saving")}</p>
-                )}
-                <p className="text-[11px] text-muted-foreground">
-                  {t("order_detail_deadline_hint")}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
           {/* Project link */}
           {order.project && (
             <Card>
@@ -1260,178 +1150,40 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
             </Card>
           )}
 
-          {/* Price Estimate */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm font-semibold text-muted-foreground">{t("order_detail_price")}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <div className="relative">
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="0.00"
-                  className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 pr-8 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                  value={priceValue}
-                  disabled={savingPrice}
-                  onChange={(e) => setPriceValue(e.target.value)}
-                  onBlur={handleSavePrice}
-                />
-                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-muted-foreground pointer-events-none">
-                  €
-                </span>
-              </div>
-              {savingPrice && (
-                <p className="text-xs text-muted-foreground">Speichern...</p>
-              )}
-            </CardContent>
-          </Card>
+          {/* Quote editor */}
+          <QuoteEditor
+            orderId={order.id}
+            initialQuotes={order.quotes ?? []}
+            onChanged={() => router.refresh()}
+          />
 
-          {/* Actions */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm font-semibold text-muted-foreground">{t("order_detail_actions")}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <Button
-                variant="outline"
-                className="w-full justify-start"
-                onClick={handleToggleArchive}
-                disabled={archiving}
-              >
-                {isArchived ? (
-                  <>
-                    <RotateCcw className="h-4 w-4 mr-2" />
-                    {archiving ? t("order_detail_restoring") : t("order_detail_restore")}
-                  </>
-                ) : (
-                  <>
-                    <Archive className="h-4 w-4 mr-2" />
-                    {archiving ? t("order_detail_archiving") : t("order_detail_archive")}
-                  </>
-                )}
-              </Button>
-
-              {isAdmin && (
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className="w-full justify-start text-xs text-destructive hover:text-destructive hover:bg-destructive/10 opacity-70 hover:opacity-100"
-                      disabled={deleting}
-                    >
-                      <Trash2 className="h-3.5 w-3.5 mr-2" />
-                      {deleting ? t("order_detail_deleting") : t("order_detail_delete")}
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>{t("order_detail_delete_confirm_title")}</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        {t("order_detail_delete_confirm_desc", { name: order.customerName })}
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>{tc("cancel")}</AlertDialogCancel>
-                      <AlertDialogAction
-                        onClick={handleDelete}
-                        className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                      >
-                        {t("order_detail_delete")}
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              )}
-            </CardContent>
-          </Card>
-
-
-          {/* Order Info */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm font-semibold text-muted-foreground">{t("order_detail_info")}</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3 text-sm">
-              <div>
-                <p className="text-muted-foreground">{t("order_detail_created")}</p>
-                <p className="font-medium">{formatDateTime(order.createdAt)}</p>
-              </div>
-              <div>
-                <p className="text-muted-foreground">{t("order_detail_updated")}</p>
-                <p className="font-medium">{formatDateTime(order.updatedAt)}</p>
-              </div>
-              <div>
-                <p className="text-muted-foreground">{t("order_detail_tracking")}</p>
-                <a
-                  href={`/track/${order.trackingToken}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-primary hover:underline text-xs break-all"
-                >
-                  /track/{order.trackingToken.slice(0, 16)}...
-                </a>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Angebotsfreigabe */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
-                <ShieldCheck className="h-4 w-4" />
-                {t("order_detail_verification_status")}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2 text-sm">
-              <div className="flex items-center justify-between gap-2">
-                {!priceRequest && (
-                  <span className="text-xs text-muted-foreground">—</span>
-                )}
-                {priceRequest?.status === "PENDING" && (
-                  <span className="flex items-center gap-1 text-xs px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">
-                    <ShieldAlert className="h-3 w-3" />
-                    {t("order_detail_pending")}
-                  </span>
-                )}
-                {priceRequest?.status === "APPROVED" && (
-                  <span className="text-xs px-1.5 py-0.5 rounded bg-green-100 text-green-700">{t("order_detail_approved")}</span>
-                )}
-                {priceRequest?.status === "REJECTED" && (
-                  <span className="text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-700">{t("order_detail_rejected")}</span>
-                )}
-              </div>
-              {designApproved && !hasPendingPrice && !priceRequest && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="w-full h-7 text-xs"
-                  data-tutorial="send-verification"
-                  onClick={() => handleSendVerification("PRICE_APPROVAL")}
-                  disabled={sendingVerification}
-                >
-                  <Send className="h-3 w-3 mr-1" />
-                  {sendingVerification ? tc("sending") : tc("send")}
-                </Button>
-              )}
-              {!designApproved && !priceRequest && (
-                <p className="text-xs text-muted-foreground">{t("order_detail_design_first")}</p>
-              )}
-              {hasPendingPrice && isAdmin && priceRequest && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  className="w-full h-7 text-xs"
-                  onClick={() => handleOverrideVerification(priceRequest.id)}
-                  disabled={overridingVerification === priceRequest.id}
-                >
-                  <ShieldCheck className="h-3 w-3 mr-1" />
-                  {overridingVerification === priceRequest.id ? t("order_detail_admin_approving") : t("order_detail_admin_approve")}
-                </Button>
-              )}
-            </CardContent>
-          </Card>
+          {/* Invoice card */}
+          <InvoiceCard
+            orderId={order.id}
+            customerCreditCents={customerCredit?.balanceCents ?? null}
+            invoices={order.invoices ?? []}
+            approvedQuote={(() => {
+              const aq = (order.quotes ?? []).find((q) => q.status === "APPROVED");
+              return aq
+                ? {
+                    id: aq.id,
+                    number: aq.number ?? null,
+                    status: aq.status,
+                    totalCents: aq.totalCents,
+                    items: aq.items.map((it) => ({
+                      id: it.id,
+                      description: it.description,
+                      quantity: it.quantity,
+                      unitPriceCents: it.unitPriceCents,
+                      taxRatePercent: it.taxRatePercent,
+                      source: it.source,
+                      category: it.category,
+                    })),
+                  }
+                : null;
+            })()}
+            onChanged={() => router.refresh()}
+          />
 
           {/* Survey */}
           <Card>

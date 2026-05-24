@@ -10,7 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, Building2, Scale, Mail, MessageSquare, Layers, LayoutList, FolderKanban, Users, Printer } from "lucide-react";
+import { Plus, Trash2, Building2, Scale, Mail, MessageSquare, Layers, LayoutList, FolderKanban, Users, Printer, FileText, Upload } from "lucide-react";
+import Image from "next/image";
 import { PhaseManager } from "@/components/admin/PhaseManager";
 import { TeamManager } from "@/components/admin/TeamManager";
 import { MachineManager } from "@/components/admin/MachineManager";
@@ -82,6 +83,7 @@ const NAV_GROUPS = [
     items: [
       { key: "general", label: "Unternehmen", icon: Building2 },
       { key: "abrechnung", label: "Abrechnung", icon: Scale },
+      { key: "belege", label: "Belege", icon: FileText },
       { key: "legal", label: "Rechtliches", icon: Scale },
     ],
   },
@@ -109,7 +111,7 @@ const NAV_GROUPS = [
   },
 ];
 
-const SETTINGS_SECTIONS = new Set(["general", "abrechnung", "emails", "survey", "legal"]);
+const SETTINGS_SECTIONS = new Set(["general", "abrechnung", "belege", "emails", "survey", "legal"]);
 
 export function SettingsForm({
   initialSettings,
@@ -640,8 +642,181 @@ export function SettingsForm({
                   onCheckedChange={(checked) => set("charge_prototypes", checked ? "true" : "false")}
                 />
               </div>
+              <Separator />
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-sm font-semibold">Angebotsfreigabe</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Steuert, wann ein Auftrag erst nach Kundenfreigabe weiter darf.
+                  </p>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="require_quote_approval">Freigabe erforderlich</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Wenn aktiv, kann ein Auftrag erst aus &quot;In Prüfung&quot; verschoben werden, sobald der Kunde das Angebot bestätigt hat.
+                    </p>
+                  </div>
+                  <Switch
+                    id="require_quote_approval"
+                    checked={settings.require_quote_approval === "true"}
+                    onCheckedChange={(checked) => set("require_quote_approval", checked ? "true" : "false")}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="quote_approval_min_cents">Mindestbetrag für Freigabe (€)</Label>
+                  <Input
+                    id="quote_approval_min_cents"
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={
+                      settings.quote_approval_min_cents
+                        ? (Number(settings.quote_approval_min_cents) / 100).toFixed(2)
+                        : "0.00"
+                    }
+                    onChange={(e) => {
+                      const euros = parseFloat(e.target.value || "0");
+                      const cents = isNaN(euros) ? 0 : Math.round(euros * 100);
+                      set("quote_approval_min_cents", String(cents));
+                    }}
+                    placeholder="0.00"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Aufträge unterhalb dieses Betrags können auch ohne Kundenfreigabe weiter. 0 = immer Freigabe verlangen.
+                  </p>
+                </div>
+              </div>
+              <Separator />
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-sm font-semibold">Mahnwesen</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Steuert die automatischen Zahlungserinnerungen und Mahnungen für offene Rechnungen.
+                  </p>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="payment_reminders_enabled">Erinnerungen aktivieren</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Wenn aktiv, verschickt das System automatisch Zahlungserinnerungen und Mahnungen.
+                    </p>
+                  </div>
+                  <Switch
+                    id="payment_reminders_enabled"
+                    checked={settings.payment_reminders_enabled !== "false"}
+                    onCheckedChange={(checked) =>
+                      set("payment_reminders_enabled", checked ? "true" : "false")
+                    }
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="payment_reminder_days_before">Vor-Fälligkeit (Tage)</Label>
+                    <Input
+                      id="payment_reminder_days_before"
+                      type="number"
+                      min="0"
+                      value={settings.payment_reminder_days_before ?? "3"}
+                      onChange={(e) =>
+                        set("payment_reminder_days_before", e.target.value || "0")
+                      }
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Erinnerung X Tage vor Fälligkeit.
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="payment_reminder_days_after_1">Erinnerung (Tage nach Fälligkeit)</Label>
+                    <Input
+                      id="payment_reminder_days_after_1"
+                      type="number"
+                      min="1"
+                      value={settings.payment_reminder_days_after_1 ?? "7"}
+                      onChange={(e) =>
+                        set("payment_reminder_days_after_1", e.target.value || "7")
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="payment_reminder_days_after_2">1. Mahnung (Tage)</Label>
+                    <Input
+                      id="payment_reminder_days_after_2"
+                      type="number"
+                      min="1"
+                      value={settings.payment_reminder_days_after_2 ?? "21"}
+                      onChange={(e) =>
+                        set("payment_reminder_days_after_2", e.target.value || "21")
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="payment_reminder_days_after_3">2. Mahnung (Tage)</Label>
+                    <Input
+                      id="payment_reminder_days_after_3"
+                      type="number"
+                      min="1"
+                      value={settings.payment_reminder_days_after_3 ?? "42"}
+                      onChange={(e) =>
+                        set("payment_reminder_days_after_3", e.target.value || "42")
+                      }
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="payment_reminder_fee_2_cents">Gebühr 1. Mahnung (€)</Label>
+                    <Input
+                      id="payment_reminder_fee_2_cents"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={
+                        settings.payment_reminder_fee_2_cents
+                          ? (Number(settings.payment_reminder_fee_2_cents) / 100).toFixed(2)
+                          : "5.00"
+                      }
+                      onChange={(e) => {
+                        const euros = parseFloat(e.target.value || "0");
+                        const cents = isNaN(euros) ? 0 : Math.round(euros * 100);
+                        set("payment_reminder_fee_2_cents", String(cents));
+                      }}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="payment_reminder_fee_3_cents">Gebühr 2. Mahnung (€)</Label>
+                    <Input
+                      id="payment_reminder_fee_3_cents"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={
+                        settings.payment_reminder_fee_3_cents
+                          ? (Number(settings.payment_reminder_fee_3_cents) / 100).toFixed(2)
+                          : "10.00"
+                      }
+                      onChange={(e) => {
+                        const euros = parseFloat(e.target.value || "0");
+                        const cents = isNaN(euros) ? 0 : Math.round(euros * 100);
+                        set("payment_reminder_fee_3_cents", String(cents));
+                      }}
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Jede Stufe wird pro Rechnung höchstens einmal verschickt. Mail-Texte können unter
+                  &quot;E-Mails&quot; angepasst werden.
+                </p>
+              </div>
             </CardContent>
           </Card>
+        )}
+
+        {/* Belege (PDF-Branding) */}
+        {activeSection === "belege" && (
+          <BelegeSection
+            settings={settings}
+            set={set}
+            onLogoChanged={(url) => set("billing_logo_url", url)}
+          />
         )}
 
         {/* Rechtliches */}
@@ -734,5 +909,323 @@ export function SettingsForm({
 
       </div>
     </div>
+  );
+}
+
+interface BelegeSectionProps {
+  settings: Record<string, string>;
+  set: (key: string, value: string) => void;
+  onLogoChanged: (url: string) => void;
+}
+
+function BelegeSection({ settings, set, onLogoChanged }: BelegeSectionProps) {
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const isKleinunternehmer = settings.billing_kleinunternehmer === "true";
+  const logoUrl = settings.billing_logo_url ?? "";
+
+  async function handleLogoUpload(file: File) {
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/admin/uploads/branding", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Upload fehlgeschlagen");
+      onLogoChanged(data.url);
+      toast.success("Logo aktualisiert");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Logo-Upload fehlgeschlagen");
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  }
+
+  async function handleLogoDelete() {
+    if (!confirm("Logo wirklich entfernen?")) return;
+    try {
+      const res = await fetch("/api/admin/uploads/branding", { method: "DELETE" });
+      if (!res.ok) throw new Error();
+      onLogoChanged("");
+      toast.success("Logo entfernt");
+    } catch {
+      toast.error("Logo konnte nicht entfernt werden");
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Belege (Angebot &amp; Rechnung)</CardTitle>
+        <p className="text-sm text-muted-foreground">
+          Diese Angaben erscheinen auf jedem PDF, das an Kunden verschickt wird.
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        <div className="space-y-3">
+          <Label>Logo</Label>
+          <div className="flex items-center gap-4">
+            {logoUrl ? (
+              <div className="relative h-20 w-40 overflow-hidden rounded-md border bg-white">
+                <Image
+                  src={logoUrl}
+                  alt="Firmenlogo"
+                  fill
+                  sizes="160px"
+                  className="object-contain p-2"
+                  unoptimized
+                />
+              </div>
+            ) : (
+              <div className="flex h-20 w-40 items-center justify-center rounded-md border border-dashed text-xs text-muted-foreground">
+                Kein Logo
+              </div>
+            )}
+            <div className="flex flex-col gap-2">
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/jpeg,image/png,image/svg+xml"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) handleLogoUpload(f);
+                }}
+              />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={uploading}
+                onClick={() => fileRef.current?.click()}
+              >
+                <Upload className="mr-2 h-4 w-4" />
+                {uploading ? "Lädt …" : logoUrl ? "Ersetzen" : "Hochladen"}
+              </Button>
+              {logoUrl && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="text-destructive hover:text-destructive"
+                  onClick={handleLogoDelete}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Entfernen
+                </Button>
+              )}
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground">JPG, PNG oder SVG · max. 1 MB</p>
+        </div>
+
+        <Separator />
+
+        <div className="space-y-4">
+          <h3 className="text-sm font-semibold">Absenderadresse</h3>
+          <div className="space-y-2">
+            <Label htmlFor="billing_company_name">Firmenname (überschreibt Unternehmensname)</Label>
+            <Input
+              id="billing_company_name"
+              value={settings.billing_company_name ?? ""}
+              onChange={(e) => set("billing_company_name", e.target.value)}
+              placeholder={settings.company_name ?? ""}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="billing_company_address_line1">Straße &amp; Hausnummer</Label>
+            <Input
+              id="billing_company_address_line1"
+              value={settings.billing_company_address_line1 ?? ""}
+              onChange={(e) => set("billing_company_address_line1", e.target.value)}
+              placeholder="Musterstraße 1"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="billing_company_address_line2">Adresszusatz (optional)</Label>
+            <Input
+              id="billing_company_address_line2"
+              value={settings.billing_company_address_line2 ?? ""}
+              onChange={(e) => set("billing_company_address_line2", e.target.value)}
+              placeholder="z. B. c/o, Gebäude, Etage"
+            />
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="billing_company_city">PLZ &amp; Ort</Label>
+              <Input
+                id="billing_company_city"
+                value={settings.billing_company_city ?? ""}
+                onChange={(e) => set("billing_company_city", e.target.value)}
+                placeholder="12345 Musterstadt"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="billing_company_country">Land</Label>
+              <Input
+                id="billing_company_country"
+                value={settings.billing_company_country ?? ""}
+                onChange={(e) => set("billing_company_country", e.target.value)}
+                placeholder="Deutschland"
+              />
+            </div>
+          </div>
+        </div>
+
+        <Separator />
+
+        <div className="space-y-4">
+          <h3 className="text-sm font-semibold">Steuer</h3>
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label htmlFor="billing_kleinunternehmer">Kleinunternehmer nach §19 UStG</Label>
+              <p className="text-xs text-muted-foreground">
+                Versteckt die USt-Spalte und druckt einen entsprechenden Hinweis auf jedem Beleg.
+              </p>
+            </div>
+            <Switch
+              id="billing_kleinunternehmer"
+              checked={isKleinunternehmer}
+              onCheckedChange={(checked) => set("billing_kleinunternehmer", checked ? "true" : "false")}
+            />
+          </div>
+          {!isKleinunternehmer && (
+            <div className="space-y-2">
+              <Label htmlFor="billing_tax_id">USt-IdNr.</Label>
+              <Input
+                id="billing_tax_id"
+                value={settings.billing_tax_id ?? ""}
+                onChange={(e) => set("billing_tax_id", e.target.value)}
+                placeholder="DE123456789"
+              />
+            </div>
+          )}
+          <div className="space-y-2">
+            <Label htmlFor="billing_steuer_nr">Steuernummer (Fallback)</Label>
+            <Input
+              id="billing_steuer_nr"
+              value={settings.billing_steuer_nr ?? ""}
+              onChange={(e) => set("billing_steuer_nr", e.target.value)}
+              placeholder="12/345/67890"
+            />
+          </div>
+          {!isKleinunternehmer && (
+            <div className="space-y-2">
+              <Label htmlFor="billing_default_tax_rate">Standard-MwSt.-Satz (%)</Label>
+              <Input
+                id="billing_default_tax_rate"
+                type="number"
+                min="0"
+                max="100"
+                step="0.1"
+                value={settings.billing_default_tax_rate ?? ""}
+                onChange={(e) => set("billing_default_tax_rate", e.target.value)}
+                placeholder="19"
+              />
+            </div>
+          )}
+        </div>
+
+        <Separator />
+
+        <div className="space-y-4">
+          <h3 className="text-sm font-semibold">Bankverbindung</h3>
+          <div className="space-y-2">
+            <Label htmlFor="billing_bank_name">Bankname</Label>
+            <Input
+              id="billing_bank_name"
+              value={settings.billing_bank_name ?? ""}
+              onChange={(e) => set("billing_bank_name", e.target.value)}
+              placeholder="Musterbank"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="billing_iban">IBAN</Label>
+            <Input
+              id="billing_iban"
+              value={settings.billing_iban ?? ""}
+              onChange={(e) => set("billing_iban", e.target.value)}
+              placeholder="DE00 0000 0000 0000 0000 00"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="billing_bic">BIC</Label>
+            <Input
+              id="billing_bic"
+              value={settings.billing_bic ?? ""}
+              onChange={(e) => set("billing_bic", e.target.value)}
+              placeholder="ABCDEF1XXX"
+            />
+          </div>
+        </div>
+
+        <Separator />
+
+        <div className="space-y-4">
+          <h3 className="text-sm font-semibold">Erscheinungsbild &amp; Footer</h3>
+          <div className="space-y-2">
+            <Label htmlFor="billing_accent_color">Akzentfarbe (HEX)</Label>
+            <div className="flex items-center gap-2">
+              <Input
+                id="billing_accent_color"
+                value={settings.billing_accent_color ?? ""}
+                onChange={(e) => set("billing_accent_color", e.target.value)}
+                placeholder="#d97706"
+                className="font-mono"
+              />
+              <div
+                className="h-9 w-9 shrink-0 rounded-md border"
+                style={{ backgroundColor: settings.billing_accent_color || "#d97706" }}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Wird als Trennerlinie und Nummern-Highlight im PDF verwendet.
+            </p>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="billing_footer_de">Footer-Text (Deutsch)</Label>
+            <Textarea
+              id="billing_footer_de"
+              rows={3}
+              value={settings.billing_footer_de ?? ""}
+              onChange={(e) => set("billing_footer_de", e.target.value)}
+              placeholder="z. B. Geschäftsführer, Registergericht, Gerichtsstand …"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="billing_footer_en">Footer-Text (Englisch)</Label>
+            <Textarea
+              id="billing_footer_en"
+              rows={3}
+              value={settings.billing_footer_en ?? ""}
+              onChange={(e) => set("billing_footer_en", e.target.value)}
+              placeholder="e. g. Managing director, register court …"
+            />
+          </div>
+        </div>
+
+        <Separator />
+
+        <div className="space-y-4">
+          <h3 className="text-sm font-semibold">Nummerierung</h3>
+          <div className="space-y-2">
+            <Label htmlFor="quote_number_prefix">Angebots-Präfix</Label>
+            <Input
+              id="quote_number_prefix"
+              value={settings.quote_number_prefix ?? ""}
+              onChange={(e) => set("quote_number_prefix", e.target.value)}
+              placeholder="ANG-"
+            />
+            <p className="text-xs text-muted-foreground">
+              Format: <code>{"{Präfix}{Jahr}-{0001}"}</code> · z. B. <code>ANG-2026-0042</code>
+            </p>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   );
 }

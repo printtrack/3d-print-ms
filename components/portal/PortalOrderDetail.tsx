@@ -5,6 +5,8 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { QuoteCustomerView } from "@/components/customer/QuoteCustomerView";
+import { InvoiceCustomerView, type InvoiceCustomer } from "@/components/customer/InvoiceCustomerView";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -90,6 +92,8 @@ interface Order {
   auditLogs: AuditLog[];
   verificationRequests: VerificationRequest[];
   surveyResponse: SurveyResponse | null;
+  activeQuote?: import("@/components/customer/QuoteCustomerView").QuoteCustomer | null;
+  activeInvoice?: InvoiceCustomer | null;
 }
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024;
@@ -382,6 +386,21 @@ export function PortalOrderDetail({ order }: { order: Order }) {
           </Button>
         </CardContent>
       </Card>
+
+      {/* Active quote summary */}
+      {order.activeInvoice ? (
+        <InvoiceCustomerView
+          invoice={order.activeInvoice}
+          pdfUrl={`/api/orders/${order.trackingToken}/invoice-pdf`}
+        />
+      ) : (
+        order.activeQuote && (
+          <QuoteCustomerView
+            quote={order.activeQuote}
+            pdfUrl={`/api/orders/${order.trackingToken}/quote-pdf`}
+          />
+        )
+      )}
 
       {/* Verification Requests */}
       {pendingVerifications.length > 0 && (

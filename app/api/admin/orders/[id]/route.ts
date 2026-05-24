@@ -8,6 +8,7 @@ import { getUploadDir } from "@/lib/uploads";
 import { sendPhaseChangeEmail, sendSurveyEmail, sendVerificationEmail } from "@/lib/email";
 import { getSetting } from "@/lib/settings";
 import { publish } from "@/lib/event-bus";
+import { shouldGateOnQuote } from "@/lib/quotes";
 
 const patchSchema = z.object({
   phaseId: z.string().optional(),
@@ -20,6 +21,7 @@ const patchSchema = z.object({
   isInternal: z.boolean().optional(),
   generalProject: z.boolean().optional(),
   estimatedCompletionAt: z.string().datetime().nullable().optional(),
+  quoteGateOverride: z.boolean().optional(),
 });
 
 export async function GET(
@@ -81,7 +83,7 @@ export async function PATCH(
 
     if (!current) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-    // Block forward phase move if there's a pending verification
+    // Block forward phase move if there's a pending verification or a missing quote approval
     if (data.phaseId && data.phaseId !== current.phaseId) {
       const targetPhaseForCheck = await prisma.orderPhase.findUnique({
         where: { id: data.phaseId },
@@ -96,6 +98,16 @@ export async function PATCH(
             { error: "Auftrag wartet auf Freigabe und kann nicht vorwärts verschoben werden" },
             { status: 409 }
           );
+        }
+        // Quote gate — block moving past "In Prüfung" without approved quote
+        if (current.phase.position <= 1 && targetPhaseForCheck.position > 1 && !data.quoteGateOverride) {
+          const gate = await shouldGateOnQuote(id);
+          if (gate.gate) {
+            return NextResponse.json(
+              { error: gate.reason, code: "QUOTE_GATE", requiresOverride: true },
+              { status: 409 }
+            );
+          }
         }
       }
     }
@@ -147,7 +159,7 @@ export async function PATCH(
           orderId: id,
           userId: userId ?? null,
           action: "PHASE_CHANGED",
-          details: `Phase geändert von "${current.phase.name}" zu "${newPhase?.name}"`,
+          details: `Phase geändert von "${current.phase.name}" zu "${newPhase?.name}"${data.quoteGateOverride ? " (Angebots-Gate überschrieben)" : ""}`,
         },
       });
 

@@ -32,7 +32,7 @@ test.describe("Kanban board", () => {
 
     await page.goto("/admin/orders");
 
-    const searchInput = page.getByPlaceholder("Aufträge suchen...");
+    const searchInput = page.getByPlaceholder(/Aufträge suchen/);
     await searchInput.fill("UniqueSearchableName");
     await searchInput.press("Enter");
 

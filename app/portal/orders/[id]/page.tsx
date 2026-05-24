@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { PortalOrderDetail } from "@/components/portal/PortalOrderDetail";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
+import { getSettings } from "@/lib/settings";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -41,6 +42,18 @@ export default async function PortalOrderDetailPage({ params }: PageProps) {
       auditLogs: { orderBy: { createdAt: "desc" } },
       verificationRequests: { orderBy: { sentAt: "desc" } },
       surveyResponse: true,
+      quotes: {
+        where: { status: { in: ["SENT", "APPROVED", "REJECTED"] } },
+        orderBy: { version: "desc" },
+        take: 1,
+        include: { items: { orderBy: { position: "asc" } } },
+      },
+      invoices: {
+        where: { status: { in: ["ISSUED", "PARTIALLY_PAID", "PAID", "OVERDUE"] } },
+        orderBy: { issuedAt: "desc" },
+        take: 1,
+        include: { payments: { select: { amountCents: true } } },
+      },
     },
   });
 
@@ -81,6 +94,54 @@ export default async function PortalOrderDetailPage({ params }: PageProps) {
           submittedAt: order.surveyResponse.submittedAt?.toISOString() ?? null,
         }
       : null,
+    activeQuote: order.quotes[0]
+      ? {
+          id: order.quotes[0].id,
+          number: order.quotes[0].number ?? null,
+          version: order.quotes[0].version,
+          status: order.quotes[0].status as "SENT" | "APPROVED" | "REJECTED",
+          totalCents: order.quotes[0].totalCents,
+          taxCents: order.quotes[0].taxCents,
+          validUntil: order.quotes[0].validUntil?.toISOString() ?? null,
+          sentAt: order.quotes[0].sentAt?.toISOString() ?? null,
+          approvedAt: order.quotes[0].approvedAt?.toISOString() ?? null,
+          rejectedAt: order.quotes[0].rejectedAt?.toISOString() ?? null,
+          rejectionReason: order.quotes[0].rejectionReason ?? null,
+          notes: order.quotes[0].notes ?? null,
+          items: order.quotes[0].items.map((it) => ({
+            id: it.id,
+            description: it.description,
+            quantity: Number(it.quantity),
+            unitPriceCents: it.unitPriceCents,
+            taxRatePercent: Number(it.taxRatePercent),
+            category: it.category as string,
+            source: it.source as "ESTIMATE" | "FIXED" | "ACTUAL",
+          })),
+        }
+      : null,
+    activeInvoice: await (async () => {
+      const inv = order.invoices[0];
+      if (!inv || !inv.number) return null;
+      const settings = await getSettings();
+      const paid = inv.payments.reduce((s, p) => s + p.amountCents, 0);
+      return {
+        id: inv.id,
+        number: inv.number,
+        status: inv.status as "ISSUED" | "PARTIALLY_PAID" | "PAID" | "OVERDUE",
+        totalCents: inv.totalCents,
+        taxCents: inv.taxCents,
+        paidCents: paid,
+        remainingCents: Math.max(inv.totalCents - paid, 0),
+        issuedAt: (inv.issuedAt ?? inv.createdAt).toISOString(),
+        dueAt: inv.dueAt?.toISOString() ?? null,
+        kleinunternehmer: inv.kleinunternehmer,
+        bank: {
+          name: settings.billing_bank_name ?? "",
+          iban: settings.billing_iban ?? "",
+          bic: settings.billing_bic ?? "",
+        },
+      };
+    })(),
   };
 
   return (

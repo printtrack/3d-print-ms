@@ -71,7 +71,7 @@ export default defineConfig({
     command: `next dev --port ${TEST_PORT}`,
     url: TEST_BASE_URL,
     reuseExistingServer: !process.env.CI,
-    timeout: 60000,
+    timeout: 120000,
     env: {
       DATABASE_URL: process.env.DATABASE_URL_TEST ?? "",
       AUTH_SECRET: process.env.AUTH_SECRET ?? "test-secret-key-change-in-production-min-32-chars",

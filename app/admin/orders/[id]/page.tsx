@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { OrderDetail } from "@/components/admin/OrderDetail";
 import { runJobAutoTransition } from "@/lib/jobs-auto-transition";
+import { runInvoiceAutoTransition, runPaymentReminders } from "@/lib/invoice-auto-transition";
 import { TUTORIAL_ORDER_ID, TUTORIAL_ORDER_DETAIL, TUTORIAL_PARTS, TUTORIAL_PHASES, TUTORIAL_PART_PHASES, TUTORIAL_MACHINES, TUTORIAL_FILAMENT } from "@/lib/tutorial/sample-data";
 
 interface PageProps {
@@ -43,8 +44,20 @@ async function getData(id: string) {
           select: { token: true, sentAt: true, submittedAt: true, answers: true, comment: true },
         },
         verificationRequests: {
-          select: { id: true, type: true, status: true, sentAt: true, resolvedAt: true, orderPartId: true, rejectionReason: true },
+          select: { id: true, type: true, status: true, sentAt: true, resolvedAt: true, orderPartId: true, quoteId: true, rejectionReason: true },
           orderBy: { sentAt: "desc" },
+        },
+        quotes: {
+          orderBy: { version: "desc" },
+          include: { items: { orderBy: { position: "asc" } } },
+        },
+        invoices: {
+          orderBy: { createdAt: "desc" },
+          include: {
+            items: { orderBy: { position: "asc" } },
+            payments: { orderBy: { paidAt: "desc" } },
+            reminders: { orderBy: { sentAt: "desc" } },
+          },
         },
       },
     }),
@@ -156,7 +169,71 @@ async function getData(id: string) {
       sentAt: vr.sentAt.toISOString(),
       resolvedAt: vr.resolvedAt ? vr.resolvedAt.toISOString() : null,
       orderPartId: vr.orderPartId ?? null,
+      quoteId: vr.quoteId ?? null,
       rejectionReason: vr.rejectionReason ?? null,
+    })),
+    quotes: order.quotes.map((q) => ({
+      id: q.id,
+      number: q.number ?? null,
+      version: q.version,
+      status: q.status as "DRAFT" | "SENT" | "APPROVED" | "REJECTED" | "EXPIRED" | "SUPERSEDED",
+      totalCents: q.totalCents,
+      taxCents: q.taxCents,
+      validUntil: q.validUntil ? q.validUntil.toISOString() : null,
+      sentAt: q.sentAt ? q.sentAt.toISOString() : null,
+      approvedAt: q.approvedAt ? q.approvedAt.toISOString() : null,
+      rejectedAt: q.rejectedAt ? q.rejectedAt.toISOString() : null,
+      rejectionReason: q.rejectionReason ?? null,
+      notes: q.notes ?? null,
+      items: q.items.map((it) => ({
+        id: it.id,
+        description: it.description,
+        quantity: Number(it.quantity),
+        unitPriceCents: it.unitPriceCents,
+        taxRatePercent: Number(it.taxRatePercent),
+        category: it.category as "FILAMENT" | "HARDWARE" | "POST_PROCESSING" | "DESIGN" | "SHIPPING" | "DISCOUNT" | "OTHER",
+        source: it.source as "ESTIMATE" | "FIXED" | "ACTUAL",
+        orderPartId: it.orderPartId ?? null,
+      })),
+    })),
+    invoices: order.invoices.map((inv) => ({
+      id: inv.id,
+      number: inv.number ?? null,
+      status: inv.status as "DRAFT" | "ISSUED" | "PARTIALLY_PAID" | "PAID" | "OVERDUE" | "CANCELLED",
+      quoteId: inv.quoteId ?? null,
+      reverseOfId: inv.reverseOfId ?? null,
+      totalCents: inv.totalCents,
+      taxCents: inv.taxCents,
+      kleinunternehmer: inv.kleinunternehmer,
+      issuedAt: inv.issuedAt ? inv.issuedAt.toISOString() : null,
+      dueAt: inv.dueAt ? inv.dueAt.toISOString() : null,
+      cancelledAt: inv.cancelledAt ? inv.cancelledAt.toISOString() : null,
+      pdfPath: inv.pdfPath ?? null,
+      notes: inv.notes ?? null,
+      createdAt: inv.createdAt.toISOString(),
+      items: inv.items.map((it) => ({
+        id: it.id,
+        description: it.description,
+        quantity: Number(it.quantity),
+        unitPriceCents: it.unitPriceCents,
+        taxRatePercent: Number(it.taxRatePercent),
+        category: it.category as "FILAMENT" | "HARDWARE" | "POST_PROCESSING" | "DESIGN" | "SHIPPING" | "DISCOUNT" | "OTHER",
+        orderPartId: it.orderPartId ?? null,
+      })),
+      payments: inv.payments.map((p) => ({
+        id: p.id,
+        amountCents: p.amountCents,
+        paidAt: p.paidAt.toISOString(),
+        method: p.method as "SEPA" | "CASH" | "PAYPAL" | "CREDIT" | "CARD" | "OTHER",
+        reference: p.reference ?? null,
+        notes: p.notes ?? null,
+      })),
+      reminders: inv.reminders.map((r) => ({
+        id: r.id,
+        stage: r.stage,
+        sentAt: r.sentAt.toISOString(),
+        feeCents: r.feeCents ?? 0,
+      })),
     })),
   };
 
@@ -237,6 +314,8 @@ export default async function OrderDetailPage({ params }: PageProps) {
 
   // Run before fetching so part phases + job links are current
   await runJobAutoTransition().catch(() => null);
+  await runInvoiceAutoTransition().catch(() => null);
+  await runPaymentReminders().catch(() => null);
   const { order, phases, teamMembers, parts, availableFilaments, customerCredit, partPhases, activeMachines, buildVolume, milestones } = await getData(id);
 
   if (!order) notFound();

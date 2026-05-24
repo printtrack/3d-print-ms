@@ -56,7 +56,11 @@ test.describe("Prototype mode", () => {
     });
 
     await page.goto(`/admin/orders/${order.id}`);
-    await expect(page.getByText(/Prototyp · #1/).first()).toBeVisible();
+    // PrototypeChip replaces the old "Prototyp · #1" text — chip is visible with Prototyp label
+    const protoChip = page.getByTestId("prototype-chip");
+    await expect(protoChip).toBeVisible();
+    // Open chip popover to verify iteration details
+    await protoChip.click();
     await expect(page.getByText("Iteration #1").first()).toBeVisible();
   });
 
@@ -73,9 +77,12 @@ test.describe("Prototype mode", () => {
 
     await page.goto(`/admin/orders/${order.id}`);
 
-    await expect(page.getByText(/Prototyp · #1/).first()).toBeVisible();
+    // PrototypeChip replaces old "Prototyp · #1" + label-based switch
+    const protoChip = page.getByTestId("prototype-chip");
+    await expect(protoChip).toBeVisible();
+    await protoChip.click();
+    await expect(page.getByText("Prototyp-Modus").first()).toBeVisible();
     await expect(page.getByText("Iteration #1").first()).toBeVisible();
-    await expect(page.locator("label").filter({ hasText: "Prototyp-Modus" })).toBeVisible();
 
     const auditLog = await prismaTest.auditLog.findFirst({
       where: { orderId: order.id, action: "PROTOTYPE_ENABLED" },
@@ -93,15 +100,12 @@ test.describe("Prototype mode", () => {
       data: { orderId: order.id, type: "DESIGN_REVIEW", status: "APPROVED" },
     });
 
-    await page.goto(`/admin/orders/${order.id}`);
-
-    const priceInput = page.getByPlaceholder("0.00");
-    await priceInput.fill("99.99");
-    const saveRes = page.waitForResponse(
-      (r) => r.url().includes(`/api/admin/orders/${order.id}`) && r.request().method() === "PATCH"
-    );
-    await priceInput.blur();
-    await saveRes;
+    // priceEstimate UI replaced by QuoteEditor — use API to trigger the PRICE_APPROVAL check
+    const saveRes = await page.request.patch(`/api/admin/orders/${order.id}`, {
+      data: { priceEstimate: 99.99 },
+      headers: { "Content-Type": "application/json" },
+    });
+    expect(saveRes.ok()).toBe(true);
 
     const vrCount = await prismaTest.verificationRequest.count({
       where: { orderId: order.id, type: "PRICE_APPROVAL" },

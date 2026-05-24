@@ -28,13 +28,31 @@ async function main() {
       { name: "In Prüfung", color: "#f59e0b", position: 1 },
       { name: "In Bearbeitung", color: "#3b82f6", position: 2 },
       { name: "Abholbereit", color: "#10b981", position: 3 },
-      { name: "Abgeschlossen", color: "#6b7280", position: 4 },
+      { name: "Rechnung offen", color: "#a855f7", position: 4 },
+      { name: "Abgeschlossen", color: "#6b7280", position: 5 },
     ];
 
     await prisma.orderPhase.createMany({ data: defaultPhases });
     console.log("Created default phases");
   } else {
-    console.log("Phases already exist, skipping");
+    const invoicePending = await prisma.orderPhase.findFirst({ where: { name: "Rechnung offen" } });
+    if (!invoicePending) {
+      const abgeschlossen = await prisma.orderPhase.findFirst({ where: { name: "Abgeschlossen" } });
+      if (abgeschlossen) {
+        await prisma.orderPhase.update({
+          where: { id: abgeschlossen.id },
+          data: { position: abgeschlossen.position + 1 },
+        });
+        await prisma.orderPhase.create({
+          data: { name: "Rechnung offen", color: "#a855f7", position: abgeschlossen.position },
+        });
+        console.log('Added "Rechnung offen" phase between "Abholbereit" and "Abgeschlossen"');
+      } else {
+        console.log("Phases already exist, skipping");
+      }
+    } else {
+      console.log("Phases already exist, skipping");
+    }
   }
 
   // Create default project phases only if none exist
@@ -101,6 +119,133 @@ async function main() {
     { key: "survey_enabled", value: "true" },
     { key: "charge_misprints", value: "false" },
     { key: "charge_prototypes", value: "false" },
+    { key: "require_quote_approval", value: "true" },
+    { key: "quote_approval_min_cents", value: "0" },
+    // Belege / PDF-Branding
+    { key: "billing_logo_url", value: "" },
+    { key: "billing_company_name", value: "" },
+    { key: "billing_company_address_line1", value: "" },
+    { key: "billing_company_address_line2", value: "" },
+    { key: "billing_company_city", value: "" },
+    { key: "billing_company_country", value: "Deutschland" },
+    { key: "billing_tax_id", value: "" },
+    { key: "billing_steuer_nr", value: "" },
+    { key: "billing_default_tax_rate", value: "19" },
+    { key: "billing_bank_name", value: "" },
+    { key: "billing_iban", value: "" },
+    { key: "billing_bic", value: "" },
+    { key: "billing_kleinunternehmer", value: "false" },
+    { key: "billing_footer_de", value: "" },
+    { key: "billing_footer_en", value: "" },
+    { key: "billing_accent_color", value: "#d97706" },
+    { key: "quote_number_prefix", value: "ANG-" },
+    { key: "quote_number_next", value: "1" },
+    { key: "invoice_number_prefix", value: "RG-{YYYY}-" },
+    { key: "payment_term_days", value: "14" },
+    { key: "email_invoice_subject_de", value: "Ihre Rechnung {{invoiceNumber}}" },
+    {
+      key: "email_invoice_body_de",
+      value:
+        "anbei erhalten Sie Ihre Rechnung {{invoiceNumber}} über {{price}}.\nZahlungsziel: {{dueDate}}.\n\nVielen Dank für Ihren Auftrag.",
+    },
+    { key: "email_invoice_subject_en", value: "Your invoice {{invoiceNumber}}" },
+    {
+      key: "email_invoice_body_en",
+      value:
+        "please find attached your invoice {{invoiceNumber}} for {{price}}.\nDue date: {{dueDate}}.\n\nThank you for your order.",
+    },
+    // Mahnwesen
+    { key: "payment_reminders_enabled", value: "true" },
+    { key: "payment_reminder_days_before", value: "3" },
+    { key: "payment_reminder_days_after_1", value: "7" },
+    { key: "payment_reminder_days_after_2", value: "21" },
+    { key: "payment_reminder_days_after_3", value: "42" },
+    { key: "payment_reminder_fee_2_cents", value: "500" },
+    { key: "payment_reminder_fee_3_cents", value: "1000" },
+    {
+      key: "email_payment_reminder_pre_subject_de",
+      value: "Erinnerung: Rechnung {{invoiceNumber}} wird bald fällig",
+    },
+    {
+      key: "email_payment_reminder_pre_body_de",
+      value:
+        "wir möchten Sie freundlich daran erinnern, dass Ihre Rechnung {{invoiceNumber}} über {{price}} am {{dueDate}} fällig wird.\n\nFalls Sie bereits bezahlt haben, ignorieren Sie diese E-Mail bitte.",
+    },
+    {
+      key: "email_payment_reminder_1_subject_de",
+      value: "Zahlungserinnerung: Rechnung {{invoiceNumber}}",
+    },
+    {
+      key: "email_payment_reminder_1_body_de",
+      value:
+        "die Zahlung Ihrer Rechnung {{invoiceNumber}} über {{price}} (fällig am {{dueDate}}) ist noch nicht bei uns eingegangen.\n\nBitte überweisen Sie den offenen Betrag von {{outstanding}} zeitnah.",
+    },
+    {
+      key: "email_payment_reminder_2_subject_de",
+      value: "1. Mahnung: Rechnung {{invoiceNumber}}",
+    },
+    {
+      key: "email_payment_reminder_2_body_de",
+      value:
+        "trotz unserer Erinnerung ist die Zahlung Ihrer Rechnung {{invoiceNumber}} über {{price}} noch immer offen.\n\nWir berechnen für diese Mahnung eine Bearbeitungsgebühr von {{fee}}. Der Gesamtbetrag beläuft sich nun auf {{newTotal}}.\n\nBitte überweisen Sie den offenen Betrag innerhalb der nächsten 7 Tage.",
+    },
+    {
+      key: "email_payment_reminder_3_subject_de",
+      value: "2. Mahnung: Rechnung {{invoiceNumber}}",
+    },
+    {
+      key: "email_payment_reminder_3_body_de",
+      value:
+        "wir haben Sie bereits mehrfach an die Begleichung der Rechnung {{invoiceNumber}} erinnert. Bis heute ist kein Zahlungseingang erfolgt.\n\nFür diese 2. Mahnung berechnen wir eine zusätzliche Mahngebühr von {{fee}}. Der jetzt zu zahlende Gesamtbetrag beträgt {{newTotal}}.\n\nSollte die Zahlung nicht innerhalb der nächsten 7 Tage eingehen, sehen wir uns gezwungen, weitere Schritte einzuleiten.",
+    },
+    {
+      key: "email_payment_reminder_pre_subject_en",
+      value: "Reminder: Invoice {{invoiceNumber}} due soon",
+    },
+    {
+      key: "email_payment_reminder_pre_body_en",
+      value:
+        "this is a friendly reminder that your invoice {{invoiceNumber}} for {{price}} is due on {{dueDate}}.\n\nIf you have already paid, please disregard this email.",
+    },
+    {
+      key: "email_payment_reminder_1_subject_en",
+      value: "Payment reminder: Invoice {{invoiceNumber}}",
+    },
+    {
+      key: "email_payment_reminder_1_body_en",
+      value:
+        "we have not yet received your payment for invoice {{invoiceNumber}} for {{price}} (due on {{dueDate}}).\n\nPlease transfer the outstanding amount of {{outstanding}} at your earliest convenience.",
+    },
+    {
+      key: "email_payment_reminder_2_subject_en",
+      value: "1st payment reminder: Invoice {{invoiceNumber}}",
+    },
+    {
+      key: "email_payment_reminder_2_body_en",
+      value:
+        "despite our earlier reminder, payment for invoice {{invoiceNumber}} for {{price}} is still outstanding.\n\nWe are charging a reminder fee of {{fee}} for this notice. The new total amount is {{newTotal}}.\n\nPlease transfer the outstanding amount within the next 7 days.",
+    },
+    {
+      key: "email_payment_reminder_3_subject_en",
+      value: "2nd payment reminder: Invoice {{invoiceNumber}}",
+    },
+    {
+      key: "email_payment_reminder_3_body_en",
+      value:
+        "we have reminded you several times to settle invoice {{invoiceNumber}}. To date, no payment has been received.\n\nFor this 2nd reminder we are charging an additional fee of {{fee}}. The new total now due is {{newTotal}}.\n\nIf payment is not received within the next 7 days, we will be forced to escalate.",
+    },
+    { key: "email_quote_subject_de", value: "Ihr Angebot {{quoteNumber}}" },
+    {
+      key: "email_quote_body_de",
+      value:
+        "wir haben Ihnen ein neues Angebot erstellt. Die Details finden Sie im angehängten PDF.\n\nÜber den folgenden Link können Sie das Angebot bestätigen oder ablehnen.",
+    },
+    { key: "email_quote_subject_en", value: "Your quote {{quoteNumber}}" },
+    {
+      key: "email_quote_body_en",
+      value:
+        "we have prepared a new quote for you. The details are in the attached PDF.\n\nUse the link below to approve or reject the quote.",
+    },
     {
       key: "survey_questions",
       value: JSON.stringify([

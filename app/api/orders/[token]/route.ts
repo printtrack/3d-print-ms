@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
+import { getSettings } from "@/lib/settings";
 
 export async function GET(
   _req: NextRequest,
@@ -89,9 +90,57 @@ export async function GET(
             resolvedAt: true,
             resolvedBy: true,
             orderPartId: true,
+            quoteId: true,
             rejectionReason: true,
           },
           orderBy: { sentAt: "desc" },
+        },
+        quotes: {
+          where: { status: { in: ["SENT", "APPROVED", "REJECTED"] } },
+          orderBy: { version: "desc" },
+          take: 1,
+          select: {
+            id: true,
+            number: true,
+            version: true,
+            status: true,
+            totalCents: true,
+            taxCents: true,
+            validUntil: true,
+            sentAt: true,
+            approvedAt: true,
+            rejectedAt: true,
+            rejectionReason: true,
+            notes: true,
+            items: {
+              orderBy: { position: "asc" },
+              select: {
+                id: true,
+                description: true,
+                quantity: true,
+                unitPriceCents: true,
+                taxRatePercent: true,
+                category: true,
+                source: true,
+              },
+            },
+          },
+        },
+        invoices: {
+          where: { status: { in: ["ISSUED", "PARTIALLY_PAID", "PAID", "OVERDUE"] } },
+          orderBy: { issuedAt: "desc" },
+          take: 1,
+          select: {
+            id: true,
+            number: true,
+            status: true,
+            totalCents: true,
+            taxCents: true,
+            kleinunternehmer: true,
+            issuedAt: true,
+            dueAt: true,
+            payments: { select: { amountCents: true } },
+          },
         },
       },
     });
@@ -100,8 +149,15 @@ export async function GET(
       return NextResponse.json({ error: "Auftrag nicht gefunden" }, { status: 404 });
     }
 
+    const settings = await getSettings();
+    const invoiceRaw = order.invoices[0] ?? null;
+    const paidCents = invoiceRaw ? invoiceRaw.payments.reduce((s, p) => s + p.amountCents, 0) : 0;
+
+    const { quotes: _quotes, invoices: _invoices, ...orderRest } = order;
+    void _quotes;
+    void _invoices;
     const response = {
-      ...order,
+      ...orderRest,
       priceEstimate: order.priceEstimate ? Number(order.priceEstimate) : null,
       files: order.files.map((f) => ({
         ...f,
@@ -115,8 +171,39 @@ export async function GET(
         resolvedAt: vr.resolvedAt,
         resolvedBy: vr.resolvedBy,
         orderPartId: vr.orderPartId ?? null,
+        quoteId: vr.quoteId ?? null,
         rejectionReason: vr.rejectionReason ?? null,
       })),
+      activeQuote: order.quotes[0]
+        ? {
+            ...order.quotes[0],
+            items: order.quotes[0].items.map((it) => ({
+              ...it,
+              quantity: Number(it.quantity),
+              taxRatePercent: Number(it.taxRatePercent),
+            })),
+          }
+        : null,
+      activeInvoice:
+        invoiceRaw && invoiceRaw.number
+          ? {
+              id: invoiceRaw.id,
+              number: invoiceRaw.number,
+              status: invoiceRaw.status,
+              totalCents: invoiceRaw.totalCents,
+              taxCents: invoiceRaw.taxCents,
+              paidCents,
+              remainingCents: Math.max(invoiceRaw.totalCents - paidCents, 0),
+              issuedAt: invoiceRaw.issuedAt ? invoiceRaw.issuedAt.toISOString() : null,
+              dueAt: invoiceRaw.dueAt ? invoiceRaw.dueAt.toISOString() : null,
+              kleinunternehmer: invoiceRaw.kleinunternehmer,
+              bank: {
+                name: settings.billing_bank_name ?? "",
+                iban: settings.billing_iban ?? "",
+                bic: settings.billing_bic ?? "",
+              },
+            }
+          : null,
     };
 
     return NextResponse.json(response);
