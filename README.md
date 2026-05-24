@@ -20,6 +20,23 @@ An open-source management system for 3D printing teams. Customers submit print o
 - **Audit log** — every action on an order is recorded (phase changes, comments, uploads, etc.)
 - **Verification workflow** — send a "Freigabe" email to customers for approval
 
+### Billing & Invoicing
+- **Quotes** — create draft quotes with line items, generate PDFs, and send to customers for digital approval via token link
+- **Invoices** — create GoBD-compliant invoices from approved quotes, assign sequential invoice numbers, and archive PDFs
+- **Payment tracking** — record payments against invoices; status automatically moves to PAID when fully settled
+- **Storno** — create negative twin invoices for cancellations
+- **Payment reminders** — automated reminder emails with configurable intervals and escalating late fees
+
+### Onboarding tutorial
+- Interactive 8-step guided walkthrough for new admins
+- Walks through a real example order from submission to completion
+- Spotlight-driven UI — highlights the exact button or panel at each step; no production data touched
+
+### Admin wiki
+- Built-in operation manual (`docs/wiki/`) with a page for every admin route
+- Bilingual (DE/EN) Markdown pages auto-linked from the sidebar
+- Screenshots auto-generated via Playwright (`npm run wiki:screenshots`)
+
 ### Project management (`/admin/projects`)
 - **Project Kanban board** — organize projects across phases with drag & drop
 - **Project detail** — link orders to projects, manage milestones and tasks
@@ -220,6 +237,7 @@ components/
     TeamManager.tsx           # Team CRUD
     files/                    # File management components (upload, versioning, parts)
     gantt/                    # Gantt chart components
+    tutorial/                 # Onboarding tutorial (spotlight + steps)
   customer/
     OrderForm.tsx             # Public order submission form
     TrackingView.tsx          # Order tracking page
@@ -234,11 +252,15 @@ lib/
   gantt-utils.ts              # Gantt chart calculations
   gcode-parser.ts             # G-code print time extraction
   stl-parser.ts               # STL file parsing
+  tutorial/                   # Tutorial steps, sample data, mock-fetch interceptor
   uploads.ts                  # File upload handling
 
 prisma/
   schema.prisma               # Full data model
   seed.ts                     # Admin user + default phases
+
+docs/
+  wiki/                       # Admin operation manual (DE + EN Markdown pages)
 
 tests/                        # Playwright E2E tests
 proxy.ts                      # Route protection for /admin (Next.js 16)
@@ -256,6 +278,7 @@ proxy.ts                      # Route protection for /admin (Next.js 16)
 - **Kanban:** Optimistic updates in `KanbanBoard.tsx`, confirmed by PATCH to `/api/admin/orders/[id]`.
 - **Wiki links:** `[[Entry Title]]` syntax in knowledge base entries. Autocomplete dropdown in the editor, rendered as clickable chips in the output.
 - **Auto-transitions:** Print jobs automatically transition between states based on scheduled times. Polling every 60 seconds.
+- **Billing:** Quotes and invoices follow a strict state machine (DRAFT → SENT → APPROVED / DRAFT → ISSUED → PAID). PDFs are rendered server-side and archived. Invoice auto-transition runs on every order-detail page load.
 
 ---
 
