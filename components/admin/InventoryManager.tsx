@@ -35,6 +35,8 @@ interface Filament {
   brand: string | null;
   spoolWeightGrams: number;
   remainingGrams: number;
+  reservedGrams: number;
+  availableGrams: number;
   pricePerKg: string | null;
   notes: string | null;
   isActive: boolean;
@@ -235,8 +237,11 @@ export function InventoryManager({ filaments: initial, userRole }: InventoryMana
                 <div className="min-w-0">
                   <div className="flex items-center gap-1.5 font-medium text-sm">
                     {f.name}
-                    {f.remainingGrams < 250 && f.isActive && (
-                      <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0" aria-label="Wenig Bestand" />
+                    {f.availableGrams < 0 && f.isActive && (
+                      <AlertTriangle className="h-3.5 w-3.5 text-destructive shrink-0" aria-label={t("inventory_negative_warning")} />
+                    )}
+                    {f.availableGrams >= 0 && f.availableGrams < 250 && f.isActive && (
+                      <AlertTriangle className="h-3.5 w-3.5 text-amber-500 shrink-0" aria-label={t("inventory_low_stock")} />
                     )}
                   </div>
                   <div className="text-xs text-muted-foreground">{f.color} · {f.material}{f.brand ? ` · ${f.brand}` : ""}</div>
@@ -266,21 +271,36 @@ export function InventoryManager({ filaments: initial, userRole }: InventoryMana
                 )}
               </div>
             </div>
-            <div className="flex items-center gap-4 text-xs text-muted-foreground">
-              <span>
-                Bestand:{" "}
-                <span className={f.remainingGrams < 250 ? "text-amber-600 font-medium" : "text-foreground"}>
-                  {f.remainingGrams} g
-                </span>{" "}
-                / {f.spoolWeightGrams} g
-              </span>
-              <span>
-                {f.pricePerKg != null
-                  ? `${Number(f.pricePerKg).toFixed(2)} €/kg`
-                  : <span className="text-amber-600">{t("inventory_no_price_warning")}</span>
-                }
-              </span>
-              <span>Aufträge: {f._count.orderParts}</span>
+            <div className="flex flex-col gap-1 text-xs text-muted-foreground">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <span>
+                  {t("inventory_available")}:{" "}
+                  <span
+                    className={
+                      f.availableGrams < 0
+                        ? "text-destructive font-medium"
+                        : f.availableGrams < 250
+                        ? "text-amber-600 font-medium"
+                        : "text-foreground font-medium"
+                    }
+                  >
+                    {f.availableGrams} g
+                  </span>
+                </span>
+                {f.reservedGrams > 0 && (
+                  <span>{t("inventory_reserved")}: {f.reservedGrams} g</span>
+                )}
+                <span>{t("inventory_in_stock")}: {f.remainingGrams} g / {f.spoolWeightGrams} g</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-x-3">
+                <span>
+                  {f.pricePerKg != null
+                    ? `${Number(f.pricePerKg).toFixed(2)} €/kg`
+                    : <span className="text-amber-600">{t("inventory_no_price_warning")}</span>
+                  }
+                </span>
+                <span>Aufträge: {f._count.orderParts}</span>
+              </div>
             </div>
           </div>
         ))}
@@ -295,7 +315,9 @@ export function InventoryManager({ filaments: initial, userRole }: InventoryMana
               <th className="h-10 px-4 text-left font-medium text-muted-foreground">Name</th>
               <th className="h-10 px-4 text-left font-medium text-muted-foreground">Material</th>
               <th className="h-10 px-4 text-left font-medium text-muted-foreground">Marke</th>
-              <th className="h-10 px-4 text-left font-medium text-muted-foreground">Bestand</th>
+              <th className="h-10 px-4 text-left font-medium text-muted-foreground">{t("inventory_available")}</th>
+              <th className="h-10 px-4 text-left font-medium text-muted-foreground">{t("inventory_reserved")}</th>
+              <th className="h-10 px-4 text-left font-medium text-muted-foreground">{t("inventory_in_stock")}</th>
               <th className="h-10 px-4 text-left font-medium text-muted-foreground">{t("inventory_price_per_kg")}</th>
               <th className="h-10 px-4 text-left font-medium text-muted-foreground">Aufträge</th>
               <th className="h-10 px-4 text-left font-medium text-muted-foreground">Status</th>
@@ -305,7 +327,7 @@ export function InventoryManager({ filaments: initial, userRole }: InventoryMana
           <tbody>
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={isAdmin ? 9 : 8} className="text-center text-muted-foreground py-10 px-4">
+                <td colSpan={isAdmin ? 11 : 10} className="text-center text-muted-foreground py-10 px-4">
                   {t("inventory_empty")}
                 </td>
               </tr>
@@ -322,8 +344,11 @@ export function InventoryManager({ filaments: initial, userRole }: InventoryMana
                 <td className="px-4 py-3 font-medium">
                   <div className="flex items-center gap-2">
                     {f.name}
-                    {f.remainingGrams < 250 && f.isActive && (
-                      <span title="Wenig Bestand"><AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" /></span>
+                    {f.availableGrams < 0 && f.isActive && (
+                      <span title={t("inventory_negative_warning")}><AlertTriangle className="h-4 w-4 text-destructive shrink-0" /></span>
+                    )}
+                    {f.availableGrams >= 0 && f.availableGrams < 250 && f.isActive && (
+                      <span title={t("inventory_low_stock")}><AlertTriangle className="h-4 w-4 text-amber-500 shrink-0" /></span>
                     )}
                   </div>
                   <div className="text-xs text-muted-foreground font-normal">{f.color}</div>
@@ -331,12 +356,24 @@ export function InventoryManager({ filaments: initial, userRole }: InventoryMana
                 <td className="px-4 py-3">{f.material}</td>
                 <td className="px-4 py-3">{f.brand ?? "—"}</td>
                 <td className="px-4 py-3">
-                  <div className="flex items-center gap-1.5">
-                    <span className={f.remainingGrams < 250 ? "text-amber-600 font-medium" : undefined}>
-                      {f.remainingGrams} g
-                    </span>
-                    <span className="text-xs text-muted-foreground">/ {f.spoolWeightGrams} g</span>
-                  </div>
+                  <span
+                    className={
+                      f.availableGrams < 0
+                        ? "text-destructive font-medium"
+                        : f.availableGrams < 250
+                        ? "text-amber-600 font-medium"
+                        : "font-medium"
+                    }
+                  >
+                    {f.availableGrams} g
+                  </span>
+                </td>
+                <td className="px-4 py-3 text-muted-foreground">
+                  {f.reservedGrams > 0 ? `${f.reservedGrams} g` : "—"}
+                </td>
+                <td className="px-4 py-3">
+                  <span>{f.remainingGrams} g</span>
+                  <span className="text-xs text-muted-foreground"> / {f.spoolWeightGrams} g</span>
                 </td>
                 <td className="px-4 py-3">
                   {f.pricePerKg != null ? (

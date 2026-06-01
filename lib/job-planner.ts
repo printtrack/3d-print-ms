@@ -4,6 +4,12 @@ import { prisma } from "./db";
 import { computeBbox, pickPrintOrientation, applyQuaternionToBbox } from "./stl-bbox";
 import { isIdentityQuaternion } from "./stl-transform";
 import { getUploadDir } from "./uploads";
+import { getReservedGramsByFilament } from "./filament-reservations";
+
+export interface InsufficientFilament {
+  available: number;
+  needed: number;
+}
 
 export interface ProposedNewJob {
   type: "new";
@@ -19,6 +25,7 @@ export interface ProposedNewJob {
   }[];
   utilizationPct: number;
   estimatedGramsTotal: number | null;
+  insufficientFilament: InsufficientFilament | null;
 }
 
 export interface ProposedExtendJob {
@@ -35,6 +42,7 @@ export interface ProposedExtendJob {
     quantity: number;
   }[];
   addedGramsTotal: number | null;
+  insufficientFilament: InsufficientFilament | null;
 }
 
 export type ProposedJob = ProposedNewJob | ProposedExtendJob;
@@ -206,12 +214,35 @@ function packGroup(
 }
 
 export async function plan(): Promise<{ proposed: ProposedJob[]; skipped: SkippedPart[] }> {
-  const [parts, machines] = await Promise.all([
+  const [parts, machines, allFilaments, reservedByFilament] = await Promise.all([
     getPrintReadyParts(),
     prisma.machine.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),
+    prisma.filament.findMany({ select: { id: true, remainingGrams: true } }),
+    getReservedGramsByFilament(),
   ]);
 
   if (machines.length === 0) return { proposed: [], skipped: [] };
+
+  // Track per-filament how many grams have already been allocated to earlier
+  // proposed jobs in THIS run, so a second new-job proposal for the same
+  // filament correctly sees the depleted availability.
+  const proposedSoFar = new Map<string, number>();
+  const checkSufficiency = (filamentId: string, needed: number | null): InsufficientFilament | null => {
+    if (needed === null) return null;
+    const filament = allFilaments.find((f) => f.id === filamentId);
+    if (!filament) return null;
+    const reserved = reservedByFilament.get(filamentId) ?? 0;
+    const alreadyProposed = proposedSoFar.get(filamentId) ?? 0;
+    const available = filament.remainingGrams - reserved - alreadyProposed;
+    if (needed > available) {
+      return { available, needed };
+    }
+    return null;
+  };
+  const recordProposed = (filamentId: string, needed: number | null) => {
+    if (needed === null) return;
+    proposedSoFar.set(filamentId, (proposedSoFar.get(filamentId) ?? 0) + needed);
+  };
 
   // Load existing PLANNED jobs with no plannedAt (not yet scheduled)
   const existingPlannedJobs = await prisma.printJob.findMany({
@@ -340,7 +371,9 @@ export async function plan(): Promise<{ proposed: ProposedJob[]; skipped: Skippe
             quantity: part.quantity,
           })),
           addedGramsTotal: firstBatch.gramsTotal,
+          insufficientFilament: checkSufficiency(filament.id, firstBatch.gramsTotal),
         });
+        recordProposed(filament.id, firstBatch.gramsTotal);
 
         for (const batch of rest) {
           proposed.push({
@@ -357,7 +390,9 @@ export async function plan(): Promise<{ proposed: ProposedJob[]; skipped: Skippe
             })),
             utilizationPct: Math.round((batch.usedArea / bedArea) * 100),
             estimatedGramsTotal: batch.gramsTotal,
+            insufficientFilament: checkSufficiency(filament.id, batch.gramsTotal),
           });
+          recordProposed(filament.id, batch.gramsTotal);
         }
       }
     } else {
@@ -379,7 +414,9 @@ export async function plan(): Promise<{ proposed: ProposedJob[]; skipped: Skippe
           })),
           utilizationPct: Math.round((batch.usedArea / bedArea) * 100),
           estimatedGramsTotal: batch.gramsTotal,
+          insufficientFilament: checkSufficiency(filament.id, batch.gramsTotal),
         });
+        recordProposed(filament.id, batch.gramsTotal);
       }
     }
   }

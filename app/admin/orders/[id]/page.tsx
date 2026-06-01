@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { OrderDetail } from "@/components/admin/OrderDetail";
 import { runJobAutoTransition } from "@/lib/jobs-auto-transition";
 import { runInvoiceAutoTransition, runPaymentReminders } from "@/lib/invoice-auto-transition";
+import { getReservedGramsByFilament } from "@/lib/filament-reservations";
 import { TUTORIAL_ORDER_ID, TUTORIAL_ORDER_DETAIL, TUTORIAL_PARTS, TUTORIAL_PHASES, TUTORIAL_PART_PHASES, TUTORIAL_MACHINES, TUTORIAL_FILAMENT } from "@/lib/tutorial/sample-data";
 
 interface PageProps {
@@ -13,7 +14,36 @@ interface PageProps {
 export const dynamic = "force-dynamic";
 
 async function getData(id: string) {
-  const [order, phases, teamMembers, orderParts, availableFilaments, partPhases, activeMachines, milestones] = await Promise.all([
+  // Migrate orphan milestones into a default sprint so the RoadmapStrip can show them
+  const orphanCount = await prisma.milestone.count({ where: { orderId: id, sprintId: null } });
+  if (orphanCount > 0) {
+    const existingSprintCount = await prisma.sprint.count({ where: { orderId: id } });
+    if (existingSprintCount === 0) {
+      const defaultSprint = await prisma.sprint.create({
+        data: { orderId: id, name: "Allgemein", position: 0 },
+        select: { id: true },
+      });
+      await prisma.milestone.updateMany({
+        where: { orderId: id, sprintId: null },
+        data: { sprintId: defaultSprint.id },
+      });
+    } else {
+      // attach to first sprint
+      const firstSprint = await prisma.sprint.findFirst({
+        where: { orderId: id },
+        orderBy: { position: "asc" },
+        select: { id: true },
+      });
+      if (firstSprint) {
+        await prisma.milestone.updateMany({
+          where: { orderId: id, sprintId: null },
+          data: { sprintId: firstSprint.id },
+        });
+      }
+    }
+  }
+
+  const [order, phases, teamMembers, orderParts, availableFilaments, partPhases, activeMachines, milestones, sprints] = await Promise.all([
     prisma.order.findUnique({
       where: { id },
       include: {
@@ -109,9 +139,28 @@ async function getData(id: string) {
         },
       },
     }),
+    prisma.sprint.findMany({
+      where: { orderId: id },
+      orderBy: { position: "asc" },
+      include: {
+        milestones: {
+          orderBy: { dueAt: "asc" },
+          include: {
+            tasks: { orderBy: { position: "asc" } },
+          },
+        },
+      },
+    }),
   ]);
 
-  if (!order) return { order: null, phases, teamMembers, parts: [], availableFilaments: [], customerCredit: null, partPhases, activeMachines, milestones: [] };
+  if (!order) return { order: null, phases, teamMembers, parts: [], availableFilaments: [], customerCredit: null, partPhases, activeMachines, milestones: [], sprints: [] };
+
+  // Reservation-aware availability per filament
+  const reservedByFilament = await getReservedGramsByFilament();
+  const availableFilamentsWithStock = availableFilaments.map((f) => {
+    const reserved = reservedByFilament.get(f.id) ?? 0;
+    return { ...f, reservedGrams: reserved, availableGrams: f.remainingGrams - reserved };
+  });
 
   // Look up customer credit by email
   const customerCreditRaw = await prisma.customer.findUnique({
@@ -283,7 +332,20 @@ async function getData(id: string) {
       }
     : undefined;
 
-  return { order: serialized, phases, teamMembers, parts: serializedParts, availableFilaments, customerCredit, partPhases, activeMachines, buildVolume, milestones: serializedMilestones };
+  const serializedSprints = sprints.map((sp) => ({
+    id: sp.id,
+    name: sp.name,
+    position: sp.position,
+    milestones: sp.milestones.map((m) => ({
+      id: m.id,
+      name: m.name,
+      dueAt: m.dueAt ? m.dueAt.toISOString() : null,
+      completedAt: m.completedAt ? m.completedAt.toISOString() : null,
+      tasks: m.tasks.map((t) => ({ id: t.id, title: t.title, completed: t.completed })),
+    })),
+  }));
+
+  return { order: serialized, phases, teamMembers, parts: serializedParts, availableFilaments: availableFilamentsWithStock, customerCredit, partPhases, activeMachines, buildVolume, milestones: serializedMilestones, sprints: serializedSprints };
 }
 
 export default async function OrderDetailPage({ params }: PageProps) {
@@ -302,12 +364,12 @@ export default async function OrderDetailPage({ params }: PageProps) {
         isAdmin={isAdmin}
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         parts={TUTORIAL_PARTS as any}
-        availableFilaments={[{ ...TUTORIAL_FILAMENT, brand: TUTORIAL_FILAMENT.brand ?? null }]}
+        availableFilaments={[{ ...TUTORIAL_FILAMENT, brand: TUTORIAL_FILAMENT.brand ?? null, reservedGrams: 0, availableGrams: TUTORIAL_FILAMENT.remainingGrams }]}
         customerCredit={null}
         partPhases={TUTORIAL_PART_PHASES}
         machines={TUTORIAL_MACHINES.map((m) => ({ id: m.id, name: m.name }))}
         buildVolume={{ x: 256, y: 256, z: 256 }}
-        initialMilestones={[]}
+        initialSprints={[]}
       />
     );
   }
@@ -316,7 +378,7 @@ export default async function OrderDetailPage({ params }: PageProps) {
   await runJobAutoTransition().catch(() => null);
   await runInvoiceAutoTransition().catch(() => null);
   await runPaymentReminders().catch(() => null);
-  const { order, phases, teamMembers, parts, availableFilaments, customerCredit, partPhases, activeMachines, buildVolume, milestones } = await getData(id);
+  const { order, phases, teamMembers, parts, availableFilaments, customerCredit, partPhases, activeMachines, buildVolume, sprints } = await getData(id);
 
   if (!order) notFound();
 
@@ -335,7 +397,7 @@ export default async function OrderDetailPage({ params }: PageProps) {
       partPhases={partPhases}
       machines={activeMachines}
       buildVolume={buildVolume}
-      initialMilestones={milestones}
+      initialSprints={sprints}
     />
   );
 }

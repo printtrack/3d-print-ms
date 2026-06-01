@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
 import type { Session } from "next-auth";
+import { orderConditionsSchema } from "@/lib/phase-conditions";
 
 const patchSchema = z.object({
   name: z.string().min(1).max(50).optional(),
@@ -11,6 +12,9 @@ const patchSchema = z.object({
   isDefault: z.boolean().optional(),
   isSurvey: z.boolean().optional(),
   isPrototype: z.boolean().optional(),
+  isArchive: z.boolean().optional(),
+  enterGate: orderConditionsSchema.optional(),
+  autoAdvance: orderConditionsSchema.optional(),
 });
 
 function isAdmin(session: Session | null) {

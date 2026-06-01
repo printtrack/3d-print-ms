@@ -9,6 +9,8 @@ import { sendPhaseChangeEmail, sendSurveyEmail, sendVerificationEmail } from "@/
 import { getSetting } from "@/lib/settings";
 import { publish } from "@/lib/event-bus";
 import { shouldGateOnQuote } from "@/lib/quotes";
+import { evaluateOrderEnterGate } from "@/lib/phase-conditions";
+import { triggerOrderAutoAdvance } from "@/lib/phase-auto-advance";
 
 const patchSchema = z.object({
   phaseId: z.string().optional(),
@@ -22,6 +24,7 @@ const patchSchema = z.object({
   generalProject: z.boolean().optional(),
   estimatedCompletionAt: z.string().datetime().nullable().optional(),
   quoteGateOverride: z.boolean().optional(),
+  overrideReason: z.string().min(5).max(500).optional(),
 });
 
 export async function GET(
@@ -75,7 +78,7 @@ export async function PATCH(
     const current = await prisma.order.findUnique({
       where: { id },
       include: {
-        phase: { select: { id: true, name: true, color: true, position: true } },
+        phase: { select: { id: true, name: true, color: true, position: true, isArchive: true } },
         assignees: { include: { user: { select: { id: true, name: true } } } },
       },
     });
@@ -110,6 +113,20 @@ export async function PATCH(
           }
         }
       }
+
+      // Per-phase enterGate — configurable condition catalog
+      const enterGate = await evaluateOrderEnterGate(id, data.phaseId);
+      if (!enterGate.ok && !data.overrideReason) {
+        return NextResponse.json(
+          {
+            error: "Gate-Bedingungen nicht erfüllt",
+            code: "PHASE_GATE",
+            requiresOverride: true,
+            reasonKeys: enterGate.blockedReasons,
+          },
+          { status: 422 }
+        );
+      }
     }
 
     const userId = session.user?.id;
@@ -124,13 +141,30 @@ export async function PATCH(
       }
     }
 
+    // If the new phase is an archive phase, set archivedAt automatically.
+    // If we are moving out of an archive phase into a non-archive phase, clear archivedAt.
+    let phaseArchivedAt: Date | null | undefined = undefined;
+    if (data.phaseId && data.phaseId !== current.phaseId) {
+      const newPhaseForArchive = await prisma.orderPhase.findUnique({
+        where: { id: data.phaseId },
+        select: { isArchive: true },
+      });
+      if (newPhaseForArchive?.isArchive) {
+        phaseArchivedAt = new Date();
+      } else if (current.phase.isArchive) {
+        phaseArchivedAt = null;
+      }
+    }
+
     const updated = await prisma.order.update({
       where: { id },
       data: {
         ...(data.phaseId !== undefined ? { phaseId: data.phaseId } : {}),
         ...(data.archive !== undefined
           ? { archivedAt: data.archive ? new Date() : null }
-          : {}),
+          : phaseArchivedAt !== undefined
+            ? { archivedAt: phaseArchivedAt }
+            : {}),
         ...(data.deadline !== undefined
           ? { deadline: data.deadline ? new Date(data.deadline) : null }
           : {}),
@@ -154,14 +188,29 @@ export async function PATCH(
     // Create audit logs
     if (data.phaseId && data.phaseId !== current.phaseId) {
       const newPhase = await prisma.orderPhase.findUnique({ where: { id: data.phaseId }, select: { name: true, isSurvey: true } });
+      const overrideSuffix = data.overrideReason
+        ? ` (Gate übersteuert: ${data.overrideReason})`
+        : data.quoteGateOverride
+          ? " (Angebots-Gate überschrieben)"
+          : "";
       await prisma.auditLog.create({
         data: {
           orderId: id,
           userId: userId ?? null,
           action: "PHASE_CHANGED",
-          details: `Phase geändert von "${current.phase.name}" zu "${newPhase?.name}"${data.quoteGateOverride ? " (Angebots-Gate überschrieben)" : ""}`,
+          details: `Phase geändert von "${current.phase.name}" zu "${newPhase?.name}"${overrideSuffix}`,
         },
       });
+      if (data.overrideReason) {
+        await prisma.auditLog.create({
+          data: {
+            orderId: id,
+            userId: userId ?? null,
+            action: "GATE_OVERRIDDEN",
+            details: `Phase-Gate übersteuert: ${data.overrideReason}`,
+          },
+        });
+      }
 
       // Notify customer via email (non-blocking)
       if (newPhase) {
@@ -348,6 +397,12 @@ export async function PATCH(
     }
 
     publish({ type: "order.changed", orderId: id });
+
+    // After a manual phase change, the new phase may have an autoAdvance that
+    // is already satisfied — let the chain continue without waiting for another event.
+    if (data.phaseId && data.phaseId !== current.phaseId) {
+      triggerOrderAutoAdvance(id);
+    }
 
     return NextResponse.json(updated);
   } catch (err) {

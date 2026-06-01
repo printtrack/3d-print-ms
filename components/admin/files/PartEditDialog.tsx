@@ -143,7 +143,7 @@ export function PartEditDialog({
                                 style={{ backgroundColor: f.colorHex }}
                               />
                             )}
-                            {f.name} ({f.remainingGrams} g)
+                            {f.name} ({f.availableGrams} g)
                           </span>
                         </SelectItem>
                       ))}

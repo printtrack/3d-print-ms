@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
 import { sendVerificationEmail } from "@/lib/email";
+import { triggerOrderAutoAdvance, triggerPartAutoAdvance } from "@/lib/phase-auto-advance";
 
 const postSchema = z.object({
   type: z.enum(["DESIGN_REVIEW", "PRICE_APPROVAL"]),
@@ -191,6 +192,9 @@ export async function PATCH(
           : `Freigabe durch Admin abgelehnt${data.message ? `: ${data.message}` : ""}`,
       },
     });
+
+    triggerOrderAutoAdvance(id);
+    if (vr.orderPartId) triggerPartAutoAdvance(vr.orderPartId);
 
     return NextResponse.json({ success: true });
   } catch (err) {

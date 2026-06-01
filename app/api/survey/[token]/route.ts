@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSetting } from "@/lib/settings";
 import { z } from "zod";
+import { triggerOrderAutoAdvance } from "@/lib/phase-auto-advance";
 
 export async function GET(
   _req: NextRequest,
@@ -84,6 +85,8 @@ export async function POST(
         details: "Kunde hat Umfrage ausgefüllt",
       },
     });
+
+    triggerOrderAutoAdvance(survey.orderId);
 
     return NextResponse.json({ success: true });
   } catch (err) {

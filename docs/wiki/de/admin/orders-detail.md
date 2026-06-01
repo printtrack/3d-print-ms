@@ -105,6 +105,38 @@ Das E-Mail-Template (Betreff und Rahmtext) kann unter [[Einstellungen → E-Mail
 
 Wenn der Auftrag eine Kundenzufriedenheits-Umfrage enthält, wird das Ergebnis hier angezeigt (Bewertung und optionaler Kommentar des Kunden).
 
+## Roadmap-Strip mit Sprints
+
+Aufträge, die nicht zu einem [[Projekte|Projekt]] gehören, zeigen oben in der Seitenleiste eine **Roadmap-Karte** mit einem horizontalen Zeitstrahl. Sie ersetzt die frühere flache Meilenstein-Liste und gliedert Termine nach **Sprints**.
+
+### Sprint-Switcher
+
+- Jeder Auftrag kann mehrere parallele/nachgelagerte Sprints haben (z. B. „Vorserie", „Hauptserie", „Nachserie").
+- Über die Pillen oben wählst du den aktiven Sprint. Der Mini-Donut links neben dem Sprint-Namen zeigt den Fortschritt der enthaltenen Aufgaben in Prozent.
+- Klicke auf den `+`-Button am Ende der Sprint-Liste, um einen neuen Sprint anzulegen. Direkt im Anschluss öffnet sich das Add-Milestone-Popover.
+- Das Kebab-Menü neben jedem Sprint bietet **Umbenennen** und **Sprint löschen**. Beim Löschen erscheint ein Bestätigungs-Popover mit Anzahl betroffener Meilensteine und Aufgaben.
+
+### Meilenstein-Stops
+
+Im aktiven Sprint zeigt der Zeitstrahl pro Meilenstein einen runden Stop:
+- **Grüner Haken** — abgeschlossen
+- **Brand-Flagge** — aktueller Meilenstein
+- **Roter Warn-Stop** — überfällig (Datum in der Vergangenheit, noch nicht erledigt)
+- **Pizza-Slice-Ring** — pro Aufgabe ein Tortenstück, gefüllt sobald die Aufgabe abgehakt ist
+
+Klick auf den Stop öffnet ein Popover mit Aufgabenliste:
+- Aufgaben einzeln per Checkbox abhaken (animierter Slice-Flash am Ring)
+- Wenn alle Aufgaben erledigt sind, feiert der Stop mit kurzem Pop + Sparkles
+- Name, Datum und einzelne Aufgaben sind per Klick inline editierbar (Enter speichert, Esc verwirft)
+- Aufgabe löschen: × am Hover-Rand der Aufgaben-Zeile
+- Meilenstein löschen: dezenter Link am Panel-Ende → Inline-Confirm
+
+### Neuen Meilenstein anlegen
+
+1. Klicke auf das `+`-Symbol oben rechts in der Roadmap-Karte.
+2. Trage **Bezeichnung** und **Termin** (beides Pflicht) ein.
+3. Speichern legt den Meilenstein im aktuellen Sprint an und öffnet direkt das Popover, damit du Aufgaben hinzufügen kannst.
+
 ## Verknüpfte Druckjobs
 
 Im Seitenbereich siehst du, welchen [[Druckjobs]] dieser Auftrag aktuell zugeordnet ist. Du kannst die Zuweisung direkt hier ändern oder den verlinkten Job öffnen.

@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
+import {
+  evaluateOrderAutoAdvance,
+  evaluateOrderEnterGate,
+  parseOrderConditions,
+} from "@/lib/phase-conditions";
 
 const createInternalProjectSchema = z.object({
   name: z.string().min(1),
@@ -72,7 +77,39 @@ export async function GET(req: NextRequest) {
     ],
   });
 
-  return NextResponse.json(orders);
+  // Compute blockedNext / autoAdvanceReady per order — only for phases that
+  // actually have gates or auto-advance configured (zero overhead otherwise).
+  const allPhases = await prisma.orderPhase.findMany({
+    orderBy: { position: "asc" },
+    select: { id: true, position: true, enterGate: true, autoAdvance: true },
+  });
+  const phaseById = new Map(allPhases.map((p) => [p.id, p]));
+  const nextPhaseByPosition = (pos: number) =>
+    allPhases.find((p) => p.position > pos) ?? null;
+  const anyGate = allPhases.some((p) => parseOrderConditions(p.enterGate).length > 0);
+  const anyAuto = allPhases.some((p) => parseOrderConditions(p.autoAdvance).length > 0);
+
+  const enriched = await Promise.all(
+    orders.map(async (o) => {
+      let blockedNext = false;
+      let autoAdvanceReady = false;
+      if (anyGate || anyAuto) {
+        const phase = phaseById.get(o.phaseId);
+        const next = phase ? nextPhaseByPosition(phase.position) : null;
+        if (next && anyGate) {
+          const gate = await evaluateOrderEnterGate(o.id, next.id);
+          blockedNext = !gate.ok;
+        }
+        if (phase && anyAuto) {
+          const auto = await evaluateOrderAutoAdvance(o.id, phase.id);
+          autoAdvanceReady = auto.ok;
+        }
+      }
+      return { ...o, blockedNext, autoAdvanceReady };
+    })
+  );
+
+  return NextResponse.json(enriched);
 }
 
 export async function POST(req: NextRequest) {

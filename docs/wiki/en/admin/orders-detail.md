@@ -105,6 +105,38 @@ The email template (subject and wrapper text) can be configured under [[Settings
 
 If the order includes a customer satisfaction survey, the result is shown here (rating and optional customer comment).
 
+## Roadmap strip with sprints
+
+Orders that aren't part of a [[Projects|project]] show a **Roadmap card** with a horizontal timeline at the top of the sidebar. It replaces the previous flat milestone list and groups dates by **sprint**.
+
+### Sprint switcher
+
+- Each order can have several parallel/sequential sprints (e.g. "Pilot run", "Main run", "Post-run").
+- Pick the active sprint via the pills at the top. The mini donut next to each sprint name shows the percentage of completed tasks across all milestones in that sprint.
+- Click the `+` button at the end of the sprint list to create a new sprint. The Add-Milestone popover opens automatically afterwards.
+- The kebab menu next to each sprint exposes **Rename** and **Delete sprint**. Deleting opens a confirmation popover that lists how many milestones and tasks would be affected.
+
+### Milestone stops
+
+Inside the active sprint the timeline shows one round stop per milestone:
+- **Green check** — done
+- **Brand flag** — current
+- **Red warning stop** — overdue (due date is in the past and not all tasks are done)
+- **Pizza-slice ring** — one slice per task, filled as soon as the task is checked off
+
+Click a stop to open a popover with its task list:
+- Check tasks off individually (the slice-flash animation fires on the ring)
+- When the final task is checked off, the stop celebrates with a quick pop and sparkles
+- Name, date and individual tasks are inline-editable (Enter saves, Esc discards)
+- Delete a task: × appears on hover at the end of its row
+- Delete a milestone: subtle link at the bottom of the panel → inline confirm
+
+### Adding a new milestone
+
+1. Click the `+` icon in the top-right of the roadmap card.
+2. Fill in **Name** and **Due date** (both required).
+3. Saving creates the milestone in the active sprint and immediately opens its popover so you can add tasks.
+
 ## Linked print jobs
 
 The sidebar shows which [[Print Jobs|jobs]] this order is currently assigned to. You can change the assignment directly here or open the linked job.

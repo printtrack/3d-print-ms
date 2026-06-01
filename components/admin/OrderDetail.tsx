@@ -22,46 +22,18 @@ import { QuoteEditor } from "@/components/admin/QuoteEditor";
 import { InvoiceCard, type InvoiceUI } from "@/components/admin/InvoiceCard";
 import { OrderHeaderMinimal } from "@/components/admin/OrderHeaderMinimal";
 import {
-  Check,
   Clock,
-  Flag,
   Mail,
   MessageSquare,
-  Plus,
   Send,
   ShieldAlert,
   ShieldCheck,
   User,
   Wallet,
-  X,
-  CheckCircle2,
-  Circle,
 } from "lucide-react";
-import { MilestoneDialog } from "@/components/admin/MilestoneDialog";
+import { RoadmapStrip, type SprintUI } from "@/components/admin/RoadmapStrip";
 import Link from "next/link";
 
-
-interface MilestoneTaskData {
-  id: string;
-  title: string;
-  completed: boolean;
-  completedAt: string | null;
-  assignees: { user: { id: string; name: string } }[];
-  position: number;
-}
-
-interface MilestoneData {
-  id: string;
-  orderId: string | null;
-  projectId?: string | null;
-  name: string;
-  description: string | null;
-  dueAt: string | null;
-  completedAt: string | null;
-  color: string;
-  position: number;
-  tasks: MilestoneTaskData[];
-}
 
 interface FilamentOption {
   id: string;
@@ -71,6 +43,8 @@ interface FilamentOption {
   colorHex: string | null;
   brand: string | null;
   remainingGrams: number;
+  reservedGrams: number;
+  availableGrams: number;
 }
 
 
@@ -149,7 +123,7 @@ interface OrderDetailProps {
   partPhases: Array<{ id: string; name: string; color: string; isPrintReady: boolean; isReview: boolean; isPrinted: boolean; isMisprint: boolean }>;
   machines: Array<{ id: string; name: string }>;
   buildVolume?: { x: number; y: number; z: number };
-  initialMilestones: MilestoneData[];
+  initialSprints: SprintUI[];
 }
 
 function getInitials(name: string) {
@@ -158,10 +132,11 @@ function getInitials(name: string) {
 
 
 
-export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin, parts: initialParts, availableFilaments, customerCredit: initialCustomerCredit, partPhases, machines, buildVolume, initialMilestones }: OrderDetailProps) {
+export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin, parts: initialParts, availableFilaments, customerCredit: initialCustomerCredit, partPhases, machines, buildVolume, initialSprints }: OrderDetailProps) {
   const t = useTranslations("admin");
   const tc = useTranslations("common");
-  const locale = localeToDateLocale(useLocale());
+  const rawLocale = useLocale();
+  const locale = localeToDateLocale(rawLocale);
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("all");
 
@@ -249,8 +224,6 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
     `Abzug für Auftrag vom ${new Date(order.createdAt).toLocaleDateString("de-DE")}`
   );
   const [savingCredit, setSavingCredit] = useState(false);
-  const [milestones, setMilestones] = useState<MilestoneData[]>(initialMilestones);
-  const [milestoneDialog, setMilestoneDialog] = useState<{ open: boolean; milestone: MilestoneData | null }>({ open: false, milestone: null });
 
   const orderId = order.id;
   useLiveEvents(
@@ -360,40 +333,6 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
       toast.error(t("toast_credit_failed"));
     } finally {
       setSavingCredit(false);
-    }
-  }
-
-  function handleMilestoneSaved(saved: MilestoneData) {
-    setMilestones((prev) => {
-      const exists = prev.find((m) => m.id === saved.id);
-      if (exists) return prev.map((m) => (m.id === saved.id ? saved : m));
-      return [...prev, saved].sort((a, b) => a.position - b.position);
-    });
-  }
-
-  function handleMilestoneDeleted(id: string) {
-    setMilestones((prev) => prev.filter((m) => m.id !== id));
-  }
-
-  async function handleToggleMilestoneComplete(m: MilestoneData) {
-    const newCompletedAt = m.completedAt ? null : new Date().toISOString();
-    setMilestones((prev) =>
-      prev.map((ms) => (ms.id === m.id ? { ...ms, completedAt: newCompletedAt } : ms))
-    );
-    try {
-      const res = await fetch(`/api/admin/milestones/${m.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ completedAt: newCompletedAt }),
-      });
-      if (!res.ok) throw new Error();
-      const saved = await res.json();
-      setMilestones((prev) => prev.map((ms) => (ms.id === m.id ? saved : ms)));
-    } catch {
-      setMilestones((prev) =>
-        prev.map((ms) => (ms.id === m.id ? { ...ms, completedAt: m.completedAt } : ms))
-      );
-      toast.error(t("toast_update_failed"));
     }
   }
 
@@ -727,6 +666,17 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
             buildVolume={buildVolume}
           />
 
+          {/* Roadmap with sprints — only shown for orders not in a project */}
+          {!order.project && (
+            <RoadmapStrip
+              orderId={order.id}
+              initialSprints={initialSprints}
+              minDate={order.createdAt}
+              maxDate={order.deadline}
+              locale={rawLocale === "en" ? "en" : "de"}
+            />
+          )}
+
           {/* Aktivität */}
           <Card>
             <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -993,102 +943,6 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
             </Card>
           )}
 
-          {/* Milestones — only shown for orders not in a project */}
-          {!order.project && <Card>
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
-                  <Flag className="h-4 w-4" />
-                  {t("order_detail_milestones")} ({milestones.length})
-                </CardTitle>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 px-2 text-xs"
-                  onClick={() => setMilestoneDialog({ open: true, milestone: null })}
-                >
-                  <Plus className="h-3.5 w-3.5 mr-1" />
-                  {tc("new")}
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-1.5 pt-0">
-              {milestones.length === 0 ? (
-                <p className="text-sm text-muted-foreground">{t("order_detail_no_milestones")}</p>
-              ) : (
-                [...milestones]
-                  .sort((a, b) => {
-                    if (a.completedAt && !b.completedAt) return 1;
-                    if (!a.completedAt && b.completedAt) return -1;
-                    if (!a.completedAt && !b.completedAt) {
-                      if (a.dueAt && !b.dueAt) return -1;
-                      if (!a.dueAt && b.dueAt) return 1;
-                      if (a.dueAt && b.dueAt) return new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime();
-                    }
-                    return a.position - b.position;
-                  })
-                  .map((m) => {
-                    const isOverdue = !!m.dueAt && !m.completedAt && new Date(m.dueAt) < new Date();
-                    const tasksDone = m.tasks.filter((t) => t.completed).length;
-                    const tasksTotal = m.tasks.length;
-                    const taskPct = tasksTotal > 0 ? Math.round((tasksDone / tasksTotal) * 100) : 0;
-                    return (
-                  <div
-                    key={m.id}
-                    role="button"
-                    tabIndex={0}
-                    className="w-full text-left flex items-start gap-2 rounded-md p-2 hover:bg-muted transition-colors cursor-pointer"
-                    onClick={() => setMilestoneDialog({ open: true, milestone: m })}
-                  >
-                    <button
-                      className="mt-0.5 shrink-0"
-                      onClick={(e) => { e.stopPropagation(); handleToggleMilestoneComplete(m); }}
-                      title={m.completedAt ? t("order_detail_mark_open") : t("order_detail_mark_done")}
-                    >
-                      {m.completedAt ? (
-                        <CheckCircle2 className="h-4 w-4 text-green-500" />
-                      ) : (
-                        <Circle className={`h-4 w-4 ${isOverdue ? "animate-pulse" : ""}`} style={{ color: m.color }} />
-                      )}
-                    </button>
-                    <div className="flex-1 min-w-0 space-y-0.5">
-                      <p className={`text-sm font-medium truncate ${m.completedAt ? "line-through text-muted-foreground" : ""}`}>
-                        {m.name}
-                      </p>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        {m.dueAt && (
-                          <span className={`text-xs ${isOverdue ? "text-red-600 font-medium" : "text-muted-foreground"}`}>
-                            {new Date(m.dueAt).toLocaleDateString("de-DE")}
-                          </span>
-                        )}
-                        {isOverdue && (
-                          <Badge variant="destructive" className="text-[10px] h-4 px-1">{tc("overdue")}</Badge>
-                        )}
-                        {m.completedAt && (
-                          <Badge variant="secondary" className="text-[10px] h-4 px-1">{tc("done")}</Badge>
-                        )}
-                      </div>
-                      {tasksTotal > 0 && (
-                        <div className="flex items-center gap-1.5 w-full mt-1">
-                          <div className="flex-1 h-1.5 bg-muted rounded-full overflow-hidden">
-                            <div
-                              className="h-full rounded-full transition-all"
-                              style={{ width: `${taskPct}%`, backgroundColor: taskPct === 100 ? "#10b981" : m.color }}
-                            />
-                          </div>
-                          <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                            {tasksDone}/{tasksTotal}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                    );
-                  })
-              )}
-            </CardContent>
-          </Card>}
-
           {/* Filament Credit */}
           {isAdmin && customerCredit && (
             <Card>
@@ -1232,18 +1086,6 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
         </div>
       </div>
 
-      <MilestoneDialog
-        key={milestoneDialog.milestone?.id ?? "new"}
-        open={milestoneDialog.open}
-        onOpenChange={(open) => setMilestoneDialog((s) => ({ ...s, open }))}
-        orderId={order.id}
-        milestone={milestoneDialog.milestone}
-        users={teamMembers}
-        onSaved={handleMilestoneSaved}
-        onDeleted={handleMilestoneDeleted}
-        minDate={order.createdAt}
-        maxDate={order.deadline}
-      />
     </div>
   );
 }

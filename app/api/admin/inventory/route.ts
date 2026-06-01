@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { getReservedGramsByFilament } from "@/lib/filament-reservations";
 import { z } from "zod";
 
 const VALID_MATERIALS = ["PLA", "PETG", "ABS", "TPU", "ASA", "Nylon", "PC", "Other"] as const;
@@ -24,13 +25,25 @@ export async function GET(req: NextRequest) {
 
   const material = req.nextUrl.searchParams.get("material");
 
-  const filaments = await prisma.filament.findMany({
-    where: material ? { material } : undefined,
-    include: { _count: { select: { orderParts: true } } },
-    orderBy: [{ material: "asc" }, { name: "asc" }],
+  const [filaments, reserved] = await Promise.all([
+    prisma.filament.findMany({
+      where: material ? { material } : undefined,
+      include: { _count: { select: { orderParts: true } } },
+      orderBy: [{ material: "asc" }, { name: "asc" }],
+    }),
+    getReservedGramsByFilament(),
+  ]);
+
+  const withAvailability = filaments.map((f) => {
+    const reservedGrams = reserved.get(f.id) ?? 0;
+    return {
+      ...f,
+      reservedGrams,
+      availableGrams: f.remainingGrams - reservedGrams,
+    };
   });
 
-  return NextResponse.json(filaments);
+  return NextResponse.json(withAvailability);
 }
 
 export async function POST(req: NextRequest) {

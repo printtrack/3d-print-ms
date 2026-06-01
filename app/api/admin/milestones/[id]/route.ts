@@ -10,6 +10,7 @@ const patchSchema = z.object({
   completedAt: z.string().datetime().nullable().optional(),
   color: z.string().optional(),
   position: z.number().int().optional(),
+  sprintId: z.string().min(1).nullable().optional(),
 });
 
 export async function PATCH(
@@ -71,6 +72,7 @@ export async function PATCH(
           : {}),
         ...(data.color !== undefined ? { color: data.color } : {}),
         ...(data.position !== undefined ? { position: data.position } : {}),
+        ...(data.sprintId !== undefined ? { sprintId: data.sprintId } : {}),
       },
       include: {
         tasks: {

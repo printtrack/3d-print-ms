@@ -3,6 +3,8 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
 import { maybeAutoSendPartDesignVerification } from "@/lib/design-verification";
+import { evaluatePartEnterGate } from "@/lib/phase-conditions";
+import { triggerOrderAutoAdvance, triggerPartAutoAdvance } from "@/lib/phase-auto-advance";
 
 const patchSchema = z.object({
   name: z.string().min(1).optional(),
@@ -12,6 +14,7 @@ const patchSchema = z.object({
   quantity: z.number().int().min(1).optional(),
   partPhaseId: z.string().nullable().optional(),
   assigneeIds: z.array(z.string()).optional(),
+  overrideReason: z.string().min(5).max(500).optional(),
 });
 
 const partInclude = {
@@ -63,6 +66,22 @@ export async function PATCH(
           return NextResponse.json(
             { error: "Designfreigabe muss erst erteilt werden" },
             { status: 409 }
+          );
+        }
+      }
+
+      // Per-phase enterGate for parts
+      if (data.partPhaseId !== currentPart.partPhaseId) {
+        const gate = await evaluatePartEnterGate(partId, data.partPhaseId);
+        if (!gate.ok && !data.overrideReason) {
+          return NextResponse.json(
+            {
+              error: "Gate-Bedingungen nicht erfüllt",
+              code: "PHASE_GATE",
+              requiresOverride: true,
+              reasonKeys: gate.blockedReasons,
+            },
+            { status: 422 }
           );
         }
       }
@@ -123,6 +142,12 @@ export async function PATCH(
           details: `Teil "${part.name}" aktualisiert`,
         },
       });
+    }
+
+    // If part-phase changed, fire auto-advance for the part and its parent order.
+    if (data.partPhaseId !== undefined && data.partPhaseId !== currentPart.partPhaseId) {
+      triggerPartAutoAdvance(partId);
+      triggerOrderAutoAdvance(id);
     }
 
     return NextResponse.json(part);

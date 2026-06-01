@@ -2,6 +2,11 @@ import { prisma } from "@/lib/db";
 import { auth } from "@/lib/auth";
 import { getTranslations } from "next-intl/server";
 import { DashboardView } from "@/components/admin/DashboardView";
+import {
+  evaluateOrderAutoAdvance,
+  evaluateOrderEnterGate,
+  parseOrderConditions,
+} from "@/lib/phase-conditions";
 import { TutorialAwareOrdersView } from "@/components/admin/tutorial/TutorialAwareOrdersView";
 import { FilterBar } from "@/components/admin/FilterBar";
 import { HighlightHandler } from "@/components/admin/HighlightHandler";
@@ -98,6 +103,37 @@ async function getData(
     }),
   ]);
 
+  // Phase metadata for gate/auto-advance evaluation.
+  const allPhases = await prisma.orderPhase.findMany({
+    orderBy: { position: "asc" },
+    select: { id: true, position: true, enterGate: true, autoAdvance: true },
+  });
+  const phaseById = new Map(allPhases.map((p) => [p.id, p]));
+  const nextPhaseByPosition = (pos: number) =>
+    allPhases.find((p) => p.position > pos) ?? null;
+  const anyGate = allPhases.some((p) => parseOrderConditions(p.enterGate).length > 0);
+  const anyAuto = allPhases.some((p) => parseOrderConditions(p.autoAdvance).length > 0);
+  const phaseHints = new Map<string, { blockedNext: boolean; autoAdvanceReady: boolean }>();
+  if (anyGate || anyAuto) {
+    await Promise.all(
+      orders.map(async (o) => {
+        const phase = phaseById.get(o.phaseId);
+        const next = phase ? nextPhaseByPosition(phase.position) : null;
+        let blockedNext = false;
+        let autoAdvanceReady = false;
+        if (next && anyGate) {
+          const r = await evaluateOrderEnterGate(o.id, next.id);
+          blockedNext = !r.ok;
+        }
+        if (phase && anyAuto) {
+          const r = await evaluateOrderAutoAdvance(o.id, phase.id);
+          autoAdvanceReady = r.ok;
+        }
+        phaseHints.set(o.id, { blockedNext, autoAdvanceReady });
+      })
+    );
+  }
+
   const serializedOrders = orders.map((o) => {
     const topAssignees = o.assignees.map((a) => a.user);
     const topAssigneeIds = new Set(topAssignees.map((u) => u.id));
@@ -131,6 +167,8 @@ async function getData(
       isPrototype: o.isPrototype,
       iterationCount: o.iterationCount,
       phaseOrder: o.phaseOrder,
+      blockedNext: phaseHints.get(o.id)?.blockedNext ?? false,
+      autoAdvanceReady: phaseHints.get(o.id)?.autoAdvanceReady ?? false,
     };
   });
 

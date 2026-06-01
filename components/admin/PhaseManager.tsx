@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useEffect } from "react";
 import {
   DndContext,
   closestCenter,
@@ -13,7 +13,6 @@ import {
 import {
   arrayMove,
   SortableContext,
-  sortableKeyboardCoordinates,
   useSortable,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
@@ -29,9 +28,27 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { FlaskConical, GripVertical, MessageSquare, Pencil, Plus, Star, Trash2 } from "lucide-react";
+import {
+  Archive,
+  ChevronDown,
+  FlaskConical,
+  GripVertical,
+  Lock,
+  MessageSquare,
+  Pencil,
+  Plus,
+  Star,
+  Trash2,
+  Zap,
+} from "lucide-react";
 import { useTranslations } from "next-intl";
+import { OrderConditionEditor } from "./PhaseConditionEditor";
+import {
+  parseOrderConditions,
+  type OrderCondition,
+} from "@/lib/phase-conditions";
 
 interface Phase {
   id: string;
@@ -41,6 +58,9 @@ interface Phase {
   isDefault: boolean;
   isSurvey: boolean;
   isPrototype: boolean;
+  isArchive: boolean;
+  enterGate?: unknown;
+  autoAdvance?: unknown;
   _count: { orders: number };
 }
 
@@ -64,12 +84,17 @@ function SortablePhaseRow({
     opacity: isDragging ? 0.5 : 1,
   };
 
+  const gateCount = parseOrderConditions(phase.enterGate as Parameters<typeof parseOrderConditions>[0]).length;
+  const autoCount = parseOrderConditions(phase.autoAdvance as Parameters<typeof parseOrderConditions>[0]).length;
+
   return (
     <div
       ref={setNodeRef}
       style={style}
       className="flex items-center gap-3 p-3 bg-card border rounded-lg"
       data-testid="phase-row"
+      data-phase-node={phase.id}
+      id={`phase-node-${phase.id}`}
     >
       <button
         {...attributes}
@@ -108,6 +133,27 @@ function SortablePhaseRow({
         </Badge>
       )}
 
+      {phase.isArchive && (
+        <Badge className="text-xs shrink-0 bg-slate-100 text-slate-700 hover:bg-slate-100">
+          <Archive className="h-3 w-3 mr-1" />
+          {t("phase_badge_archive")}
+        </Badge>
+      )}
+
+      {gateCount > 0 && (
+        <Badge className="text-xs shrink-0 bg-amber-100 text-amber-700 hover:bg-amber-100">
+          <Lock className="h-3 w-3 mr-1" />
+          {t("phase_flow_gate_label")} · {gateCount}
+        </Badge>
+      )}
+
+      {autoCount > 0 && (
+        <Badge className="text-xs shrink-0 bg-primary/10 text-primary hover:bg-primary/10">
+          <Zap className="h-3 w-3 mr-1" />
+          {t("phase_flow_auto_label")} · {autoCount}
+        </Badge>
+      )}
+
       <span className="hidden sm:inline text-xs text-muted-foreground shrink-0">{phase._count.orders} {t("phase_badge_orders")}</span>
 
       <div className="flex gap-1">
@@ -128,13 +174,36 @@ function SortablePhaseRow({
   );
 }
 
+interface FormData {
+  name: string;
+  color: string;
+  isDefault: boolean;
+  isSurvey: boolean;
+  isPrototype: boolean;
+  isArchive: boolean;
+  enterGate: OrderCondition[];
+  autoAdvance: OrderCondition[];
+}
+
+const EMPTY_FORM: FormData = {
+  name: "",
+  color: "#6366f1",
+  isDefault: false,
+  isSurvey: false,
+  isPrototype: false,
+  isArchive: false,
+  enterGate: [],
+  autoAdvance: [],
+};
+
 export function PhaseManager({ initialPhases }: { initialPhases: Phase[] }) {
   const t = useTranslations("admin");
   const tc = useTranslations("common");
   const [phases, setPhases] = useState(initialPhases);
   const [editingPhase, setEditingPhase] = useState<Phase | null>(null);
   const [isCreating, setIsCreating] = useState(false);
-  const [formData, setFormData] = useState({ name: "", color: "#6366f1", isDefault: false, isSurvey: false, isPrototype: false });
+  const [activeTab, setActiveTab] = useState("general");
+  const [formData, setFormData] = useState<FormData>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -150,14 +219,25 @@ export function PhaseManager({ initialPhases }: { initialPhases: Phase[] }) {
   );
 
   function openCreate() {
-    setFormData({ name: "", color: "#6366f1", isDefault: false, isSurvey: false, isPrototype: false });
+    setFormData(EMPTY_FORM);
     setEditingPhase(null);
+    setActiveTab("general");
     setIsCreating(true);
   }
 
   function openEdit(phase: Phase) {
-    setFormData({ name: phase.name, color: phase.color, isDefault: phase.isDefault, isSurvey: phase.isSurvey, isPrototype: phase.isPrototype });
+    setFormData({
+      name: phase.name,
+      color: phase.color,
+      isDefault: phase.isDefault,
+      isSurvey: phase.isSurvey,
+      isPrototype: phase.isPrototype,
+      isArchive: phase.isArchive,
+      enterGate: parseOrderConditions(phase.enterGate as Parameters<typeof parseOrderConditions>[0]),
+      autoAdvance: parseOrderConditions(phase.autoAdvance as Parameters<typeof parseOrderConditions>[0]),
+    });
     setEditingPhase(phase);
+    setActiveTab("general");
     setIsCreating(true);
   }
 
@@ -169,21 +249,33 @@ export function PhaseManager({ initialPhases }: { initialPhases: Phase[] }) {
 
     setSaving(true);
     try {
+      const payload = {
+        name: formData.name,
+        color: formData.color,
+        isDefault: formData.isDefault,
+        isSurvey: formData.isSurvey,
+        isPrototype: formData.isPrototype,
+        isArchive: formData.isArchive,
+        enterGate: formData.enterGate,
+        autoAdvance: formData.autoAdvance,
+      };
       if (editingPhase) {
         const res = await fetch(`/api/admin/phases/${editingPhase.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(formData),
+          body: JSON.stringify(payload),
         });
         if (!res.ok) throw new Error();
         const updated = await res.json();
-        setPhases((prev) => prev.map((p) => (p.id === updated.id ? { ...p, ...updated } : p)));
+        setPhases((prev) =>
+          prev.map((p) => (p.id === updated.id ? { ...p, ...updated, _count: p._count } : p))
+        );
         toast.success(t("phase_updated"));
       } else {
         const res = await fetch("/api/admin/phases", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(formData),
+          body: JSON.stringify(payload),
         });
         if (!res.ok) throw new Error();
         const created = await res.json();
@@ -229,7 +321,6 @@ export function PhaseManager({ initialPhases }: { initialPhases: Phase[] }) {
 
     setPhases(reordered);
 
-    // Persist all positions
     try {
       await Promise.all(
         reordered.map((phase) =>
@@ -244,6 +335,10 @@ export function PhaseManager({ initialPhases }: { initialPhases: Phase[] }) {
       toast.error(t("phase_order_failed"));
     }
   }
+
+  const sortedPhases = [...phases].sort((a, b) => a.position - b.position);
+  const editingIdx = editingPhase ? sortedPhases.findIndex((p) => p.id === editingPhase.id) : -1;
+  const editingIsLast = editingIdx === sortedPhases.length - 1;
 
   return (
     <div className="space-y-6">
@@ -262,15 +357,47 @@ export function PhaseManager({ initialPhases }: { initialPhases: Phase[] }) {
 
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
         <SortableContext items={phases.map((p) => p.id)} strategy={verticalListSortingStrategy}>
-          <div className="space-y-2">
-            {phases.map((phase) => (
-              <SortablePhaseRow
-                key={phase.id}
-                phase={phase}
-                onEdit={openEdit}
-                onDelete={handleDelete}
-              />
-            ))}
+          <div className="space-y-0" data-testid="phase-flow-diagram">
+            {sortedPhases.map((phase, idx) => {
+              const isLast = idx === sortedPhases.length - 1;
+              const autoCount = parseOrderConditions(
+                phase.autoAdvance as Parameters<typeof parseOrderConditions>[0]
+              ).length;
+              return (
+                <div key={phase.id} className="space-y-0">
+                  <SortablePhaseRow
+                    phase={phase}
+                    onEdit={openEdit}
+                    onDelete={handleDelete}
+                  />
+                  {!isLast && (
+                    <div
+                      className="flex h-6 items-center pl-7"
+                      data-testid={`phase-connector-${phase.id}`}
+                      aria-hidden="true"
+                    >
+                      {autoCount > 0 ? (
+                        <span className="flex items-center gap-1.5 text-primary">
+                          <ChevronDown
+                            className="h-4 w-4 animate-pulse"
+                            strokeWidth={2.5}
+                          />
+                          <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] font-medium text-primary">
+                            <Zap className="h-2.5 w-2.5" />
+                            {t("phase_flow_auto_label")} · {autoCount}
+                          </span>
+                        </span>
+                      ) : (
+                        <ChevronDown
+                          className="h-4 w-4 text-muted-foreground/40"
+                          strokeWidth={1.5}
+                        />
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </SortableContext>
       </DndContext>
@@ -283,81 +410,136 @@ export function PhaseManager({ initialPhases }: { initialPhases: Phase[] }) {
 
       {/* Create/Edit Dialog */}
       <Dialog open={isCreating} onOpenChange={setIsCreating}>
-        <DialogContent>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>{editingPhase ? t("phase_dialog_edit") : t("phase_dialog_new")}</DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-4 py-2">
-            <div className="space-y-2">
-              <Label htmlFor="phase-name">{tc("name")} *</Label>
-              <Input
-                id="phase-name"
-                placeholder={t("phase_name_placeholder")}
-                value={formData.name}
-                onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))}
-              />
-            </div>
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="general">{t("phase_tab_general")}</TabsTrigger>
+              <TabsTrigger value="gate" data-testid="phase-tab-gate">
+                {t("phase_tab_gate")}
+                {formData.enterGate.length > 0 && (
+                  <span className="ml-1.5 rounded-full bg-amber-100 px-1.5 text-[10px] font-semibold text-amber-700">
+                    {formData.enterGate.length}
+                  </span>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="auto" data-testid="phase-tab-auto">
+                {t("phase_tab_auto_advance")}
+                {formData.autoAdvance.length > 0 && (
+                  <span className="ml-1.5 rounded-full bg-primary/15 px-1.5 text-[10px] font-semibold text-primary">
+                    {formData.autoAdvance.length}
+                  </span>
+                )}
+              </TabsTrigger>
+            </TabsList>
 
-            <div className="space-y-2">
-              <Label htmlFor="phase-color">{tc("color")}</Label>
-              <div className="flex items-center gap-3">
-                <input
-                  id="phase-color"
-                  type="color"
-                  value={formData.color}
-                  onChange={(e) => setFormData((p) => ({ ...p, color: e.target.value }))}
-                  className="w-10 h-10 rounded cursor-pointer border"
-                />
+            <TabsContent value="general" className="space-y-4 py-3">
+              <div className="space-y-2">
+                <Label htmlFor="phase-name">{tc("name")} *</Label>
                 <Input
-                  value={formData.color}
-                  onChange={(e) => setFormData((p) => ({ ...p, color: e.target.value }))}
-                  placeholder="#6366f1"
-                  className="font-mono"
+                  id="phase-name"
+                  placeholder={t("phase_name_placeholder")}
+                  value={formData.name}
+                  onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))}
                 />
               </div>
-            </div>
 
-            <div className="flex items-center gap-2">
-              <input
-                id="is-default"
-                type="checkbox"
-                checked={formData.isDefault}
-                onChange={(e) => setFormData((p) => ({ ...p, isDefault: e.target.checked }))}
-                className="h-4 w-4"
+              <div className="space-y-2">
+                <Label htmlFor="phase-color">{tc("color")}</Label>
+                <div className="flex items-center gap-3">
+                  <input
+                    id="phase-color"
+                    type="color"
+                    value={formData.color}
+                    onChange={(e) => setFormData((p) => ({ ...p, color: e.target.value }))}
+                    className="w-10 h-10 rounded cursor-pointer border"
+                  />
+                  <Input
+                    value={formData.color}
+                    onChange={(e) => setFormData((p) => ({ ...p, color: e.target.value }))}
+                    placeholder="#6366f1"
+                    className="font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  id="is-default"
+                  type="checkbox"
+                  checked={formData.isDefault}
+                  onChange={(e) => setFormData((p) => ({ ...p, isDefault: e.target.checked }))}
+                  className="h-4 w-4"
+                />
+                <Label htmlFor="is-default">{t("phase_is_default")}</Label>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  id="is-survey"
+                  type="checkbox"
+                  checked={formData.isSurvey}
+                  onChange={(e) => setFormData((p) => ({ ...p, isSurvey: e.target.checked }))}
+                  className="h-4 w-4"
+                />
+                <Label htmlFor="is-survey">{t("phase_is_survey")}</Label>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  id="is-prototype"
+                  type="checkbox"
+                  checked={formData.isPrototype}
+                  onChange={(e) => setFormData((p) => ({ ...p, isPrototype: e.target.checked }))}
+                  className="h-4 w-4"
+                />
+                <Label htmlFor="is-prototype">{t("phase_is_prototype")}</Label>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <input
+                  id="is-archive"
+                  type="checkbox"
+                  checked={formData.isArchive}
+                  onChange={(e) => setFormData((p) => ({ ...p, isArchive: e.target.checked }))}
+                  className="h-4 w-4"
+                />
+                <Label htmlFor="is-archive">{t("phase_is_archive")}</Label>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="gate" className="space-y-3 py-3">
+              <p className="text-sm text-muted-foreground">{t("phase_gate_hint")}</p>
+              <OrderConditionEditor
+                value={formData.enterGate}
+                onChange={(next) => setFormData((p) => ({ ...p, enterGate: next }))}
+                testidPrefix="gate"
               />
-              <Label htmlFor="is-default">{t("phase_is_default")}</Label>
-            </div>
+            </TabsContent>
 
-            <div className="flex items-center gap-2">
-              <input
-                id="is-survey"
-                type="checkbox"
-                checked={formData.isSurvey}
-                onChange={(e) => setFormData((p) => ({ ...p, isSurvey: e.target.checked }))}
-                className="h-4 w-4"
+            <TabsContent value="auto" className="space-y-3 py-3">
+              <p className="text-sm text-muted-foreground">{t("phase_auto_advance_hint")}</p>
+              {editingPhase && editingIsLast && (
+                <p className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                  {t("phase_no_next_phase_warning")}
+                </p>
+              )}
+              <OrderConditionEditor
+                value={formData.autoAdvance}
+                onChange={(next) => setFormData((p) => ({ ...p, autoAdvance: next }))}
+                testidPrefix="auto"
               />
-              <Label htmlFor="is-survey">{t("phase_is_survey")}</Label>
-            </div>
-
-            <div className="flex items-center gap-2">
-              <input
-                id="is-prototype"
-                type="checkbox"
-                checked={formData.isPrototype}
-                onChange={(e) => setFormData((p) => ({ ...p, isPrototype: e.target.checked }))}
-                className="h-4 w-4"
-              />
-              <Label htmlFor="is-prototype">{t("phase_is_prototype")}</Label>
-            </div>
-
-          </div>
+            </TabsContent>
+          </Tabs>
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsCreating(false)}>
               {tc("cancel")}
             </Button>
-            <Button onClick={handleSave} disabled={saving}>
+            <Button onClick={handleSave} disabled={saving} data-testid="phase-save-btn">
               {saving ? `${tc("save")}...` : tc("save")}
             </Button>
           </DialogFooter>

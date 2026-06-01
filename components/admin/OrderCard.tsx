@@ -5,8 +5,9 @@ import { CSS } from "@dnd-kit/utilities";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { formatDate } from "@/lib/utils";
-import { CalendarClock, Clock, FolderKanban, MessageSquare, Paperclip, ShieldAlert } from "lucide-react";
+import { ArrowRight, CalendarClock, Clock, FolderKanban, Lock, MessageSquare, Paperclip, ShieldAlert } from "lucide-react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 
 interface OrderCardProps {
   order: {
@@ -25,6 +26,8 @@ interface OrderCardProps {
     isPrototype?: boolean;
     iterationCount?: number;
     project?: { id: string; name: string } | null;
+    blockedNext?: boolean;
+    autoAdvanceReady?: boolean;
   };
   searchQuery?: string;
 }
@@ -40,6 +43,39 @@ function highlight(text: string, query?: string) {
         {text.slice(idx, idx + query.length)}
       </mark>
       {text.slice(idx + query.length)}
+    </>
+  );
+}
+
+function PhaseHintBadges({
+  blockedNext,
+  autoAdvanceReady,
+}: {
+  blockedNext?: boolean;
+  autoAdvanceReady?: boolean;
+}) {
+  const t = useTranslations("admin");
+  if (!blockedNext && !autoAdvanceReady) return null;
+  return (
+    <>
+      {blockedNext && (
+        <span
+          title={t("order_card_blocked_next_tooltip")}
+          className="flex items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-xs text-amber-700"
+          data-testid="order-card-blocked-next"
+        >
+          <Lock className="h-3 w-3" />
+        </span>
+      )}
+      {autoAdvanceReady && !blockedNext && (
+        <span
+          title={t("order_card_auto_advance_ready_tooltip")}
+          className="flex items-center gap-1 rounded bg-primary/10 px-1.5 py-0.5 text-xs text-primary"
+          data-testid="order-card-auto-advance-ready"
+        >
+          <ArrowRight className="h-3 w-3 animate-pulse" />
+        </span>
+      )}
     </>
   );
 }
@@ -124,6 +160,10 @@ export function OrderCard({ order, searchQuery }: OrderCardProps) {
           <p className="text-xs text-muted-foreground line-clamp-1">{highlight(order.customerEmail, searchQuery)}</p>
 
           <div className="flex items-center gap-2 flex-wrap">
+            <PhaseHintBadges
+              blockedNext={order.blockedNext}
+              autoAdvanceReady={order.autoAdvanceReady}
+            />
             {order.deadline && getDeadlineBadge(order.deadline)}
             {order.priceEstimate != null && (
               <span className="text-xs px-1.5 py-0.5 rounded bg-green-100 text-green-700">

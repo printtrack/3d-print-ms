@@ -84,6 +84,8 @@ export interface FilamentOption {
   colorHex: string | null;
   brand: string | null;
   remainingGrams: number;
+  reservedGrams: number;
+  availableGrams: number;
 }
 
 export interface PartPhaseOption {
@@ -702,7 +704,19 @@ export function PartFileSection({
                                   />
                                 )}
                                 <span className="flex-1 truncate">{f.name}</span>
-                                <span className="text-[10px] text-muted-foreground shrink-0">{f.remainingGrams} g</span>
+                                <span
+                                  className={cn(
+                                    "text-[10px] shrink-0",
+                                    f.availableGrams < 0
+                                      ? "text-destructive font-medium"
+                                      : f.availableGrams < 250
+                                      ? "text-amber-600"
+                                      : "text-muted-foreground"
+                                  )}
+                                  title={f.reservedGrams > 0 ? `${f.remainingGrams} g Bestand · ${f.reservedGrams} g eingeplant` : undefined}
+                                >
+                                  {f.availableGrams} g
+                                </span>
                               </DropdownMenuItem>
                             ))}
                         </div>

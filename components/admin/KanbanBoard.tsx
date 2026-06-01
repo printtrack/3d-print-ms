@@ -23,6 +23,8 @@ import Link from "next/link";
 import { formatDate } from "@/lib/utils";
 import { Archive } from "lucide-react";
 import { useLiveEvents } from "@/lib/use-live-events";
+import { PhaseGateOverrideDialog } from "./PhaseGateOverrideDialog";
+import type { EvaluatedReason } from "@/lib/phase-conditions";
 
 interface Order {
   id: string;
@@ -41,6 +43,8 @@ interface Order {
   isPrototype: boolean;
   iterationCount: number;
   project?: { id: string; name: string } | null;
+  blockedNext?: boolean;
+  autoAdvanceReady?: boolean;
 }
 
 interface Phase {
@@ -130,6 +134,13 @@ export function KanbanBoard({ phases, initialOrders, searchQuery, archiveCount =
   const [activeOrder, setActiveOrder] = useState<Order | null>(null);
   const [activeTab, setActiveTab] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
+  const [gateOverride, setGateOverride] = useState<{
+    orderId: string;
+    targetPhaseId: string;
+    targetPhaseName: string;
+    reasons: EvaluatedReason[];
+    payload: Record<string, unknown>;
+  } | null>(null);
   const isDraggingRef = useRef(isDragging);
   useEffect(() => { isDraggingRef.current = isDragging; }, [isDragging]);
 
@@ -408,6 +419,21 @@ export function KanbanBoard({ phases, initialOrders, searchQuery, archiveCount =
         });
 
         if (!res.ok) {
+          if (res.status === 422) {
+            const errData = await res.json().catch(() => ({}));
+            if (errData.code === "PHASE_GATE" && Array.isArray(errData.reasonKeys)) {
+              const targetPhase = phases.find((p) => p.id === newPhaseId);
+              setGateOverride({
+                orderId: active.id as string,
+                targetPhaseId: newPhaseId,
+                targetPhaseName: targetPhase?.name ?? "",
+                reasons: errData.reasonKeys as EvaluatedReason[],
+                payload: patchPayload,
+              });
+              // Keep optimistic state — dialog cancel or confirm will resolve it.
+              return;
+            }
+          }
           if (res.status === 409) {
             const errData = await res.json().catch(() => ({}));
             toast.error(errData.error ?? "Freigabe ausstehend");
@@ -562,6 +588,48 @@ export function KanbanBoard({ phases, initialOrders, searchQuery, archiveCount =
           </div>
         )}
       </DragOverlay>
+
+      <PhaseGateOverrideDialog
+        open={Boolean(gateOverride)}
+        reasons={gateOverride?.reasons ?? []}
+        targetPhaseName={gateOverride?.targetPhaseName ?? ""}
+        onCancel={() => {
+          if (!gateOverride) return;
+          // Revert the optimistic move.
+          setOrders(initialOrders.map((o) => ({ ...o, phaseId: o.phase.id })));
+          setColumnOrders(savedColumnOrders.current);
+          setGateOverride(null);
+        }}
+        onConfirm={async (reason) => {
+          if (!gateOverride) return;
+          try {
+            const res = await fetch(`/api/admin/orders/${gateOverride.orderId}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ ...gateOverride.payload, overrideReason: reason }),
+            });
+            if (!res.ok) {
+              toast.error("Phasenänderung fehlgeschlagen");
+              setOrders(initialOrders.map((o) => ({ ...o, phaseId: o.phase.id })));
+              setColumnOrders(savedColumnOrders.current);
+              return;
+            }
+            const targetPhase = phases.find((p) => p.id === gateOverride.targetPhaseId);
+            toast.success(`Phase verschoben → ${targetPhase?.name ?? ""} (Gate übersteuert)`);
+            // Persist new column order on the target column
+            const finalOrder = columnOrdersRef.current[gateOverride.targetPhaseId] ?? [];
+            if (finalOrder.length > 0) {
+              fetch("/api/admin/orders/reorder", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ phaseId: gateOverride.targetPhaseId, orderIds: finalOrder }),
+              }).catch(() => {});
+            }
+          } finally {
+            setGateOverride(null);
+          }
+        }}
+      />
     </DndContext>
   );
 }

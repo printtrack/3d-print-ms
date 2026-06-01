@@ -27,6 +27,9 @@ interface Phase {
   isDefault: boolean;
   isSurvey: boolean;
   isPrototype: boolean;
+  isArchive: boolean;
+  enterGate?: unknown;
+  autoAdvance?: unknown;
   _count: { orders: number };
 }
 

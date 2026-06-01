@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
 import { publish } from "@/lib/event-bus";
+import { triggerOrderAutoAdvance, triggerPartAutoAdvance } from "@/lib/phase-auto-advance";
 
 const bodySchema = z.object({
   verificationToken: z.string(),
@@ -97,6 +98,9 @@ export async function POST(
 
     publish({ type: "verification.changed", orderId: order.id, verificationId: vr.id });
     publish({ type: "order.changed", orderId: order.id });
+
+    triggerOrderAutoAdvance(order.id);
+    if (vr.orderPartId) triggerPartAutoAdvance(vr.orderPartId);
 
     return NextResponse.json({ success: true, status: isApprove ? "APPROVED" : "REJECTED" });
   } catch (err) {

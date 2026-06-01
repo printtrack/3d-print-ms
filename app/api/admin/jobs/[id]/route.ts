@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { z } from "zod";
 import { checkJobOverlap } from "@/lib/overlap-check";
 import { publish } from "@/lib/event-bus";
+import { triggerOrderAutoAdvance, triggerPartAutoAdvance } from "@/lib/phase-auto-advance";
 
 const patchSchema = z.object({
   status: z.enum(["PLANNED", "SLICED", "IN_PROGRESS", "AWAITING_VERIFICATION", "DONE", "CANCELLED"]).optional(),
@@ -162,6 +163,15 @@ export async function PATCH(
     }
 
     publish({ type: "job.changed", jobId: id });
+
+    // Fire phase auto-advance for orders + parts touched by this job, but only
+    // when the status transition could plausibly satisfy a condition (DONE / CANCELLED).
+    if (data.status && (data.status === "DONE" || data.status === "CANCELLED")) {
+      const orderIds = [...new Set(job.parts.map((p) => p.orderPart.orderId))];
+      const partIds = [...new Set(job.parts.map((p) => p.orderPart.id))];
+      orderIds.forEach((oid) => triggerOrderAutoAdvance(oid));
+      partIds.forEach((pid) => triggerPartAutoAdvance(pid));
+    }
 
     return NextResponse.json({ job, warnings: [] });
   } catch (err) {

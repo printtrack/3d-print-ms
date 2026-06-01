@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
 import { recordPayment, syncOrderPhaseFromInvoiceStatus } from "@/lib/invoices";
+import { triggerOrderAutoAdvance } from "@/lib/phase-auto-advance";
 
 const postSchema = z.object({
   amountCents: z.number().int(),
@@ -41,6 +42,8 @@ export async function POST(
     if (result.newStatus !== result.previousStatus) {
       await syncOrderPhaseFromInvoiceStatus(result.orderId, result.newStatus, userId);
     }
+
+    triggerOrderAutoAdvance(result.orderId);
 
     return NextResponse.json(result.payment, { status: 201 });
   } catch (err) {

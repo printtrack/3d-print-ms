@@ -66,7 +66,7 @@ export async function shouldGateOnQuote(orderId: string): Promise<{
 
   const order = await prisma.order.findUnique({
     where: { id: orderId },
-    select: { priceEstimate: true, isPrototype: true },
+    select: { isPrototype: true },
   });
 
   if (!order || order.isPrototype) {
@@ -87,11 +87,15 @@ export async function shouldGateOnQuote(orderId: string): Promise<{
     orderBy: { version: "desc" },
     select: { totalCents: true },
   });
-  const amountCents =
-    draftOrSent?.totalCents ??
-    (order.priceEstimate ? Math.round(Number(order.priceEstimate) * 100) : 0);
 
-  if (amountCents < minCents) {
+  // If no quote was ever started for this order, don't block — the workflow
+  // can simply skip the quote step for low-touch orders. The gate only kicks
+  // in once an admin has begun a quote (DRAFT/SENT) but it isn't yet APPROVED.
+  if (!draftOrSent) {
+    return { gate: false };
+  }
+
+  if (draftOrSent.totalCents < minCents) {
     return { gate: false };
   }
 

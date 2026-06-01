@@ -1,6 +1,6 @@
 import path from "path";
 import { test, expect } from "../fixtures/test-base";
-import { prismaTest, createTestOrder, createTestCustomer, createTestCreditTransaction, createTestMilestone } from "../fixtures/db";
+import { prismaTest, createTestOrder, createTestCustomer, createTestCreditTransaction } from "../fixtures/db";
 
 test.describe("Order detail page", () => {
   let orderId: string;
@@ -167,61 +167,9 @@ test.describe("Order detail page", () => {
     expect(updated?.creditBalanceCents).toBe(200);
   });
 
-  test("shows milestones card in sidebar", async ({ page }) => {
-    await page.goto(`/admin/orders/${orderId}`);
-    await expect(page.getByText(/Meilensteine/i).first()).toBeVisible();
-  });
-
-  test("can create a milestone via + Hinzufügen", async ({ page }) => {
-    await page.goto(`/admin/orders/${orderId}`);
-
-    const milestonesCard = page.locator('[data-slot="card"]').filter({ hasText: /Meilensteine/ });
-    await milestonesCard.getByRole("button", { name: /Neu/i }).click();
-
-    const dialog = page.getByRole("dialog");
-    await expect(dialog).toBeVisible();
-
-    await dialog.locator("#milestone-name").fill("Erster Meilenstein");
-    await dialog.getByRole("button", { name: /^Speichern$/ }).click();
-
-    await expect(dialog).not.toBeVisible({ timeout: 5000 });
-    await expect(milestonesCard.getByText("Erster Meilenstein")).toBeVisible({ timeout: 5000 });
-  });
-
-  test("click milestone row opens edit dialog with correct name", async ({ page }) => {
-    const milestone = await createTestMilestone(orderId, { name: "Entwurf abgeschlossen" });
-
-    await page.goto(`/admin/orders/${orderId}`);
-    await expect(page.getByText("Entwurf abgeschlossen")).toBeVisible();
-
-    await page.getByText("Entwurf abgeschlossen").click();
-
-    const dialog = page.getByRole("dialog");
-    await expect(dialog).toBeVisible();
-    await expect(dialog.locator("#milestone-name")).toHaveValue("Entwurf abgeschlossen");
-
-    await dialog.getByRole("button", { name: "Abbrechen" }).click();
-  });
-
-  test("can delete a milestone from edit dialog", async ({ page }) => {
-    const milestone = await createTestMilestone(orderId, { name: "Zu löschender Meilenstein" });
-
-    await page.goto(`/admin/orders/${orderId}`);
-    await expect(page.getByText("Zu löschender Meilenstein")).toBeVisible();
-
-    await page.getByText("Zu löschender Meilenstein").click();
-
-    const dialog = page.getByRole("dialog");
-    await expect(dialog).toBeVisible();
-
-    page.on("dialog", (d) => d.accept());
-    await dialog.getByRole("button", { name: "Löschen" }).click();
-
-    await expect(page.getByText("Zu löschender Meilenstein")).not.toBeVisible({ timeout: 5000 });
-
-    const deleted = await prismaTest.milestone.findUnique({ where: { id: milestone.id } });
-    expect(deleted).toBeNull();
-  });
+  // The old MilestoneDialog-driven sidebar list was replaced by the
+  // RoadmapStrip component (sprint-grouped milestones, inline editing).
+  // See tests/admin/sprints-roadmap.spec.ts for the new coverage.
 
   test("can upload a team design file and sees Team badge + audit entry", async ({ page }) => {
     await page.goto(`/admin/orders/${orderId}`);

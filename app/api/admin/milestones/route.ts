@@ -7,6 +7,7 @@ const createSchema = z
   .object({
     orderId: z.string().min(1).optional(),
     projectId: z.string().min(1).optional(),
+    sprintId: z.string().min(1).nullable().optional(),
     name: z.string().min(1),
     dueAt: z.string().datetime().nullable().optional(),
     color: z.string().optional(),
@@ -86,6 +87,7 @@ export async function POST(req: NextRequest) {
       data: {
         orderId: data.orderId ?? null,
         projectId: data.projectId ?? null,
+        sprintId: data.sprintId ?? null,
         name: data.name,
         dueAt: data.dueAt ? new Date(data.dueAt) : null,
         color: data.color ?? "#6366f1",

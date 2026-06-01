@@ -22,7 +22,7 @@ export async function resetDb() {
     "QuoteItem", "Quote",
     "PrintJobAssignee", "PrintJobFilament", "PrintJobPart", "PrintJobFile", "PrintJob",
     "OrderPartAssignee", "OrderPart", "OrderAssignee", "Machine",
-    "MilestoneTaskAssignee", "MilestoneTask", "Milestone", "Order",
+    "MilestoneTaskAssignee", "MilestoneTask", "Milestone", "Sprint", "Order",
     "OrderPhase", "PartPhase", "Filament",
     "ProjectAuditLog", "ProjectAssignee", "Project", "ProjectPhase",
     "KnowledgeEntry", "KnowledgeFile",
@@ -366,6 +366,23 @@ export async function createTestMilestone(
       description: overrides.description,
       dueAt: overrides.dueAt,
       color: overrides.color ?? "#6366f1",
+      position: overrides.position ?? (last?.position ?? -1) + 1,
+    },
+  });
+}
+
+export async function createTestSprint(
+  orderId: string,
+  overrides: Partial<{
+    name: string;
+    position: number;
+  }> = {}
+) {
+  const last = await prismaTest.sprint.findFirst({ where: { orderId }, orderBy: { position: "desc" } });
+  return prismaTest.sprint.create({
+    data: {
+      orderId,
+      name: overrides.name ?? "Test Sprint",
       position: overrides.position ?? (last?.position ?? -1) + 1,
     },
   });

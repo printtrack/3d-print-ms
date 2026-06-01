@@ -9,9 +9,19 @@ order: 6
 
 # Inventar
 
-Das Inventar verwaltet den aktuellen Filament-Lagerbestand. Der Bestand wird automatisch reduziert, wenn [[Druckjob erstellen & verwalten|jobs-create|Druckjobs]] mit Filament-Verbrauch abgeschlossen werden.
+Das Inventar verwaltet den aktuellen Filament-Lagerbestand. Der physische Bestand wird reduziert, sobald ein Teil im Job verifiziert (gewogen) wurde. Solange Jobs nur **geplant** oder am Drucken sind, gilt ihr Filament-Bedarf als **eingeplant** und vermindert den **verfügbaren** Bestand.
 
 ![Inventar Übersicht](/wiki-screenshots/inventory.png)
+
+## Verfügbar vs. Eingeplant vs. Bestand
+
+Drei verwandte Größen, die im Inventar getrennt angezeigt werden:
+
+| Größe | Bedeutung |
+|-------|-----------|
+| **Bestand** | Wieviel Filament physisch da ist. Nur durch Verifikation (Teil gewogen) und manuelle Korrektur veränderlich. |
+| **Eingeplant** | Summe der geschätzten Mengen aller aktiven Jobs (PLANNED/SLICED/IN_PROGRESS/AWAITING_VERIFICATION), die dieses Filament nutzen. Stammt aus G-Code-Daten (falls vorhanden) oder aus `gramsEstimated` der Teile. |
+| **Verfügbar** | `Bestand − Eingeplant`. Kann negativ werden, wenn mehr Jobs geplant sind als Filament vorhanden ist — die Zeile wird dann rot markiert. |
 
 ## Lagerbestand anzeigen
 
@@ -21,10 +31,10 @@ Die Inventarliste zeigt alle eingetragenen Filamente mit:
 |--------|--------|
 | **Farbe** | Farbvorschau und Name |
 | **Material** | z. B. PLA, PETG, ABS, ASA, TPU |
-| **Restmenge** | Aktueller Bestand in Gramm |
-| **Mindestbestand** | Schwellwert für Nachbestellungs-Hinweis |
-| **Lieferant** | Optionaler Lieferantenname |
-| **Charge** | Optionale Charge-/LOT-Nummer |
+| **Verfügbar** | Was nach Abzug aller eingeplanten Jobs noch frei ist. Rot bei Überzug. |
+| **Eingeplant** | Reservierte Menge aus aktiven Jobs |
+| **Bestand** | Physisch vorhandene Menge / Spulengröße |
+| **Preis** | Optionaler Preis pro kg |
 
 ## Filament hinzufügen
 
@@ -43,15 +53,21 @@ Klicke auf ein Filament, um die Menge direkt zu bearbeiten — zum Beispiel nach
 - Filament bei Test/Kalibrierung verbraucht → Bestand manuell senken
 - Inventur ergab Abweichung → Bestand korrigieren
 
-## Automatischer Verbrauch aus Druckjobs
+## Reservierung & echter Verbrauch
 
-Wenn du in einem [[Druckjob erstellen & verwalten|jobs-create]] Filament-Verbrauch erfasst, wird die entsprechende Menge **sofort** vom Bestand abgezogen. Beim Löschen eines Filament-Eintrags im Job wird der Bestand entsprechend zurückgebucht.
+- **Beim Planen eines Jobs** (Status PLANNED) wird das benötigte Filament als **eingeplant** gekennzeichnet — der Bestand selbst bleibt unverändert.
+- **Beim Verifizieren eines Teils** (Stück gewogen) wird die gemessene Menge vom Bestand abgezogen. Erst dann sinkt der reale Lagerbestand.
+- Wird ein Job auf DONE/CANCELLED gesetzt, fällt seine Reservierung weg.
 
-## Nachbestellungs-Hinweis
+So lässt sich die Auslastung des Filaments vorausplanen, ohne dass die Buchhaltung Schaden nimmt: was nicht gedruckt wurde, gilt auch nicht als verbraucht.
 
-Filamente, deren Restmenge **unter dem eingestellten Mindestbestand** liegt, werden **rot hervorgehoben**. So siehst du auf einen Blick, welche Materialien nachbestellt werden müssen.
+## Überzugs-Warnung beim Planen
 
-Wenn kein Mindestbestand eingetragen ist, gibt es keinen Hinweis — auch bei 0 g Restmenge.
+Im [[Druckjobs vorschlagen|jobs|Jobs-Vorschlagsdialog]] wird pro vorgeschlagenem Job geprüft, ob der verfügbare Bestand für das benötigte Filament ausreicht. Reicht er nicht, erscheint eine rote Warnung an der Job-Zeile. Beim Klick auf **Erstellen** öffnet sich ein Bestätigungsdialog mit der Liste der betroffenen Filamente — du kannst die Jobs trotzdem planen (z. B. wenn Nachschub kurzfristig erwartet wird).
+
+## Wenig-Bestand-Hinweis
+
+Liegt der verfügbare Bestand unter 250 g (aber noch nicht negativ), wird das Filament gelb hervorgehoben. Bei negativem Verfügbar-Wert ist die Anzeige rot.
 
 ## Filament löschen
 

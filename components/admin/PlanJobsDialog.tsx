@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Sparkles, AlertCircle } from "lucide-react";
+import { Sparkles, AlertCircle, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,16 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Checkbox } from "@/components/ui/checkbox";
 import type { ProposedJob, SkippedPart } from "@/lib/job-planner";
 import type { PrintJob } from "./JobCard";
@@ -34,6 +44,7 @@ export function PlanJobsDialog({ open, onOpenChange, onJobsCreated }: PlanJobsDi
   const [committing, setCommitting] = useState(false);
   const [result, setResult] = useState<PlanResult | null>(null);
   const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [overuseConfirmOpen, setOveruseConfirmOpen] = useState(false);
 
   useEffect(() => {
     if (open) fetchPlan();
@@ -72,7 +83,20 @@ export function PlanJobsDialog({ open, onOpenChange, onJobsCreated }: PlanJobsDi
     });
   }
 
-  async function handleCommit() {
+  function selectedHasInsufficient(): boolean {
+    if (!result) return false;
+    return result.proposed.some((j, i) => selected.has(i) && j.insufficientFilament !== null);
+  }
+
+  function handleCommitClick() {
+    if (selectedHasInsufficient()) {
+      setOveruseConfirmOpen(true);
+      return;
+    }
+    commitJobs();
+  }
+
+  async function commitJobs() {
     if (!result) return;
     const jobs = result.proposed
       .filter((_, i) => selected.has(i))
@@ -86,6 +110,7 @@ export function PlanJobsDialog({ open, onOpenChange, onJobsCreated }: PlanJobsDi
 
     if (jobs.length === 0) return;
 
+    setOveruseConfirmOpen(false);
     setCommitting(true);
     try {
       const res = await fetch("/api/admin/jobs/plan/commit", {
@@ -175,6 +200,17 @@ export function PlanJobsDialog({ open, onOpenChange, onJobsCreated }: PlanJobsDi
                     <div className="text-xs text-muted-foreground truncate">
                       {job.parts.map((p) => `${p.partName}${p.quantity > 1 ? ` (×${p.quantity})` : ""}`).join(", ")}
                     </div>
+                    {job.insufficientFilament && (
+                      <div className="flex items-center gap-1.5 text-xs text-destructive font-medium">
+                        <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                        <span>
+                          {t("suggest_jobs_insufficient_filament", {
+                            available: job.insufficientFilament.available,
+                            needed: job.insufficientFilament.needed,
+                          })}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </label>
               ))}
@@ -205,7 +241,7 @@ export function PlanJobsDialog({ open, onOpenChange, onJobsCreated }: PlanJobsDi
           </Button>
           <Button
             data-tutorial="plan-jobs-confirm"
-            onClick={handleCommit}
+            onClick={handleCommitClick}
             disabled={loading || committing || selectedCount === 0}
           >
             {committing
@@ -218,6 +254,45 @@ export function PlanJobsDialog({ open, onOpenChange, onJobsCreated }: PlanJobsDi
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      <AlertDialog open={overuseConfirmOpen} onOpenChange={setOveruseConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-destructive" />
+              {t("suggest_jobs_overuse_confirm_title")}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {t("suggest_jobs_overuse_confirm_body")}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          {result && (
+            <ul className="text-sm space-y-1 max-h-48 overflow-y-auto">
+              {result.proposed
+                .map((j, i) => ({ j, i }))
+                .filter(({ j, i }) => selected.has(i) && j.insufficientFilament)
+                .map(({ j, i }) => (
+                  <li key={i} className="flex items-start gap-2">
+                    <AlertCircle className="h-3.5 w-3.5 text-destructive shrink-0 mt-0.5" />
+                    <span>
+                      <strong>{j.filamentLabel}</strong>:{" "}
+                      {t("suggest_jobs_insufficient_filament", {
+                        available: j.insufficientFilament!.available,
+                        needed: j.insufficientFilament!.needed,
+                      })}
+                    </span>
+                  </li>
+                ))}
+            </ul>
+          )}
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={committing}>{tc("cancel")}</AlertDialogCancel>
+            <AlertDialogAction onClick={commitJobs} disabled={committing}>
+              {t("suggest_jobs_overuse_confirm_cta")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 }

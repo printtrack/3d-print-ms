@@ -161,3 +161,641 @@
 .tutorial-ring {
   animation: tutorial-ring-pulse 2s ease-in-out infinite;
 }
+
+/* =========================================================
+   Roadmap Strip — Sprint switcher + interactive milestones
+   See components/admin/RoadmapStrip.tsx
+   ========================================================= */
+:root {
+  --roadmap-brand: oklch(0.72 0.18 55);
+  --roadmap-brand-dim: oklch(0.62 0.15 55);
+  --roadmap-brand-soft: oklch(0.72 0.18 55 / 8%);
+  --roadmap-brand-line: oklch(0.72 0.18 55 / 25%);
+  --roadmap-green: oklch(0.6 0.18 145);
+  --roadmap-green-soft: oklch(0.6 0.18 145 / 10%);
+  --roadmap-red: oklch(0.55 0.2 27);
+  --roadmap-red-soft: oklch(0.55 0.2 27 / 10%);
+}
+
+/* Sprint switcher */
+.rs-switcher {
+  display: flex; align-items: center; gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  background: oklch(0.985 0 0);
+  border-radius: 12px 12px 0 0;
+  flex-wrap: wrap;
+  row-gap: 8px;
+}
+.rs-chip {
+  display: inline-flex; align-items: center; gap: 9px;
+  padding: 6px 6px 6px 8px;
+  border-radius: 999px;
+  border: 1.5px solid transparent;
+  background: var(--card);
+  cursor: pointer;
+  transition: background 180ms, border-color 180ms, box-shadow 180ms;
+  white-space: nowrap;
+  font: inherit;
+  color: var(--foreground);
+  text-align: left;
+  position: relative;
+}
+.rs-chip:hover { background: var(--muted); border-color: var(--border); }
+.rs-chip.active {
+  border-color: var(--roadmap-brand);
+  background: var(--roadmap-brand-soft);
+  box-shadow: 0 1px 0 oklch(0.72 0.18 55 / 12%) inset, 0 2px 8px oklch(0.72 0.18 55 / 8%);
+}
+.rs-chip.done { color: var(--muted-foreground); }
+.rs-chip.done .rs-chip-name { text-decoration: line-through; text-decoration-color: oklch(0.85 0 0); }
+
+.rs-chip-ring {
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  position: relative;
+  background: oklch(0.88 0 0);
+  display: flex; align-items: center; justify-content: center;
+}
+.rs-chip-ring::before {
+  content: ""; position: absolute; inset: 4px;
+  border-radius: 50%; background: var(--card);
+  box-shadow: 0 0 0 0.5px oklch(0 0 0 / 4%) inset;
+}
+.rs-chip-ring > * { position: relative; z-index: 1; }
+.rs-chip-ring .rs-chip-pct {
+  font-family: var(--font-mono, "Geist Mono", ui-monospace, monospace);
+  font-size: 11px; font-weight: 500;
+  color: var(--foreground); line-height: 1; letter-spacing: -0.02em;
+}
+.rs-chip.done .rs-chip-ring svg { color: white; }
+.rs-chip.done .rs-chip-ring::before { display: none; }
+
+.rs-chip-text { display: flex; flex-direction: column; line-height: 1.15; min-width: 0; }
+.rs-chip-name { font-size: 12.5px; font-weight: 600; }
+.rs-chip.active .rs-chip-name { color: var(--roadmap-brand-dim); }
+.rs-chip-meta {
+  font-size: 10px; color: var(--muted-foreground);
+  font-family: var(--font-mono, "Geist Mono", ui-monospace, monospace);
+  margin-top: 1px;
+}
+
+.rs-chip-menu {
+  width: 22px; height: 22px;
+  border-radius: 4px;
+  background: transparent; border: none;
+  color: var(--muted-foreground);
+  display: flex; opacity: 0;
+  align-items: center; justify-content: center;
+  cursor: pointer; margin-left: 2px; flex-shrink: 0; padding: 0;
+  transition: opacity 150ms, background 150ms;
+}
+.rs-chip:hover .rs-chip-menu,
+.rs-chip.active .rs-chip-menu,
+.rs-chip-menu.open { opacity: 1; }
+.rs-chip-menu:hover { background: oklch(0 0 0 / 7%); color: var(--foreground); }
+.rs-chip-menu.open { background: oklch(0 0 0 / 8%); color: var(--foreground); }
+
+.rs-add-sprint {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  border: 1.5px dashed var(--border);
+  background: transparent;
+  color: var(--muted-foreground);
+  display: inline-flex; align-items: center; justify-content: center;
+  cursor: pointer; flex-shrink: 0;
+  transition: all 180ms;
+}
+.rs-add-sprint:hover {
+  border-color: var(--roadmap-brand-dim);
+  color: var(--roadmap-brand-dim);
+  background: var(--roadmap-brand-soft);
+  border-style: solid;
+}
+
+/* Sprint menu popover */
+.rs-menu-anchor { position: relative; display: inline-flex; }
+.rs-menu-pop {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  width: 170px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 12px 28px oklch(0 0 0 / 0.14), 0 2px 6px oklch(0 0 0 / 0.05);
+  padding: 4px;
+  z-index: 20;
+}
+.rs-menu-anchor.align-left .rs-menu-pop { left: 0; right: auto; }
+.rs-menu-item {
+  width: 100%;
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 9px;
+  border: none; background: transparent;
+  border-radius: 5px;
+  font: inherit; font-size: 12px;
+  cursor: pointer; text-align: left;
+  color: var(--foreground);
+}
+.rs-menu-item:hover { background: var(--muted); }
+.rs-menu-item.danger { color: var(--roadmap-red); }
+.rs-menu-item.danger:hover { background: var(--roadmap-red-soft); }
+.rs-menu-item svg { width: 13px; height: 13px; flex-shrink: 0; opacity: 0.8; }
+
+.rs-sprint-confirm {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: -6px;
+  width: 280px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 16px 36px oklch(0 0 0 / 0.14), 0 3px 8px oklch(0 0 0 / 0.06);
+  padding: 14px 16px 12px;
+  z-index: 25;
+}
+.rs-menu-anchor.align-left .rs-sprint-confirm { left: -6px; right: auto; }
+.rs-sprint-confirm::before {
+  content: "";
+  position: absolute;
+  top: -6px; right: 18px;
+  width: 10px; height: 10px;
+  background: var(--card);
+  border-top: 1px solid var(--border);
+  border-left: 1px solid var(--border);
+  transform: rotate(45deg);
+}
+.rs-menu-anchor.align-left .rs-sprint-confirm::before { left: 18px; right: auto; }
+.rs-sprint-confirm-title {
+  font-size: 12.5px; font-weight: 600; margin: 0 0 6px;
+  color: var(--foreground);
+  display: flex; align-items: center; gap: 6px;
+}
+.rs-sprint-confirm-title svg { color: var(--roadmap-red); width: 14px; height: 14px; }
+.rs-sprint-confirm-body {
+  font-size: 12px; color: var(--muted-foreground); line-height: 1.5;
+  margin-bottom: 12px;
+}
+.rs-sprint-confirm-body strong { color: var(--foreground); font-weight: 600; }
+
+/* Sprint body slide-in */
+@keyframes rsSprintIn {
+  from { opacity: 0; transform: translateX(12px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.rs-body { animation: rsSprintIn 280ms cubic-bezier(.4,1,.4,1); }
+
+/* Roadmap strip */
+.rs-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  position: relative;
+}
+/* Done-state: subtle green gradient + green hairline */
+.rs-card.is-done {
+  background: linear-gradient(180deg, var(--roadmap-green-soft), var(--card) 60%);
+  border-color: oklch(0.6 0.18 145 / 30%);
+}
+.rs-card.is-done .rs-switcher {
+  background: transparent;
+  border-bottom-color: oklch(0.6 0.18 145 / 20%);
+}
+.rs-card.is-done .rs-head-title { color: var(--roadmap-green); }
+
+.rs-done-pill {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px;
+  font-size: 11px; font-weight: 500;
+  border-radius: 999px;
+  background: var(--roadmap-green-soft);
+  color: var(--roadmap-green);
+  line-height: 1.4;
+}
+.rs-done-pill svg { width: 11px; height: 11px; }
+.rs-done-actions { display: flex; align-items: center; gap: 6px; }
+.rs-head {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 14px;
+}
+.rs-head-title {
+  display: flex; align-items: center; gap: 10px;
+  font-size: 12px; font-weight: 600;
+  color: var(--muted-foreground);
+  text-transform: uppercase; letter-spacing: 0.08em;
+}
+.rs-head-title svg { width: 14px; height: 14px; }
+
+.rs-track { position: relative; padding: 18px 12px 6px; }
+.rs-line {
+  position: absolute;
+  left: 12px; right: 12px; top: 53px;
+  height: 2px; background: var(--border);
+  border-radius: 2px;
+}
+.rs-line-done {
+  position: absolute;
+  left: 12px; top: 53px;
+  height: 2px; background: var(--roadmap-green);
+  border-radius: 2px;
+  transition: width 500ms cubic-bezier(.4,1,.4,1);
+}
+.rs-stops {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 0;
+  position: relative;
+}
+
+.rs-stop { text-align: center; padding: 0 6px; position: relative; }
+.rs-stop-date {
+  font-size: 10.5px;
+  font-family: var(--font-mono, "Geist Mono", ui-monospace, monospace);
+  color: var(--muted-foreground);
+  line-height: 1; margin-bottom: 8px;
+  letter-spacing: 0.02em;
+}
+.rs-stop.overdue .rs-stop-date { color: var(--roadmap-red); font-weight: 600; }
+.rs-stop.done .rs-stop-date { color: oklch(0.7 0 0); }
+
+.rs-dot {
+  width: 30px; height: 30px;
+  border-radius: 50%;
+  margin: 0 auto;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--muted-foreground);
+  position: relative; z-index: 2;
+  background: oklch(0.88 0 0);
+  border: none;
+  padding: 0;
+}
+.rs-dot::before {
+  content: ""; position: absolute; inset: 3px;
+  border-radius: 50%; background: var(--card); z-index: 0;
+}
+.rs-dot > * { position: relative; z-index: 1; }
+.rs-dot svg { width: 13px; height: 13px; }
+
+.rs-stop.done .rs-dot { background: var(--roadmap-green); }
+.rs-stop.done .rs-dot::before { background: var(--roadmap-green); }
+.rs-stop.done .rs-dot svg { color: white; }
+.rs-stop.current .rs-dot { box-shadow: 0 0 0 4px var(--roadmap-brand-soft); cursor: pointer; }
+.rs-stop.current .rs-dot:hover { box-shadow: 0 0 0 5px var(--roadmap-brand-soft); }
+.rs-stop.current .rs-dot svg { color: var(--roadmap-brand-dim); }
+.rs-stop.overdue .rs-dot svg { color: var(--roadmap-red); }
+.rs-stop-label {
+  font-size: 12.5px; font-weight: 500; margin-top: 10px; line-height: 1.3;
+  color: var(--foreground);
+}
+.rs-stop.done .rs-stop-label { color: var(--muted-foreground); }
+
+/* Pizza-slice / milestone-complete / task-flash animations */
+@keyframes rsSliceFlash {
+  0%   { transform: scale(1);    filter: brightness(1); }
+  30%  { transform: scale(1.18); filter: brightness(1.25) saturate(1.4); }
+  100% { transform: scale(1);    filter: brightness(1); }
+}
+@keyframes rsMilestonePop {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(1.35); }
+  65%  { transform: scale(0.92); }
+  100% { transform: scale(1); }
+}
+@keyframes rsCompleteRipple {
+  0%   { transform: scale(0.7); opacity: 0.9; }
+  100% { transform: scale(2.6); opacity: 0; }
+}
+@keyframes rsCheckPop {
+  0%   { transform: scale(0) rotate(-20deg); opacity: 0; }
+  60%  { transform: scale(1.25) rotate(0); opacity: 1; }
+  100% { transform: scale(1) rotate(0); }
+}
+@keyframes rsSparkleBurst {
+  0%   { transform: translate(-50%, -50%) scale(0); opacity: 0; }
+  35%  { transform: translate(calc(-50% + var(--bx, 0px)), calc(-50% + var(--by, 0px))) scale(1); opacity: 1; }
+  100% { transform: translate(calc(-50% + var(--bx, 0px)), calc(-50% + var(--by, 0px))) scale(0); opacity: 0; }
+}
+.rs-stop.anim-slice .rs-dot {
+  animation: rsSliceFlash 520ms cubic-bezier(.34,1.56,.64,1);
+}
+.rs-stop.anim-complete .rs-dot {
+  animation: rsMilestonePop 700ms cubic-bezier(.34,1.56,.64,1);
+}
+.rs-stop.anim-complete .rs-dot svg {
+  animation: rsCheckPop 500ms 120ms cubic-bezier(.34,1.56,.64,1) backwards;
+}
+.rs-stop.anim-complete .rs-dot::after {
+  content: ""; position: absolute; inset: 0;
+  border-radius: 50%;
+  border: 2.5px solid var(--roadmap-green);
+  animation: rsCompleteRipple 750ms ease-out;
+  pointer-events: none;
+  z-index: 0;
+}
+.rs-spark {
+  display: none;
+  position: absolute;
+  left: 50%; top: 24px;
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--roadmap-green);
+  transform: translate(-50%, -50%) scale(0);
+  pointer-events: none;
+  z-index: 3;
+}
+.rs-stop.anim-complete .rs-spark {
+  display: block;
+  animation: rsSparkleBurst 750ms ease-out forwards;
+}
+.rs-stop.anim-complete .rs-spark:nth-child(1) { --bx: 22px;  --by: -18px; background: oklch(0.7 0.18 75); }
+.rs-stop.anim-complete .rs-spark:nth-child(2) { --bx: -24px; --by: -14px; background: var(--roadmap-green); }
+.rs-stop.anim-complete .rs-spark:nth-child(3) { --bx: 14px;  --by: 22px;  background: var(--roadmap-brand); }
+.rs-stop.anim-complete .rs-spark:nth-child(4) { --bx: -18px; --by: 20px;  background: oklch(0.55 0.16 270); }
+.rs-stop.anim-complete .rs-spark:nth-child(5) { --bx: 28px;  --by: 6px;   background: var(--roadmap-green); }
+.rs-stop.anim-complete .rs-spark:nth-child(6) { --bx: -28px; --by: 4px;   background: oklch(0.7 0.18 75); }
+
+@media (prefers-reduced-motion: reduce) {
+  .rs-body,
+  .rs-line-done,
+  .rs-stop.anim-slice .rs-dot,
+  .rs-stop.anim-complete .rs-dot,
+  .rs-stop.anim-complete .rs-dot svg,
+  .rs-stop.anim-complete .rs-dot::after,
+  .rs-stop.anim-complete .rs-spark { animation: none !important; transition: none !important; }
+}
+
+/* Stop popover */
+.rs-pop {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 50%; transform: translateX(-50%);
+  width: 248px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 12px 28px oklch(0 0 0 / 0.12), 0 2px 6px oklch(0 0 0 / 0.05);
+  padding: 12px 14px 10px;
+  z-index: 5;
+  text-align: left;
+}
+.rs-pop::before {
+  content: "";
+  position: absolute;
+  top: -5px; left: 50%; transform: translateX(-50%) rotate(45deg);
+  width: 8px; height: 8px;
+  background: var(--card);
+  border-top: 1px solid var(--border);
+  border-left: 1px solid var(--border);
+}
+.rs-pop-close {
+  position: absolute;
+  top: 6px; right: 6px;
+  width: 22px; height: 22px;
+  border-radius: 5px;
+  border: none; background: transparent;
+  color: var(--muted-foreground);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; padding: 0;
+}
+.rs-pop-close:hover { background: var(--muted); color: var(--foreground); }
+.rs-pop-head {
+  display: flex; align-items: flex-start; gap: 8px;
+  padding-right: 22px;
+  margin-bottom: 4px;
+}
+.rs-pop-head h5 {
+  margin: 0; font-size: 12px; font-weight: 600;
+  flex: 1; min-width: 0; line-height: 1.35;
+}
+.rs-pop-meta {
+  font-size: 10.5px; color: var(--muted-foreground);
+  font-family: var(--font-mono, "Geist Mono", ui-monospace, monospace);
+  margin-bottom: 8px;
+}
+
+.rs-editable {
+  cursor: text;
+  border-radius: 3px;
+  padding: 1px 3px;
+  margin: 0 -3px;
+  transition: background 150ms;
+  position: relative;
+  word-break: break-word;
+}
+.rs-editable:hover { background: var(--muted); }
+.rs-editable.dim:hover { background: oklch(0.94 0 0); }
+
+.rs-inline-input {
+  font: inherit; font-size: inherit; font-weight: inherit;
+  background: var(--card);
+  border: 1px solid var(--roadmap-brand);
+  border-radius: 4px;
+  padding: 2px 4px;
+  margin: -3px -3px;
+  outline: none;
+  box-shadow: 0 0 0 2px var(--roadmap-brand-soft);
+  width: 100%;
+  color: var(--foreground);
+  box-sizing: border-box;
+}
+.rs-inline-input.small {
+  font-size: 10.5px;
+  font-family: var(--font-mono, "Geist Mono", ui-monospace, monospace);
+}
+
+.rs-task {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 11.5px; padding: 4px 6px;
+  border-radius: 4px;
+  margin: 0 -6px;
+}
+.rs-task .rs-chk {
+  width: 14px; height: 14px; border-radius: 4px;
+  border: 1.5px solid var(--border); background: var(--card);
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 180ms, border-color 180ms;
+  cursor: pointer;
+}
+.rs-task.done .rs-chk {
+  background: var(--roadmap-green); border-color: var(--roadmap-green);
+}
+.rs-task.done .rs-chk::after {
+  content: ""; display: block;
+  width: 3px; height: 6px; border: solid white;
+  border-width: 0 1.5px 1.5px 0; transform: rotate(45deg);
+  margin-top: -1px;
+}
+.rs-task-text {
+  flex: 1; cursor: text;
+  border-radius: 3px; padding: 1px 3px; margin: 0 -3px;
+  transition: background 150ms; min-width: 0; word-break: break-word;
+}
+.rs-task .rs-task-text:hover { background: oklch(0.96 0 0); }
+.rs-task.done .rs-task-text { color: var(--muted-foreground); text-decoration: line-through; }
+
+.rs-task-del {
+  width: 18px; height: 18px;
+  border-radius: 4px;
+  background: transparent; border: none;
+  color: var(--muted-foreground);
+  display: none;
+  align-items: center; justify-content: center;
+  cursor: pointer; margin-left: 2px; flex-shrink: 0; padding: 0;
+}
+.rs-task:hover .rs-task-del { display: flex; }
+.rs-task-del:hover { background: var(--roadmap-red-soft); color: var(--roadmap-red); }
+
+.rs-add-task {
+  display: flex; gap: 4px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border);
+}
+.rs-add-task input {
+  flex: 1; height: 26px; min-width: 0;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  font: inherit; font-size: 11.5px;
+  background: var(--card); color: var(--foreground);
+}
+.rs-add-task input:focus {
+  outline: none;
+  border-color: var(--roadmap-brand);
+  box-shadow: 0 0 0 2px var(--roadmap-brand-soft);
+}
+.rs-add-task button {
+  width: 26px; height: 26px; padding: 0;
+  border: 1px solid var(--border);
+  background: var(--card);
+  border-radius: 5px;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--muted-foreground);
+  cursor: pointer;
+}
+.rs-add-task button:disabled { opacity: 0.4; cursor: not-allowed; }
+.rs-add-task button:not(:disabled):hover {
+  color: var(--roadmap-brand-dim);
+  border-color: var(--roadmap-brand);
+  background: var(--roadmap-brand-soft);
+}
+
+.rs-pop-actions {
+  display: flex; justify-content: flex-start;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border);
+}
+.rs-pop-del {
+  background: transparent; border: none;
+  color: var(--muted-foreground);
+  font: inherit; font-size: 11px;
+  padding: 3px 6px; border-radius: 4px;
+  cursor: pointer;
+  display: inline-flex; align-items: center; gap: 5px;
+  margin: 0 -6px;
+}
+.rs-pop-del:hover { background: var(--roadmap-red-soft); color: var(--roadmap-red); }
+.rs-pop-del svg { width: 12px; height: 12px; }
+
+.rs-pop-confirm {
+  background: var(--roadmap-red-soft);
+  border: 1px solid oklch(0.55 0.2 27 / 25%);
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-top: 8px;
+  font-size: 11.5px;
+}
+.rs-pop-confirm-text { color: var(--foreground); margin-bottom: 8px; line-height: 1.45; }
+.rs-pop-confirm-text strong { font-weight: 600; }
+.rs-pop-confirm-actions { display: flex; gap: 6px; justify-content: flex-end; }
+
+.rs-btn-danger {
+  background: oklch(0.55 0.2 27);
+  color: white; border: none;
+  padding: 4px 10px;
+  border-radius: 5px;
+  font: inherit; font-size: 11.5px; font-weight: 500;
+  cursor: pointer; height: 26px;
+}
+.rs-btn-danger:hover { background: oklch(0.5 0.22 27); }
+
+/* Add-milestone popover */
+.rs-add-ms-anchor { position: relative; display: inline-flex; }
+.rs-add-ms-btn {
+  width: 26px; height: 26px; border-radius: 5px;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: var(--muted-foreground);
+  cursor: pointer; border: 1px solid transparent;
+  background: transparent;
+  transition: transform 220ms cubic-bezier(.34,1.56,.64,1), background 180ms;
+}
+.rs-add-ms-btn:hover { background: var(--muted); color: var(--foreground); }
+.rs-add-ms-btn.open {
+  background: var(--roadmap-brand-soft);
+  color: var(--roadmap-brand-dim);
+  transform: rotate(45deg);
+}
+.rs-add-ms-pop {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  width: 280px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 16px 36px oklch(0 0 0 / 0.14), 0 3px 8px oklch(0 0 0 / 0.06);
+  padding: 14px 16px 12px;
+  z-index: 10;
+}
+.rs-add-ms-pop::before {
+  content: ""; position: absolute;
+  top: -6px; right: 9px;
+  width: 10px; height: 10px;
+  background: var(--card);
+  border-top: 1px solid var(--border);
+  border-left: 1px solid var(--border);
+  transform: rotate(45deg);
+}
+.rs-add-ms-pop h5 {
+  font-size: 12px; font-weight: 600;
+  margin: 0 0 10px;
+  padding-right: 22px;
+}
+.rs-add-ms-fields {
+  display: flex; flex-direction: column; gap: 10px;
+  margin-bottom: 12px;
+}
+.rs-field { display: flex; flex-direction: column; gap: 4px; }
+.rs-field label {
+  font-size: 10.5px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--muted-foreground);
+}
+.rs-field label .req { color: var(--roadmap-red); margin-left: 2px; }
+.rs-field input {
+  height: 30px; padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  font: inherit; font-size: 12px;
+  background: var(--card); color: var(--foreground);
+  width: 100%; box-sizing: border-box;
+}
+.rs-field input:focus {
+  outline: none;
+  border-color: var(--roadmap-brand);
+  box-shadow: 0 0 0 2px var(--roadmap-brand-soft);
+}
+.rs-add-ms-actions { display: flex; gap: 6px; justify-content: flex-end; }
+
+.rs-empty {
+  padding: 28px 14px;
+  text-align: center;
+  color: var(--muted-foreground);
+  font-size: 12.5px;
+}
+.rs-empty button { color: var(--roadmap-brand-dim); }

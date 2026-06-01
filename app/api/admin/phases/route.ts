@@ -9,6 +9,7 @@ const createSchema = z.object({
   isDefault: z.boolean().optional().default(false),
   isSurvey: z.boolean().optional().default(false),
   isPrototype: z.boolean().optional().default(false),
+  isArchive: z.boolean().optional().default(false),
 });
 
 export async function GET() {
