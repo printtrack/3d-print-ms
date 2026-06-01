@@ -14,7 +14,9 @@ import {
   FlaskConical,
   Link as LinkIcon,
   MoreHorizontal,
+  PencilRuler,
   Plus,
+  Printer,
   RotateCcw,
   Search,
   Trash2,
@@ -61,6 +63,8 @@ interface OrderHeaderMinimalProps {
   currentPhaseIsPrototype: boolean;
   onTogglePrototype: () => void | Promise<void>;
   togglingPrototype: boolean;
+  orderType: "PRINT_ONLY" | "DESIGN";
+  onOrderTypeChange: (type: "PRINT_ONLY" | "DESIGN") => void | Promise<void>;
   phases: Phase[];
   selectedPhaseId: string;
   onPhaseChange: (phaseId: string) => void | Promise<void>;
@@ -167,6 +171,77 @@ function PhaseChip({
                   style={{ background: p.color }}
                 />
                 <span className="flex-1 truncate">{p.name}</span>
+                {active && <Check className="h-3.5 w-3.5 opacity-60" />}
+              </button>
+            );
+          })}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function OrderTypeChip({
+  value,
+  onChange,
+}: {
+  value: "PRINT_ONLY" | "DESIGN";
+  onChange: (type: "PRINT_ONLY" | "DESIGN") => void | Promise<void>;
+}) {
+  const t = useTranslations("admin");
+  const [open, setOpen] = useState(false);
+  const isDesign = value === "DESIGN";
+
+  // Design uses the brand amber; print uses a calm sky tone — both kept soft so
+  // they read as informational, not as the active-phase accent.
+  const tone = isDesign
+    ? { bg: "oklch(0.955 0.045 75)", fg: "oklch(0.45 0.11 60)", border: "oklch(0.45 0.11 60 / 0.25)" }
+    : { bg: "oklch(0.96 0.03 235)", fg: "oklch(0.5 0.12 245)", border: "oklch(0.5 0.12 245 / 0.22)" };
+  const Icon = isDesign ? PencilRuler : Printer;
+
+  const options: Array<{ value: "PRINT_ONLY" | "DESIGN"; label: string; icon: typeof Printer }> = [
+    { value: "PRINT_ONLY", label: t("order_type_print"), icon: Printer },
+    { value: "DESIGN", label: t("order_type_design"), icon: PencilRuler },
+  ];
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          data-testid="order-type-chip"
+          title={t("order_header_change_type")}
+          className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-[12px] font-medium transition-[filter] hover:brightness-95"
+          style={{ background: tone.bg, color: tone.fg, borderColor: tone.border }}
+        >
+          <Icon className="h-3 w-3" />
+          {isDesign ? t("order_type_design") : t("order_type_print")}
+          <ChevronDown className="h-3 w-3 opacity-70" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-56 p-1">
+        <div className="px-2.5 pb-1 pt-1.5 text-[10.5px] font-semibold uppercase tracking-wider text-muted-foreground">
+          {t("order_header_change_type")}
+        </div>
+        <div className="flex flex-col gap-px">
+          {options.map((opt) => {
+            const active = opt.value === value;
+            const OptIcon = opt.icon;
+            return (
+              <button
+                key={opt.value}
+                type="button"
+                onClick={() => {
+                  onChange(opt.value);
+                  setOpen(false);
+                }}
+                className={cn(
+                  "flex items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-[13px] hover:bg-accent",
+                  active && "bg-accent font-medium"
+                )}
+              >
+                <OptIcon className="h-3.5 w-3.5 opacity-70" />
+                <span className="flex-1 truncate">{opt.label}</span>
                 {active && <Check className="h-3.5 w-3.5 opacity-60" />}
               </button>
             );
@@ -677,6 +752,8 @@ export function OrderHeaderMinimal({
   currentPhaseIsPrototype,
   onTogglePrototype,
   togglingPrototype,
+  orderType,
+  onOrderTypeChange,
   phases,
   selectedPhaseId,
   onPhaseChange,
@@ -795,6 +872,7 @@ export function OrderHeaderMinimal({
                   value={selectedPhaseId}
                   onChange={onPhaseChange}
                 />
+                <OrderTypeChip value={orderType} onChange={onOrderTypeChange} />
                 <DeadlineChip deadline={deadline} onChange={onDeadlineChange} />
                 {currentPhaseIsPrototype && (
                   <PrototypeChip

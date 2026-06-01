@@ -50,6 +50,10 @@ async function getData(id: string) {
         phase: true,
         project: { select: { id: true, name: true } },
         assignees: { include: { user: { select: { id: true, name: true, email: true } } } },
+        sourceLinks: {
+          select: { id: true, url: true, label: true },
+          orderBy: { createdAt: "asc" },
+        },
         files: {
           include: {
             notes: {

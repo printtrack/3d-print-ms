@@ -29,6 +29,11 @@ enum FileSource {
   TEAM
 }
 
+enum OrderType {
+  PRINT_ONLY
+  DESIGN
+}
+
 enum FileCategory {
   REFERENCE
   DESIGN
@@ -173,6 +178,7 @@ model Order {
   deadline       DateTime?
   phaseOrder     Int?
   priceEstimate  Decimal?         @db.Decimal(10, 2)
+  orderType      OrderType        @default(PRINT_ONLY)
   isPrototype    Boolean          @default(false)
   iterationCount Int              @default(1)
   isInternal     Boolean          @default(false)
@@ -182,6 +188,7 @@ model Order {
   project        Project?         @relation(fields: [projectId], references: [id], onDelete: SetNull)
   assignees      OrderAssignee[]
   files          OrderFile[]
+  sourceLinks    OrderSourceLink[]
   comments       OrderComment[]
   auditLogs      AuditLog[]
   parts                 OrderPart[]
@@ -398,6 +405,17 @@ model OrderFileNote {
   updatedAt         DateTime  @updatedAt
 
   @@index([orderFileId])
+}
+
+model OrderSourceLink {
+  id        String   @id @default(cuid())
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId   String
+  url       String   @db.Text
+  label     String?
+  createdAt DateTime @default(now())
+
+  @@index([orderId])
 }
 
 model OrderComment {

@@ -1,4 +1,5 @@
 import { test, expect } from "../fixtures/test-base";
+import { prismaTest } from "../fixtures/db";
 import path from "path";
 
 test.describe("Order submission form", () => {
@@ -63,6 +64,77 @@ test.describe("Order submission form", () => {
     await page.getByRole("button", { name: /Zum Auftrag/i }).click();
     await page.waitForURL(/\/track\//);
     await expect(page.url()).toContain("/track/");
+  });
+
+  test("print-only order: submits with multiple source links", async ({ page }) => {
+    // PRINT_ONLY is preselected, so the source-links section is visible
+    await expect(page.getByRole("radio", { name: /Nur Druck/i })).toHaveAttribute(
+      "aria-checked",
+      "true"
+    );
+
+    await page.getByLabel("Name *").fill("Print Only Kunde");
+    await page.getByLabel("E-Mail *").fill("printonly@example.com");
+    await page.getByLabel("Beschreibung *").fill("Bitte diese zwei Modelle in PLA drucken.");
+
+    // Add two model links
+    const addLink = page.locator("#order-form").getByRole("button", { name: "Link hinzufügen" });
+    await addLink.click();
+    await addLink.click();
+    const urlInputs = page.getByPlaceholder("https://www.printables.com/model/...");
+    await expect(urlInputs).toHaveCount(2);
+    await urlInputs.nth(0).fill("https://www.printables.com/model/12345");
+    await urlInputs.nth(1).fill("https://makerworld.com/de/models/67890");
+
+    await page.locator("#order-form").getByRole("button", { name: /Einreichen/i }).click();
+    await expect(page.getByText(/Auftrag erfolgreich eingereicht/i)).toBeVisible({ timeout: 10000 });
+
+    const order = await prismaTest.order.findFirst({
+      where: { customerEmail: "printonly@example.com" },
+      include: { sourceLinks: { orderBy: { createdAt: "asc" } } },
+    });
+    expect(order?.orderType).toBe("PRINT_ONLY");
+    expect(order?.sourceLinks).toHaveLength(2);
+    expect(order?.sourceLinks.map((l) => l.url)).toEqual([
+      "https://www.printables.com/model/12345",
+      "https://makerworld.com/de/models/67890",
+    ]);
+  });
+
+  test("design order: hides source links and stores DESIGN type", async ({ page }) => {
+    await page.getByRole("radio", { name: /Design benötigt/i }).click();
+
+    // Source-links section disappears for DESIGN orders
+    await expect(
+      page.locator("#order-form").getByRole("button", { name: "Link hinzufügen" })
+    ).toHaveCount(0);
+
+    await page.getByLabel("Name *").fill("Design Kunde");
+    await page.getByLabel("E-Mail *").fill("design@example.com");
+    await page.getByLabel("Beschreibung *").fill("Ich brauche ein individuelles Gehäuse-Design.");
+
+    await page.locator("#order-form").getByRole("button", { name: /Einreichen/i }).click();
+    await expect(page.getByText(/Auftrag erfolgreich eingereicht/i)).toBeVisible({ timeout: 10000 });
+
+    const order = await prismaTest.order.findFirst({
+      where: { customerEmail: "design@example.com" },
+      include: { sourceLinks: true },
+    });
+    expect(order?.orderType).toBe("DESIGN");
+    expect(order?.sourceLinks).toHaveLength(0);
+  });
+
+  test("rejects an invalid source link URL via the API", async ({ page }) => {
+    const res = await page.request.post("/api/orders", {
+      data: {
+        customerName: "Bad Link",
+        customerEmail: "badlink@example.com",
+        description: "Order with an invalid model link payload.",
+        orderType: "PRINT_ONLY",
+        sourceLinks: [{ url: "not-a-valid-url" }],
+      },
+    });
+    expect(res.status()).toBe(400);
   });
 
   test("file upload: can attach a file before submitting", async ({ page }) => {

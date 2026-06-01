@@ -37,6 +37,7 @@ interface Order {
   files: Array<{ id: string; filename: string; mimeType: string }>;
   _count: { comments: number };
   priceEstimate: number | null;
+  orderType?: "PRINT_ONLY" | "DESIGN";
   phaseId: string;
   phaseOrder: number | null;
   pendingVerification: boolean;

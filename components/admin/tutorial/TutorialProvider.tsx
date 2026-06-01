@@ -23,11 +23,22 @@ export function TutorialProvider({ children, autoStart = false }: TutorialProvid
   const { state, advance, skip, complete, setStep, moveOrder, simulatePrintDone } = api;
   const didAutoStart = useRef(false);
 
-  // Auto-start on first render if flagged
+  const markOnboarded = useCallback(async () => {
+    await fetch("/api/admin/me/onboarding", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    });
+  }, []);
+
+  // Auto-start on first render if flagged. We persist the onboarded flag right
+  // away so the guided tour appears automatically only on the very first visit —
+  // even if the user navigates away or reloads instead of finishing/skipping.
   useEffect(() => {
     if (autoStart && !didAutoStart.current) {
       didAutoStart.current = true;
       api.start();
+      markOnboarded();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoStart]);
@@ -126,14 +137,6 @@ export function TutorialProvider({ children, autoStart = false }: TutorialProvid
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state.active, state.step, pathname]);
 
-  const markOnboarded = useCallback(async () => {
-    await fetch("/api/admin/me/onboarding", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({}),
-    });
-  }, []);
-
   // Install / uninstall fetch interceptor
   useEffect(() => {
     if (!state.active) return;
@@ -175,11 +178,9 @@ export function TutorialProvider({ children, autoStart = false }: TutorialProvid
   }
 
   function handleRestart() {
-    fetch("/api/admin/me/onboarding", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ reset: true }),
-    });
+    // Manual restart: keep the onboarded flag set so the tour does not
+    // auto-start again on the next page load — the user explicitly triggered it.
+    markOnboarded();
     api.start();
     router.push("/admin/orders?tutorial=1");
   }

@@ -27,6 +27,21 @@ Oben findest du die wichtigsten Eckdaten auf einen Blick:
 
 > Phasen werden unter [[Einstellungen → Phasen|settings-phases]] konfiguriert.
 
+## Auftragstyp
+
+Neben der Phase zeigt der Kopfbereich ein **Auftragstyp-Chip**. Es unterscheidet, was der Kunde beim Einreichen ausgewählt hat:
+
+- **Nur Druck** — Der Kunde hat bereits ein fertiges Modell (z. B. von Printables, MakerWorld oder Thingiverse) und möchte es nur gedruckt haben.
+- **Design** — Der Kunde benötigt ein eigenes Design oder eine Anpassung durch das Team.
+
+Diese Kennzeichnung hilft bei der Planung (reiner Druck vs. Design-Aufwand) und wird auch als Badge auf der [[Aufträge|Kanban-Karte]] angezeigt.
+
+Sollte der Kunde sich vertan haben, kannst du den Typ direkt über das Chip umstellen — die Änderung wird sofort gespeichert und im [[Audit-Log]] vermerkt.
+
+### Modell-Links
+
+Bei Aufträgen vom Typ **Nur Druck** kann der Kunde direkt Links zu den gewünschten Modellen angeben. Diese erscheinen in der **Beschreibungs-Karte** als anklickbare Chips und öffnen die Quelle in einem neuen Tab — so kommst du mit einem Klick zum Original-Modell.
+
 ## Beauftragte (Assignees)
 
 Du kannst einen oder mehrere Bearbeiter dem Auftrag zuweisen:

@@ -171,6 +171,42 @@ test.describe("Order detail page", () => {
   // RoadmapStrip component (sprint-grouped milestones, inline editing).
   // See tests/admin/sprints-roadmap.spec.ts for the new coverage.
 
+  test("shows source links for a print-only order", async ({ page }) => {
+    const phase = await prismaTest.orderPhase.findFirst({ where: { isDefault: true } });
+    const linkOrder = await createTestOrder(phase!.id, {
+      customerName: "Print Only",
+      customerEmail: "po@example.com",
+      orderType: "PRINT_ONLY",
+    });
+    await prismaTest.orderSourceLink.create({
+      data: { orderId: linkOrder.id, url: "https://www.printables.com/model/999", label: "Halterung" },
+    });
+
+    await page.goto(`/admin/orders/${linkOrder.id}`);
+
+    // Header chip reflects the print-only type
+    await expect(page.getByTestId("order-type-chip")).toContainText("Nur Druck");
+    // Clickable source link is rendered in the description card
+    const link = page.getByRole("link", { name: /Halterung/i });
+    await expect(link).toBeVisible();
+    await expect(link).toHaveAttribute("href", "https://www.printables.com/model/999");
+  });
+
+  test("can switch order type to Design via the header chip", async ({ page }) => {
+    await page.goto(`/admin/orders/${orderId}`);
+
+    const patchDone = page.waitForResponse(
+      (r) => r.url().includes(`/api/admin/orders/${orderId}`) && r.request().method() === "PATCH"
+    );
+
+    await page.getByTestId("order-type-chip").click();
+    await page.getByRole("button", { name: "Design" }).last().click();
+    await patchDone;
+
+    const updated = await prismaTest.order.findUnique({ where: { id: orderId } });
+    expect(updated?.orderType).toBe("DESIGN");
+  });
+
   test("can upload a team design file and sees Team badge + audit entry", async ({ page }) => {
     await page.goto(`/admin/orders/${orderId}`);
 

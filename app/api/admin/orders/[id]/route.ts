@@ -18,6 +18,7 @@ const patchSchema = z.object({
   archive: z.boolean().optional(),
   deadline: z.string().datetime().nullable().optional(),
   priceEstimate: z.number().nonnegative().nullable().optional(),
+  orderType: z.enum(["PRINT_ONLY", "DESIGN"]).optional(),
   isPrototype: z.boolean().optional(),
   iterationCount: z.number().int().min(1).optional(),
   isInternal: z.boolean().optional(),
@@ -171,6 +172,7 @@ export async function PATCH(
         ...(data.priceEstimate !== undefined
           ? { priceEstimate: data.priceEstimate }
           : {}),
+        ...(data.orderType !== undefined ? { orderType: data.orderType } : {}),
         ...(data.isPrototype !== undefined ? { isPrototype: data.isPrototype } : {}),
         ...(data.iterationCount !== undefined ? { iterationCount: data.iterationCount } : {}),
         ...(data.isInternal !== undefined ? { isInternal: data.isInternal } : {}),
@@ -358,6 +360,18 @@ export async function PATCH(
           }
         }
       }
+    }
+
+    if (data.orderType !== undefined && data.orderType !== current.orderType) {
+      const typeLabel = data.orderType === "PRINT_ONLY" ? "Nur Druck" : "Design benötigt";
+      await prisma.auditLog.create({
+        data: {
+          orderId: id,
+          userId: userId ?? null,
+          action: "ORDER_TYPE_CHANGED",
+          details: `Auftragstyp geändert zu "${typeLabel}"`,
+        },
+      });
     }
 
     if (data.isPrototype !== undefined && data.isPrototype !== current.isPrototype) {

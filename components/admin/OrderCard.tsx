@@ -5,7 +5,7 @@ import { CSS } from "@dnd-kit/utilities";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { formatDate } from "@/lib/utils";
-import { ArrowRight, CalendarClock, Clock, FolderKanban, Lock, MessageSquare, Paperclip, ShieldAlert } from "lucide-react";
+import { ArrowRight, CalendarClock, Clock, FolderKanban, Lock, MessageSquare, Paperclip, PencilRuler, Printer, ShieldAlert } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 
@@ -22,6 +22,7 @@ interface OrderCardProps {
     files: Array<{ id: string; filename: string; mimeType: string }>;
     _count: { comments: number };
     priceEstimate: number | null;
+    orderType?: "PRINT_ONLY" | "DESIGN";
     pendingVerification?: boolean;
     isPrototype?: boolean;
     iterationCount?: number;
@@ -110,6 +111,7 @@ function getDeadlineBadge(deadline: string | null) {
 }
 
 export function OrderCard({ order, searchQuery }: OrderCardProps) {
+  const t = useTranslations("admin");
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: order.id,
     data: { type: "order" },
@@ -164,6 +166,17 @@ export function OrderCard({ order, searchQuery }: OrderCardProps) {
               blockedNext={order.blockedNext}
               autoAdvanceReady={order.autoAdvanceReady}
             />
+            {order.orderType === "DESIGN" ? (
+              <span className="flex items-center gap-1 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-medium text-amber-800">
+                <PencilRuler className="h-3 w-3 shrink-0" />
+                {t("order_type_design")}
+              </span>
+            ) : (
+              <span className="flex items-center gap-1 rounded bg-sky-100 px-1.5 py-0.5 text-xs font-medium text-sky-700">
+                <Printer className="h-3 w-3 shrink-0" />
+                {t("order_type_print")}
+              </span>
+            )}
             {order.deadline && getDeadlineBadge(order.deadline)}
             {order.priceEstimate != null && (
               <span className="text-xs px-1.5 py-0.5 rounded bg-green-100 text-green-700">

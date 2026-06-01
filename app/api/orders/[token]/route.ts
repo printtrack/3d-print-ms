@@ -22,6 +22,11 @@ export async function GET(
         phase: {
           select: { name: true, color: true },
         },
+        orderType: true,
+        sourceLinks: {
+          select: { id: true, url: true, label: true },
+          orderBy: { createdAt: "asc" },
+        },
         isPrototype: true,
         files: {
           select: {

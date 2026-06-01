@@ -18,7 +18,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { formatDateTime, formatFileSize, is3DModel } from "@/lib/utils";
 import { toast } from "sonner";
-import { CheckCircle2, Clock, Download, FileText, Image as ImageIcon, MessageSquare, Package, ShieldAlert, ShieldCheck, Star, Upload, X, XCircle } from "lucide-react";
+import { CheckCircle2, Clock, Download, ExternalLink, FileText, Image as ImageIcon, Link2, MessageSquare, Package, ShieldAlert, ShieldCheck, Star, Upload, X, XCircle } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 
@@ -39,6 +39,8 @@ interface TrackingData {
   createdAt: string;
   updatedAt: string;
   deadline?: string | null;
+  orderType?: "PRINT_ONLY" | "DESIGN";
+  sourceLinks?: Array<{ id: string; url: string; label: string | null }>;
   phase: {
     name: string;
     color: string;
@@ -285,8 +287,32 @@ export function TrackingView({ order, trackingToken }: { order: TrackingData; tr
         <CardHeader>
           <CardTitle className="text-base">{tc("description")}</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
           <p className="text-sm whitespace-pre-wrap">{order.description}</p>
+
+          {order.orderType === "PRINT_ONLY" && (order.sourceLinks?.length ?? 0) > 0 && (
+            <div className="space-y-2 border-t pt-4">
+              <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <Link2 className="h-3.5 w-3.5" />
+                {t("source_links")}
+              </div>
+              <ul className="flex flex-wrap gap-2">
+                {order.sourceLinks?.map((link) => (
+                  <li key={link.id}>
+                    <a
+                      href={link.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-border bg-muted/50 px-3 py-1 text-xs font-medium text-foreground transition-colors hover:border-foreground/30 hover:bg-accent"
+                    >
+                      <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
+                      <span className="truncate">{link.label || link.url}</span>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </CardContent>
       </Card>
 

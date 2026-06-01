@@ -11,6 +11,8 @@ import { toast } from "sonner";
 import { Upload, X, FileText, Image } from "lucide-react";
 import { formatFileSize } from "@/lib/utils";
 import { useTranslations } from "next-intl";
+import { OrderTypeField, type OrderType } from "@/components/customer/OrderTypeField";
+import { SourceLinksField, type SourceLink } from "@/components/customer/SourceLinksField";
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 
@@ -25,6 +27,8 @@ export function PortalOrderForm({ customerName, customerEmail }: Props) {
   const tc = useTranslations("common");
   const [loading, setLoading] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
+  const [orderType, setOrderType] = useState<OrderType>("PRINT_ONLY");
+  const [sourceLinks, setSourceLinks] = useState<SourceLink[]>([]);
   const [description, setDescription] = useState("");
   const [deadline, setDeadline] = useState("");
 
@@ -67,6 +71,13 @@ export function PortalOrderForm({ customerName, customerEmail }: Props) {
           customerEmail,
           description,
           deadline: deadline ? new Date(deadline).toISOString() : null,
+          orderType,
+          sourceLinks:
+            orderType === "PRINT_ONLY"
+              ? sourceLinks
+                  .filter((l) => l.url.trim().length > 0)
+                  .map((l) => ({ url: l.url.trim(), label: l.label.trim() || undefined }))
+              : [],
         }),
       });
 
@@ -109,6 +120,12 @@ export function PortalOrderForm({ customerName, customerEmail }: Props) {
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">
+          <OrderTypeField value={orderType} onChange={setOrderType} />
+
+          {orderType === "PRINT_ONLY" && (
+            <SourceLinksField value={sourceLinks} onChange={setSourceLinks} />
+          )}
+
           <div className="space-y-2">
             <Label htmlFor="description">{t("new_order_desc_label")}</Label>
             <Textarea

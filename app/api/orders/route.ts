@@ -12,6 +12,16 @@ const orderSchema = z.object({
   description: z.string().min(10),
   deadline: z.string().datetime().nullable().optional(),
   accessCode: z.string().optional(),
+  orderType: z.enum(["PRINT_ONLY", "DESIGN"]).default("PRINT_ONLY"),
+  sourceLinks: z
+    .array(
+      z.object({
+        url: z.string().url().max(2000),
+        label: z.string().max(200).optional(),
+      })
+    )
+    .max(20)
+    .optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -79,23 +89,41 @@ export async function POST(req: NextRequest) {
 
     const phase = defaultPhase ?? (await prisma.orderPhase.findFirst({ orderBy: { position: "asc" } }));
 
+    // Only PRINT_ONLY orders carry source links
+    const sourceLinks =
+      data.orderType === "PRINT_ONLY"
+        ? (data.sourceLinks ?? []).filter((l) => l.url.trim().length > 0)
+        : [];
+
     const order = await prisma.order.create({
       data: {
         customerName: data.customerName,
         customerEmail: data.customerEmail,
         description: data.description,
         phaseId: phase!.id,
+        orderType: data.orderType,
         ...(data.deadline ? { deadline: new Date(data.deadline) } : {}),
         ...(customerId ? { customerId } : {}),
+        ...(sourceLinks.length > 0
+          ? {
+              sourceLinks: {
+                create: sourceLinks.map((l) => ({
+                  url: l.url.trim(),
+                  label: l.label?.trim() || null,
+                })),
+              },
+            }
+          : {}),
       },
     });
 
     // Create audit log
+    const typeLabel = data.orderType === "PRINT_ONLY" ? "Nur Druck" : "Design benötigt";
     await prisma.auditLog.create({
       data: {
         orderId: order.id,
         action: "ORDER_CREATED",
-        details: `Auftrag von ${data.customerName} eingereicht`,
+        details: `Auftrag von ${data.customerName} eingereicht (${typeLabel}${sourceLinks.length > 0 ? `, ${sourceLinks.length} Quell-Link(s)` : ""})`,
       },
     });
 

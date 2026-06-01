@@ -27,6 +27,21 @@ The top section shows the most important data at a glance:
 
 > Phases are configured under [[Settings → Phases|settings-phases]].
 
+## Order Type
+
+Next to the phase, the header shows an **order type chip**. It distinguishes what the customer selected when submitting:
+
+- **Print only** — the customer already has a finished model (e.g. from Printables, MakerWorld or Thingiverse) and just wants it printed.
+- **Design** — the customer needs a custom design or modification from the team.
+
+This label helps with planning (plain printing vs. design effort) and is also shown as a badge on the [[Orders|Kanban card]].
+
+If the customer picked the wrong type, you can switch it directly via the chip — the change is saved immediately and recorded in the [[Audit Log]].
+
+### Model links
+
+For **Print only** orders, the customer can provide direct links to the desired models. These appear in the **description card** as clickable chips and open the source in a new tab — one click takes you straight to the original model.
+
 ## Assignees
 
 You can assign one or more team members to an order:

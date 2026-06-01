@@ -12,6 +12,8 @@ import { Upload, X, FileText, Image, CheckCircle2, Copy, ExternalLink, AlertTria
 import { formatFileSize } from "@/lib/utils";
 import { CONTENT } from "@/app/content";
 import { useTranslations } from "next-intl";
+import { OrderTypeField, type OrderType } from "@/components/customer/OrderTypeField";
+import { SourceLinksField, type SourceLink } from "@/components/customer/SourceLinksField";
 
 const ACCEPTED_TYPES = [
   "image/jpeg",
@@ -33,6 +35,8 @@ export function OrderForm({ accessCodeEnabled = false }: { accessCodeEnabled?: b
   const tc = useTranslations("common");
   const [loading, setLoading] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
+  const [orderType, setOrderType] = useState<OrderType>("PRINT_ONLY");
+  const [sourceLinks, setSourceLinks] = useState<SourceLink[]>([]);
   const [formData, setFormData] = useState({
     customerName: "",
     customerEmail: "",
@@ -82,6 +86,13 @@ export function OrderForm({ accessCodeEnabled = false }: { accessCodeEnabled?: b
           customerEmail: formData.customerEmail,
           description: formData.description,
           deadline: formData.deadline ? new Date(formData.deadline).toISOString() : null,
+          orderType,
+          sourceLinks:
+            orderType === "PRINT_ONLY"
+              ? sourceLinks
+                  .filter((l) => l.url.trim().length > 0)
+                  .map((l) => ({ url: l.url.trim(), label: l.label.trim() || undefined }))
+              : [],
           ...(accessCodeEnabled ? { accessCode: formData.accessCode } : {}),
         }),
       });
@@ -223,11 +234,21 @@ export function OrderForm({ accessCodeEnabled = false }: { accessCodeEnabled?: b
             </div>
           </div>
 
+          <OrderTypeField value={orderType} onChange={setOrderType} />
+
+          {orderType === "PRINT_ONLY" && (
+            <SourceLinksField value={sourceLinks} onChange={setSourceLinks} />
+          )}
+
           <div className="space-y-2">
             <Label htmlFor="description">{t("description_label")}</Label>
             <Textarea
               id="description"
-              placeholder={t("description_placeholder")}
+              placeholder={
+                orderType === "PRINT_ONLY"
+                  ? t("description_placeholder_print")
+                  : t("description_placeholder")
+              }
               rows={5}
               value={formData.description}
               onChange={(e) => setFormData((p) => ({ ...p, description: e.target.value }))}

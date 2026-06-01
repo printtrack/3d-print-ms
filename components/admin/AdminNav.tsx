@@ -163,10 +163,12 @@ export function AdminNav({ userRole, companyName = "3D Print CMS" }: AdminNavPro
           size="sm"
           className="w-full justify-start gap-3 text-muted-foreground hover:text-foreground"
           onClick={() => {
+            // Mark onboarded (not reset) so the tour does not auto-start on the
+            // next page load — this is an explicit, user-triggered restart.
             fetch("/api/admin/me/onboarding", {
               method: "PATCH",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ reset: true }),
+              body: JSON.stringify({}),
             });
             tutorial.start();
             router.push("/admin/orders?tutorial=1");

@@ -17,7 +17,7 @@ const ADMIN_HASH = "$2b$12$y2KSFIcuvvM4gjdMj9qAHuyZRS0XfB4KRW67T9Q5Pi9wP7ipk6HJG
 export async function resetDb() {
   await prismaTest.$executeRawUnsafe(`SET FOREIGN_KEY_CHECKS = 0`);
   for (const table of [
-    "AuditLog", "OrderComment", "OrderFileNote", "OrderFile", "SurveyResponse", "VerificationRequest",
+    "AuditLog", "OrderComment", "OrderFileNote", "OrderFile", "OrderSourceLink", "SurveyResponse", "VerificationRequest",
     "PaymentReminder", "Payment", "InvoiceItem", "Invoice", "InvoiceNumberCounter",
     "QuoteItem", "Quote",
     "PrintJobAssignee", "PrintJobFilament", "PrintJobPart", "PrintJobFile", "PrintJob",
@@ -261,6 +261,7 @@ export async function createTestOrder(
     customerEmail: string;
     description: string;
     deadline: Date;
+    orderType: "PRINT_ONLY" | "DESIGN";
     isPrototype: boolean;
     iterationCount: number;
     isInternal: boolean;
@@ -277,6 +278,7 @@ export async function createTestOrder(
       description: overrides.description ?? "Test order description",
       phaseId,
       deadline: overrides.deadline,
+      orderType: overrides.orderType ?? "PRINT_ONLY",
       isPrototype: overrides.isPrototype ?? false,
       iterationCount: overrides.iterationCount ?? 1,
       isInternal: overrides.isInternal ?? false,

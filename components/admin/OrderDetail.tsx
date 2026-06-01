@@ -23,6 +23,8 @@ import { InvoiceCard, type InvoiceUI } from "@/components/admin/InvoiceCard";
 import { OrderHeaderMinimal } from "@/components/admin/OrderHeaderMinimal";
 import {
   Clock,
+  ExternalLink,
+  Link2,
   Mail,
   MessageSquare,
   Send,
@@ -61,6 +63,8 @@ interface OrderDetailProps {
     deadline: string | null;
     estimatedCompletionAt: string | null;
     priceEstimate: number | null;
+    orderType: "PRINT_ONLY" | "DESIGN";
+    sourceLinks: Array<{ id: string; url: string; label: string | null }>;
     isPrototype: boolean;
     iterationCount: number;
     phase: { id: string; name: string; color: string; isPrototype?: boolean };
@@ -208,6 +212,7 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
   const [isPrototype, setIsPrototype] = useState(order.isPrototype);
   const [iterationCount, setIterationCount] = useState(order.iterationCount);
   const [togglingPrototype, setTogglingPrototype] = useState(false);
+  const [orderType, setOrderType] = useState<"PRINT_ONLY" | "DESIGN">(order.orderType);
   const [archiving, setArchiving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [isArchived, setIsArchived] = useState(!!order.archivedAt);
@@ -519,6 +524,38 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
     }
   }
 
+  async function handleOrderTypeChange(next: "PRINT_ONLY" | "DESIGN") {
+    if (next === orderType) return;
+    const prev = orderType;
+    setOrderType(next);
+
+    // Only the PATCH itself decides success/failure. Anything after a 2xx
+    // response (toast, router.refresh) must never roll back the UI or raise a
+    // failure toast — otherwise a harmless post-success hiccup looks like the
+    // save failed even though the change was persisted.
+    let res: Response;
+    try {
+      res = await fetch(`/api/admin/orders/${order.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orderType: next }),
+      });
+    } catch {
+      setOrderType(prev);
+      toast.error(t("toast_action_failed"));
+      return;
+    }
+
+    if (!res.ok) {
+      setOrderType(prev);
+      toast.error(t("toast_action_failed"));
+      return;
+    }
+
+    toast.success(next === "PRINT_ONLY" ? t("order_type_print") : t("order_type_design"));
+    router.refresh();
+  }
+
   async function handleDelete() {
     setDeleting(true);
     try {
@@ -608,6 +645,8 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
         currentPhaseIsPrototype={currentPhaseIsPrototype}
         onTogglePrototype={handleTogglePrototype}
         togglingPrototype={togglingPrototype}
+        orderType={orderType}
+        onOrderTypeChange={handleOrderTypeChange}
         phases={phases}
         selectedPhaseId={selectedPhaseId}
         onPhaseChange={handleSavePhase}
@@ -638,8 +677,32 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
             <CardHeader>
               <CardTitle className="text-base">{t("order_detail_description")}</CardTitle>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
               <p className="text-sm whitespace-pre-wrap">{order.description}</p>
+
+              {orderType === "PRINT_ONLY" && order.sourceLinks.length > 0 && (
+                <div className="space-y-2 border-t pt-4">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                    <Link2 className="h-3.5 w-3.5" />
+                    {t("order_detail_source_links")}
+                  </div>
+                  <ul className="flex flex-wrap gap-2">
+                    {order.sourceLinks.map((link) => (
+                      <li key={link.id}>
+                        <a
+                          href={link.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-border bg-muted/50 px-3 py-1 text-xs font-medium text-foreground transition-colors hover:border-foreground/30 hover:bg-accent"
+                        >
+                          <ExternalLink className="h-3 w-3 shrink-0 text-muted-foreground" />
+                          <span className="truncate">{link.label || link.url}</span>
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
             </CardContent>
           </Card>
 
