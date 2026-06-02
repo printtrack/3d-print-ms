@@ -71,12 +71,11 @@ export function GanttGridLines() {
 export function GanttTodayLine() {
   const { todayLine, pxD } = useGanttContext();
   if (todayLine === null) return null;
-  const dayStart = Math.floor(todayLine / pxD) * pxD;
   return (
     <>
       <div
         className="absolute top-0 bottom-0 bg-primary/5 pointer-events-none"
-        style={{ left: dayStart, width: pxD }}
+        style={{ left: todayLine, width: pxD }}
       />
       <div
         className="absolute top-0 bottom-0 w-0.5 bg-red-500/70 pointer-events-none z-10"

@@ -19,6 +19,7 @@ Willkommen im Bedienungs-Wiki. Hier findest du für jeden Bereich des Systems ei
 | [[Inventar]] | Filament-Lagerbestand verwalten |
 | [[Wissensdatenbank]] | Problem-/Lösungs-Einträge pflegen |
 | [[Kunden]] | Kundendaten und Verifizierungen (nur Admin) |
+| [[Kundenportal & Verifizierung|portal]] | Wie Kunden sich registrieren, verifiziert werden und Angebote freigeben |
 | [[Einstellungen]] | Firmendaten, E-Mail-Vorlagen, Phasen, Team, Maschinen |
 
 ## Detailseiten
@@ -26,8 +27,10 @@ Willkommen im Bedienungs-Wiki. Hier findest du für jeden Bereich des Systems ei
 | Thema | Inhalt |
 |-------|--------|
 | [[Auftrags-Detailansicht]] | Phase, Teile, Dateien, Kommentare, Audit-Log |
+| [[Angebote & Rechnungen|billing]] | Abrechnung eines Auftrags: Angebot, Rechnung, Zahlung, Mahnung, Storno |
 | [[3D-Viewer & Druckorientierung]] | Modelle betrachten, Orientierung für den Druck festlegen |
 | [[Druckjob erstellen & verwalten]] | Job anlegen, Aufträge zuweisen, Filament erfassen |
+| [[Einstellungen → Abrechnung & Belege|settings-billing]] | Abrechnungsregeln, Mahnwesen und Belegvorlagen |
 | [[Einstellungen → E-Mail-Vorlagen]] | Automatische Kunden-Benachrichtigungen konfigurieren |
 | [[Einstellungen → Phasen]] | Auftrags-, Teil- und Projektphasen verwalten |
 | [[Einstellungen → Team]] | Teammitglieder einladen und Rollen zuweisen |

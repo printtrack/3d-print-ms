@@ -2,6 +2,7 @@ import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { mkdir, writeFile } from "fs/promises";
 import path from "path";
+import { randomUUID } from "crypto";
 
 const testDbUrl =
   process.env.DATABASE_URL_TEST ??
@@ -24,7 +25,7 @@ export async function resetDb() {
     "OrderPartAssignee", "OrderPart", "OrderAssignee", "Machine",
     "MilestoneTaskAssignee", "MilestoneTask", "Milestone", "Sprint", "Order",
     "OrderPhase", "PartPhase", "Filament",
-    "ProjectAuditLog", "ProjectAssignee", "Project", "ProjectPhase",
+    "ProjectComment", "ProjectFile", "ProjectAuditLog", "ProjectAssignee", "Project", "ProjectFilePhase", "ProjectPhase",
     "KnowledgeEntry", "KnowledgeFile",
     "Session", "Account", "PasswordResetToken",
     "CustomerEmailVerificationToken", "OrderPartIteration", "CustomerCredit", "Customer", "User", "VerificationToken",
@@ -174,7 +175,16 @@ export async function seedDb() {
   });
   const projectPhases = await prismaTest.projectPhase.findMany({ orderBy: { position: "asc" } });
 
-  return { admin, phases, partPhases, projectPhases };
+  await prismaTest.projectFilePhase.createMany({
+    data: [
+      { name: "Entwurf", color: "#6366f1", position: 0, isDefault: true },
+      { name: "In Prüfung", color: "#f59e0b", position: 1 },
+      { name: "Final", color: "#10b981", position: 2 },
+    ],
+  });
+  const projectFilePhases = await prismaTest.projectFilePhase.findMany({ orderBy: { position: "asc" } });
+
+  return { admin, phases, partPhases, projectPhases, projectFilePhases };
 }
 
 export async function createTestVerification(
@@ -286,6 +296,22 @@ export async function createTestOrder(
       estimatedCompletionAt: overrides.estimatedCompletionAt,
       projectId: overrides.projectId,
       customerId: overrides.customerId,
+    },
+  });
+}
+
+export async function createTestAuditLog(
+  orderId: string,
+  action: string,
+  overrides: Partial<{ details: string; userId: string; createdAt: Date }> = {}
+) {
+  return prismaTest.auditLog.create({
+    data: {
+      orderId,
+      action,
+      details: overrides.details,
+      userId: overrides.userId,
+      createdAt: overrides.createdAt,
     },
   });
 }
@@ -432,6 +458,61 @@ export async function createTestProject(
       description: overrides.description ?? null,
       projectPhaseId,
       deadline: overrides.deadline ?? null,
+    },
+  });
+}
+
+export async function createTestProjectFilePhase(
+  overrides: Partial<{
+    name: string;
+    color: string;
+    position: number;
+    isDefault: boolean;
+  }> = {}
+) {
+  const last = await prismaTest.projectFilePhase.findFirst({ orderBy: { position: "desc" } });
+  return prismaTest.projectFilePhase.create({
+    data: {
+      name: overrides.name ?? "Test Dateiphase",
+      color: overrides.color ?? "#6366f1",
+      position: overrides.position ?? (last?.position ?? -1) + 1,
+      isDefault: overrides.isDefault ?? false,
+    },
+  });
+}
+
+export async function createTestProjectFile(
+  projectId: string,
+  overrides: Partial<{
+    phaseId: string | null;
+    filename: string;
+    originalName: string;
+    mimeType: string;
+    size: number;
+  }> = {}
+) {
+  return prismaTest.projectFile.create({
+    data: {
+      projectId,
+      phaseId: overrides.phaseId ?? null,
+      filename: overrides.filename ?? `${randomUUID()}.stl`,
+      originalName: overrides.originalName ?? "test.stl",
+      mimeType: overrides.mimeType ?? "model/stl",
+      size: overrides.size ?? 134,
+    },
+  });
+}
+
+export async function createTestProjectComment(
+  projectId: string,
+  authorId: string,
+  overrides: Partial<{ content: string }> = {}
+) {
+  return prismaTest.projectComment.create({
+    data: {
+      projectId,
+      authorId,
+      content: overrides.content ?? "Test Kommentar",
     },
   });
 }

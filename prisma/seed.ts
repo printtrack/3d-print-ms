@@ -72,6 +72,21 @@ async function main() {
     console.log("Project phases already exist, skipping");
   }
 
+  // Create default project file phases only if none exist
+  const existingProjectFilePhases = await prisma.projectFilePhase.count();
+  if (existingProjectFilePhases === 0) {
+    await prisma.projectFilePhase.createMany({
+      data: [
+        { name: "Entwurf", color: "#6366f1", position: 0, isDefault: true },
+        { name: "In Prüfung", color: "#f59e0b", position: 1 },
+        { name: "Final", color: "#10b981", position: 2 },
+      ],
+    });
+    console.log("Created default project file phases");
+  } else {
+    console.log("Project file phases already exist, skipping");
+  }
+
   // Create/update default part phases idempotently (by name)
   const partPhaseDefs = [
     { name: "Design",      color: "#6366f1", position: 0, isDefault: true,  isPrintReady: false, isReview: false, isPrinted: false, isMisprint: false },

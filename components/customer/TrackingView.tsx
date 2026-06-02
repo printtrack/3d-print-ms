@@ -18,9 +18,38 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { formatDateTime, formatFileSize, is3DModel } from "@/lib/utils";
 import { toast } from "sonner";
-import { CheckCircle2, Clock, Download, ExternalLink, FileText, Image as ImageIcon, Link2, MessageSquare, Package, ShieldAlert, ShieldCheck, Star, Upload, X, XCircle } from "lucide-react";
+import { ArrowRightCircle, CheckCircle2, Clock, Download, ExternalLink, FileText, FileUp, Image as ImageIcon, Link2, MessageSquare, Package, PackagePlus, Receipt, ShieldAlert, ShieldCheck, ShieldQuestion, Star, Upload, X, XCircle, type LucideIcon } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
+import { getTimelineEvent, type TimelineGroup } from "@/lib/tracking-timeline";
+
+// Maps the lucide icon names declared in lib/tracking-timeline.ts to components.
+const TIMELINE_ICONS: Record<string, LucideIcon> = {
+  PackagePlus,
+  ArrowRightCircle,
+  FileUp,
+  Upload,
+  ShieldQuestion,
+  ShieldCheck,
+  FileText,
+  Receipt,
+  CheckCircle2,
+  XCircle,
+  MessageSquare,
+  Star,
+};
+
+// Subtle per-group tints for the timeline dots/icons. Amber stays the single
+// brand accent (status); the rest are muted functional tints (see DESIGN.md).
+// Backgrounds are OPAQUE (not /10) so the connecting line is cleanly interrupted
+// at each node instead of showing through the dot.
+const GROUP_STYLE: Record<TimelineGroup, { dot: string; icon: string }> = {
+  status:    { dot: "bg-amber-50 dark:bg-amber-950 border-primary/30", icon: "text-primary" },
+  files:     { dot: "bg-blue-50 dark:bg-blue-950 border-blue-500/40", icon: "text-blue-600 dark:text-blue-400" },
+  approvals: { dot: "bg-emerald-50 dark:bg-emerald-950 border-emerald-500/40", icon: "text-emerald-600 dark:text-emerald-400" },
+  billing:   { dot: "bg-violet-50 dark:bg-violet-950 border-violet-500/40", icon: "text-violet-600 dark:text-violet-400" },
+  survey:    { dot: "bg-pink-50 dark:bg-pink-950 border-pink-500/40", icon: "text-pink-600 dark:text-pink-400" },
+};
 
 const ModelThumbnail = dynamic(
   () => import("@/components/ModelThumbnail").then((m) => m.ModelThumbnail),
@@ -155,22 +184,9 @@ export function TrackingView({ order, trackingToken }: { order: TrackingData; tr
   }
 
   function getActionLabel(action: string): string {
-    const labels: Record<string, string> = {
-      ORDER_CREATED: t("audit_submitted"),
-      PHASE_CHANGED: t("audit_phase_changed"),
-      ASSIGNED: t("audit_assigned"),
-      COMMENT_ADDED: t("audit_comment_added"),
-      FILE_UPLOADED: t("audit_file_uploaded"),
-      TEAM_FILE_UPLOADED: t("audit_team_file_uploaded"),
-      PART_ITERATION_INCREMENTED: t("audit_iteration_incremented"),
-      SURVEY_SENT: t("audit_survey_sent"),
-      SURVEY_SUBMITTED: t("audit_survey_submitted"),
-      VERIFICATION_SENT: t("audit_verification_sent"),
-      VERIFICATION_APPROVED: t("audit_verification_approved"),
-      VERIFICATION_REJECTED: t("audit_verification_rejected"),
-      VERIFICATION_OVERRIDDEN: t("audit_verification_overridden"),
-    };
-    return labels[action] ?? action;
+    const def = getTimelineEvent(action);
+    // The API only ever sends curated actions, so def is virtually always defined.
+    return def ? t(def.labelKey) : action;
   }
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
@@ -720,29 +736,36 @@ export function TrackingView({ order, trackingToken }: { order: TrackingData; tr
             <CardTitle className="text-base">{t("history")}</CardTitle>
           </CardHeader>
           <CardContent>
-            <ol className="relative border-l border-border space-y-4 ml-3">
-              {order.auditLogs.map((log, idx) => (
-                <li key={log.id} className="ml-6">
-                  <span className="absolute -left-2 flex h-4 w-4 items-center justify-center rounded-full bg-background border border-border">
-                    {idx === 0 ? (
-                      <Clock className="h-2.5 w-2.5 text-muted-foreground" />
-                    ) : (
-                      <CheckCircle2 className="h-2.5 w-2.5 text-primary" />
-                    )}
-                  </span>
-                  <div>
-                    <p className="text-sm font-medium">
-                      {getActionLabel(log.action)}
-                    </p>
-                    {log.details && (
-                      <p className="text-xs text-muted-foreground mt-0.5">{log.details}</p>
-                    )}
-                    <p className="text-xs text-muted-foreground mt-0.5">
-                      {formatDateTime(log.createdAt)}
-                    </p>
-                  </div>
-                </li>
-              ))}
+            <ol className="relative ml-3 space-y-5 border-l border-border">
+              {order.auditLogs.map((log, idx) => {
+                const def = getTimelineEvent(log.action);
+                const style = def ? GROUP_STYLE[def.group] : GROUP_STYLE.status;
+                const Icon = (def && TIMELINE_ICONS[def.icon]) ?? CheckCircle2;
+                return (
+                  <li key={log.id} className="ml-7">
+                    <span
+                      className={`absolute -left-[15px] flex h-7 w-7 items-center justify-center rounded-full border ${style.dot} ${idx === 0 ? "ring-2 ring-primary/20" : ""}`}
+                    >
+                      <Icon className={`h-3.5 w-3.5 ${style.icon}`} />
+                    </span>
+                    <div className="pt-0.5">
+                      <p className="text-sm font-medium leading-tight">
+                        {getActionLabel(log.action)}
+                      </p>
+                      {log.details && (
+                        <p className="mt-0.5 text-xs text-muted-foreground">{log.details}</p>
+                      )}
+                      <p
+                        className="mt-1 flex items-center gap-1 text-xs text-muted-foreground"
+                        title={formatDateTime(log.createdAt)}
+                      >
+                        <Clock className="h-3 w-3 shrink-0" />
+                        {formatRelativeTime(log.createdAt)}
+                      </p>
+                    </div>
+                  </li>
+                );
+              })}
             </ol>
           </CardContent>
         </Card>

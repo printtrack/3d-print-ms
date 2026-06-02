@@ -122,6 +122,7 @@ model User {
   taskAssignees    MilestoneTaskAssignee[]
   jobAssignees     PrintJobAssignee[]
   fileNotes        OrderFileNote[]
+  projectComments  ProjectComment[]
 }
 
 model ProjectPhase {
@@ -685,6 +686,45 @@ model Project {
   sprints          Sprint[]
   assignees        ProjectAssignee[]
   auditLogs        ProjectAuditLog[]
+  files            ProjectFile[]
+  comments         ProjectComment[]
+}
+
+model ProjectFilePhase {
+  id        String        @id @default(cuid())
+  name      String
+  color     String        @default("#6366f1")
+  position  Int           @default(0)
+  isDefault Boolean       @default(false)
+  files     ProjectFile[]
+}
+
+model ProjectFile {
+  id           String            @id @default(cuid())
+  project      Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId    String
+  phase        ProjectFilePhase? @relation(fields: [phaseId], references: [id], onDelete: SetNull)
+  phaseId      String?
+  filename     String
+  originalName String
+  mimeType     String
+  size         Int
+  createdAt    DateTime          @default(now())
+
+  @@index([projectId])
+  @@index([phaseId])
+}
+
+model ProjectComment {
+  id        String   @id @default(cuid())
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  projectId String
+  author    User     @relation(fields: [authorId], references: [id])
+  authorId  String
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+
+  @@index([projectId])
 }
 
 model ProjectAssignee {

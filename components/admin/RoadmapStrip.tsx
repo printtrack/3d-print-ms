@@ -28,7 +28,9 @@ export interface SprintUI {
 }
 
 interface RoadmapStripProps {
-  orderId: string;
+  /** Provide exactly one of orderId / projectId — determines which entity the sprints belong to */
+  orderId?: string;
+  projectId?: string;
   initialSprints: SprintUI[];
   /** ISO date — earliest valid dueAt */
   minDate?: string | null;
@@ -537,8 +539,11 @@ function Stop({
   );
 }
 
-export function RoadmapStrip({ orderId, initialSprints, minDate, maxDate, locale }: RoadmapStripProps) {
+export function RoadmapStrip({ orderId, projectId, initialSprints, minDate, maxDate, locale }: RoadmapStripProps) {
   const t = useTranslations("roadmap");
+
+  // Identifies which entity the sprints/milestones belong to in API bodies
+  const entityBody = orderId ? { orderId } : { projectId };
 
   const sortSprints = (list: SprintUI[]) => [...list].sort((a, b) => a.position - b.position);
 
@@ -604,7 +609,7 @@ export function RoadmapStrip({ orderId, initialSprints, minDate, maxDate, locale
     const res = await fetch("/api/admin/sprints", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ orderId, name }),
+      body: JSON.stringify({ ...entityBody, name }),
     });
     if (!res.ok) { toast.error(tMsg("error_save")); return null; }
     const sprint = await res.json();
@@ -650,7 +655,7 @@ export function RoadmapStrip({ orderId, initialSprints, minDate, maxDate, locale
     const res = await fetch("/api/admin/milestones", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ orderId, sprintId, name, dueAt: dueIso }),
+      body: JSON.stringify({ ...entityBody, sprintId, name, dueAt: dueIso }),
     });
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));

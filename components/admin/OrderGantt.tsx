@@ -134,7 +134,7 @@ function OrderGanttRows({
                   {barVisible && (
                     <div
                       className={cn(
-                        "absolute rounded-md shadow-sm cursor-pointer select-none hover:brightness-95 transition-all",
+                        "absolute rounded-md shadow-sm cursor-pointer select-none hover:brightness-95 transition-[filter]",
                         isOpen ? "border-dashed border-2" : ""
                       )}
                       style={{

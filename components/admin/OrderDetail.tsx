@@ -729,16 +729,14 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
             buildVolume={buildVolume}
           />
 
-          {/* Roadmap with sprints — only shown for orders not in a project */}
-          {!order.project && (
-            <RoadmapStrip
-              orderId={order.id}
-              initialSprints={initialSprints}
-              minDate={order.createdAt}
-              maxDate={order.deadline}
-              locale={rawLocale === "en" ? "en" : "de"}
-            />
-          )}
+          {/* Roadmap with sprints — every order has its own, independent of project membership */}
+          <RoadmapStrip
+            orderId={order.id}
+            initialSprints={initialSprints}
+            minDate={order.createdAt}
+            maxDate={order.deadline}
+            locale={rawLocale === "en" ? "en" : "de"}
+          />
 
           {/* Aktivität */}
           <Card>
@@ -999,9 +997,6 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
                     {order.project.name}
                   </Link>
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {t("order_detail_milestones_managed")}
-                </p>
               </CardContent>
             </Card>
           )}

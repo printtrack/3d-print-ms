@@ -5,7 +5,7 @@ import { getUploadDir } from "@/lib/uploads";
 import { auth } from "@/lib/auth";
 import { TUTORIAL_ORDER_ID } from "@/lib/tutorial/sample-data";
 
-const AUTH_REQUIRED_PREFIXES = new Set(["knowledge", "jobs"]);
+const AUTH_REQUIRED_PREFIXES = new Set(["knowledge", "jobs", "projects"]);
 
 const MIME_TYPES: Record<string, string> = {
   ".jpg": "image/jpeg",

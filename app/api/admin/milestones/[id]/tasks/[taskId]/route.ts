@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
+import { syncMilestoneCompletion } from "@/lib/milestone-completion";
 
 const patchSchema = z.object({
   title: z.string().min(1).optional(),
@@ -16,7 +17,7 @@ export async function PATCH(
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { taskId } = await params;
+  const { id: milestoneId, taskId } = await params;
 
   try {
     const body = await req.json();
@@ -45,6 +46,11 @@ export async function PATCH(
       include: { assignees: { include: { user: { select: { id: true, name: true } } } } },
     });
 
+    // Keep the parent milestone's completedAt in sync with its tasks
+    if (data.completed !== undefined) {
+      await syncMilestoneCompletion(milestoneId);
+    }
+
     return NextResponse.json(task);
   } catch (err) {
     if (err instanceof z.ZodError) {
@@ -61,9 +67,12 @@ export async function DELETE(
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { taskId } = await params;
+  const { id: milestoneId, taskId } = await params;
 
   await prisma.milestoneTask.delete({ where: { id: taskId } });
+
+  // Deleting the last open task may complete the milestone (and vice versa)
+  await syncMilestoneCompletion(milestoneId);
 
   return NextResponse.json({ success: true });
 }

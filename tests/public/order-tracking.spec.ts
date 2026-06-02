@@ -1,5 +1,5 @@
 import { test, expect } from "../fixtures/test-base";
-import { prismaTest, createTestOrder } from "../fixtures/db";
+import { prismaTest, createTestOrder, createTestAuditLog } from "../fixtures/db";
 
 test.describe("Order tracking page", () => {
   let trackingToken: string;
@@ -91,5 +91,62 @@ test.describe("Order tracking page", () => {
 
     await page.goto(`/track/${trackingToken}`);
     await expect(page.getByText(/Vielen Dank für Ihr Feedback/i)).toBeVisible();
+  });
+
+  test.describe("customer timeline visibility", () => {
+    // The Setting table is NOT cleared by resetDb(), so each test starts from a
+    // clean default state by removing any leftover tracking_* settings.
+    test.beforeEach(async () => {
+      await prismaTest.setting.deleteMany({ where: { key: { startsWith: "tracking_" } } });
+    });
+
+    test("shows whitelisted events but never internal ones", async ({ page }) => {
+      const order = await prismaTest.order.findFirst({ where: { trackingToken } });
+      // PHASE_CHANGED is customer-visible by default; ASSIGNED is internal.
+      await createTestAuditLog(order!.id, "PHASE_CHANGED", { details: "Eingegangen → In Bearbeitung" });
+      await createTestAuditLog(order!.id, "ASSIGNED", { details: "Max Mustermann" });
+
+      await page.goto(`/track/${trackingToken}`);
+      await expect(page.getByText("Verlauf")).toBeVisible();
+      await expect(page.getByText("Status geändert")).toBeVisible();
+      // Internal event must not reach the browser at all.
+      await expect(page.getByText("Bearbeiter zugewiesen")).toHaveCount(0);
+      await expect(page.getByText("Max Mustermann")).toHaveCount(0);
+    });
+
+    test("billing events are hidden by default and appear once enabled", async ({ page }) => {
+      const order = await prismaTest.order.findFirst({ where: { trackingToken } });
+      await createTestAuditLog(order!.id, "QUOTE_SENT", { details: "Angebot A-2026-001" });
+      // A visible event so the timeline card renders regardless.
+      await createTestAuditLog(order!.id, "PHASE_CHANGED");
+
+      await page.goto(`/track/${trackingToken}`);
+      await expect(page.getByText("Status geändert")).toBeVisible();
+      await expect(page.getByText("Angebot gesendet")).toHaveCount(0);
+
+      // Enable the billing event explicitly.
+      await prismaTest.setting.upsert({
+        where: { key: "tracking_event_QUOTE_SENT" },
+        update: { value: "true" },
+        create: { key: "tracking_event_QUOTE_SENT", value: "true" },
+      });
+
+      await page.goto(`/track/${trackingToken}`);
+      await expect(page.getByText("Angebot gesendet")).toBeVisible();
+    });
+
+    test("master switch hides the whole timeline card", async ({ page }) => {
+      const order = await prismaTest.order.findFirst({ where: { trackingToken } });
+      await createTestAuditLog(order!.id, "PHASE_CHANGED");
+      await prismaTest.setting.upsert({
+        where: { key: "tracking_timeline_enabled" },
+        update: { value: "false" },
+        create: { key: "tracking_timeline_enabled", value: "false" },
+      });
+
+      await page.goto(`/track/${trackingToken}`);
+      await expect(page.getByText("Status geändert")).toHaveCount(0);
+      await expect(page.getByText("Verlauf")).toHaveCount(0);
+    });
   });
 });

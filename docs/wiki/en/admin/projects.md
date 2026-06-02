@@ -1,6 +1,6 @@
 ---
 title: "Projects"
-description: "Bundle multi-part orders into a project, track progress and use Gantt view"
+description: "Bundle work beyond single print orders: sprint roadmap, files with their own phases, internal comments and Gantt view"
 route: "/admin/projects"
 icon: "FolderKanban"
 group: "Orders & Production"
@@ -9,63 +9,78 @@ order: 4
 
 # Projects
 
-Projects group multiple [[Orders]] that belong together — for example, all parts of a larger assembly or a customer's multi-component order.
+Projects bundle work that is **not directly a single print order** — for example event planning, a trade-show booth, or a larger assembly made of many parts. They optionally link several [[Orders]] and add their own planning, files and communication.
 
 ![Projects overview](/wiki-screenshots/projects.png)
 
 ## What are projects for?
 
-When a customer submits many individual orders for the same undertaking, you can bundle them under one project. This gives you an overview of overall progress without opening each order card individually.
+Whenever something is more than a plain print order. A project has its own roadmap, its own files and an internal comment history — regardless of whether (and how many) orders are attached.
 
 **Typical use cases:**
-- Multiple prototype iterations of the same part
+- Event planning or a trade-show booth with many work steps
 - Different components of an assembly
-- Orders from multiple customers for a shared initiative
+- Several prototype iterations of the same part
+- Orders from multiple customers for a shared undertaking
 
-## Creating a new project
+## Create a new project
 
-1. Click **+ New Project**.
+1. Click **+ New project**.
 2. Enter a **name** and optional **description**.
-3. Select a **project phase** (default: first entry in [[Settings → Phases|settings-phases]]).
+3. Pick a **project phase** (default: first entry in [[Settings → Phases|settings-phases]]).
 4. Click **Create**.
 
-## Adding orders to a project
+## Project detail view
 
-In the project detail:
+A **sticky header** stays visible while scrolling. It shows:
 
-1. Click **Add order**.
+- **Name + phase chip** — click the colored chip to switch the project phase directly
+- **Deadline** — with an "Overdue" marker once the date has passed
+- **Assignees** — the team members as avatars
+
+## Sprint roadmap & milestones
+
+Every project has a **roadmap** of sprints and milestones — the same feature as in the order detail view:
+
+1. Create a **sprint** via **+** (e.g. a project stage or work package).
+2. Add **milestones** with a name and due date per sprint.
+3. Each milestone can hold **tasks**; progress is shown as a bar.
+
+The due date must fall between the project's creation date and its deadline.
+
+## Project files
+
+In the project detail you can **upload files** (by click or drag & drop). Unlike order files, project files move through **their own freely configurable file phases** (e.g. *Draft → In Review → Final*):
+
+- Each file is assigned the **default file phase** on upload.
+- Use the per-file dropdown to change the phase at any time.
+- Files can be downloaded or deleted.
+
+File phases are managed under [[Settings|settings]] in the **Project file phases** tab (create, rename, color, order, default).
+
+## Internal comments
+
+The comment area is a **purely internal** team conversation about the project. Unlike orders, there is **no** sending to customers; external communication happens through separate channels.
+
+## Link orders to the project
+
+In the sidebar of the project detail:
+
+1. Click **Link**.
 2. Search by short code or customer name.
-3. Select the desired order — it appears in the project list.
+3. Pick the order — it appears in the project list.
 
-Orders can belong to multiple projects.
+Use the **unlink** icon to remove the assignment. Linked orders keep **their own** roadmap in addition to the project roadmap.
 
-## Project overview
+## Change the project phase
 
-The project list shows the **aggregated progress**:
-
-- How many orders are in each phase
-- Total number of orders in the project
-- Current project phase
-
-## Changing the project phase
-
-Click the project phase in the project detail and select a new phase. Project phases are configured under [[Settings → Phases|settings-phases]].
-
-## Milestones
-
-In the project detail you can define **milestones**:
-
-1. Click **Add milestone**.
-2. Enter name, optional due date, and tasks.
-3. Each task can be assigned to a team member.
-
-Milestones help break larger projects into manageable steps.
+Click the phase chip in the header and pick a new phase. Project phases are configured under [[Settings → Phases|settings-phases]].
 
 ## Gantt view
 
-In the project detail, switch to the **Gantt** tab for a timeline view. It shows the included orders as horizontal bars on a time axis — useful for recognizing dependencies and the temporal flow.
+In the projects overview the **Gantt** view shows the contained orders as horizontal bars on a timeline — useful to spot dependencies and the overall schedule.
 
-## Archiving or deleting a project
+## Archive or delete a project
 
-- **Archive** — the project disappears from the active list; orders and data are preserved
-- **Delete** — permanent; removes the project but not the linked orders
+- **Archive** — the project disappears from the active list; orders and data are kept
+- **Delete** — permanent; removes the project along with its files and comments, but not the linked orders

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSettings } from "@/lib/settings";
+import { visibleTrackingActions } from "@/lib/tracking-timeline";
 
 export async function GET(
   _req: NextRequest,
@@ -161,8 +162,16 @@ export async function GET(
     const { quotes: _quotes, invoices: _invoices, ...orderRest } = order;
     void _quotes;
     void _invoices;
+
+    // Only curated, customer-relevant audit actions ever reach the browser.
+    // Internal actions (team assignment, jobs, internal comments, …) are filtered
+    // server-side and never serialized into the response.
+    const visibleActions = visibleTrackingActions(settings);
+    const auditLogs = order.auditLogs.filter((l) => visibleActions.has(l.action));
+
     const response = {
       ...orderRest,
+      auditLogs,
       priceEstimate: order.priceEstimate ? Number(order.priceEstimate) : null,
       files: order.files.map((f) => ({
         ...f,

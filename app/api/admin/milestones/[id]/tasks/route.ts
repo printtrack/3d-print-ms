@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
+import { syncMilestoneCompletion } from "@/lib/milestone-completion";
 
 const createSchema = z.object({
   title: z.string().min(1),
@@ -37,6 +38,9 @@ export async function POST(
       },
       include: { assignees: { include: { user: { select: { id: true, name: true } } } } },
     });
+
+    // A new open task can make a previously completed milestone incomplete again
+    await syncMilestoneCompletion(milestoneId);
 
     return NextResponse.json(task, { status: 201 });
   } catch (err) {

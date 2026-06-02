@@ -164,7 +164,7 @@ function ProjectGanttRows({
             {/* Project header row */}
             <div
               className="relative border-b hover:bg-muted/10 group"
-              style={{ height: ROW_H, minWidth: "100%", background: color + "08", borderLeft: `3px solid ${color}` }}
+              style={{ height: ROW_H, minWidth: "100%", background: color + "08", boxShadow: `inset 3px 0 0 0 ${color}` }}
             >
               <GanttGridLines />
               <GanttTodayLine />
@@ -202,7 +202,7 @@ function ProjectGanttRows({
               {/* Project bar */}
               {projBarVisible && (
                 <div
-                  className="absolute rounded-md cursor-pointer hover:brightness-95 transition-all"
+                  className="absolute rounded-md cursor-pointer hover:brightness-95 transition-[filter]"
                   style={{
                     left: projLeft,
                     width: Math.max(projWidth, 4),
@@ -276,7 +276,7 @@ function ProjectGanttRows({
                   <div
                     key={laneIdx}
                     className="relative border-b hover:bg-muted/10 group"
-                    style={{ height: LANE_ROW_H, minWidth: "100%", borderLeft: `3px solid ${color}33` }}
+                    style={{ height: LANE_ROW_H, minWidth: "100%", boxShadow: `inset 3px 0 0 0 ${color}33` }}
                   >
                     <GanttGridLines />
                     <GanttTodayLine />
@@ -298,7 +298,7 @@ function ProjectGanttRows({
                           {barVisible && (
                             <div
                               className={cn(
-                                "absolute rounded-md shadow-sm cursor-pointer select-none hover:brightness-95 transition-all",
+                                "absolute rounded-md shadow-sm cursor-pointer select-none hover:brightness-95 transition-[filter]",
                                 isOpen ? "border-dashed border-2" : ""
                               )}
                               style={{

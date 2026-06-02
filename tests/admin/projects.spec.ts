@@ -1,5 +1,5 @@
 import { test, expect } from "../fixtures/test-base";
-import { prismaTest, createTestProject, createTestOrder } from "../fixtures/db";
+import { prismaTest, createTestProject, createTestOrder, createTestMilestone } from "../fixtures/db";
 
 test.use({ storageState: "tests/.auth/admin.json" });
 
@@ -48,17 +48,19 @@ test.describe("Projekte", () => {
     await expect(page.getByRole("main").getByText("Planung").first()).toBeVisible();
   });
 
-  test("changes project phase", async ({ seed, page }) => {
+  test("changes project phase via header chip", async ({ seed, page }) => {
     const project = await createTestProject({ name: "Phase Test Projekt" });
+    const aktiv = seed.projectPhases.find((p) => p.name === "Aktiv")!;
 
     await page.goto(`/admin/projects/${project.id}`);
 
-    await page.getByRole("combobox").first().click();
-    await page.getByRole("option", { name: "Aktiv" }).click();
+    await page.getByTestId("project-phase-chip").click();
+    await page.getByRole("button", { name: "Aktiv" }).click();
 
-    await page.getByRole("button", { name: "Änderungen speichern" }).first().click();
-
-    await expect(page.getByText("Gespeichert").first()).toBeVisible({ timeout: 5000 });
+    await expect(async () => {
+      const updated = await prismaTest.project.findUnique({ where: { id: project.id } });
+      expect(updated?.projectPhaseId).toBe(aktiv.id);
+    }).toPass({ timeout: 5000 });
   });
 
   test("links an order to a project", async ({ seed, page }) => {
@@ -80,18 +82,14 @@ test.describe("Projekte", () => {
     await expect(page.getByText("Max Mustermann").first()).toBeVisible();
   });
 
-  test("adds a milestone to a project", async ({ seed, page }) => {
+  test("shows project milestones in the roadmap", async ({ seed, page }) => {
     const project = await createTestProject({ name: "Milestone Test Projekt" });
+    // Orphan milestone (no sprint) — the detail page migrates it into a default sprint
+    await createTestMilestone(project.id, { useProjectId: true, name: "Konzept fertig" });
 
     await page.goto(`/admin/projects/${project.id}`);
 
-    await page.getByRole("main").getByRole("button", { name: "Neu" }).click();
-
-    await page.locator("#milestone-name").fill("Konzept fertig");
-    await page.getByRole("button", { name: "Speichern" }).click();
-
-    await expect(page.getByText("Meilenstein erstellt").first()).toBeVisible({ timeout: 5000 });
-    await expect(page.getByText("Konzept fertig")).toBeVisible();
+    await expect(page.getByText("Konzept fertig")).toBeVisible({ timeout: 5000 });
   });
 
   test("deletes a project and returns to list", async ({ seed, page }) => {

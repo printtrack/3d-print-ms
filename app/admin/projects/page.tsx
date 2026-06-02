@@ -5,6 +5,8 @@ import { ProjectsView } from "@/components/admin/ProjectsView";
 import type { ProjectKanbanItem, ProjectPhaseData } from "@/components/admin/ProjectKanbanBoard";
 import type { GanttProject } from "@/components/admin/ProjectGantt";
 
+export const dynamic = "force-dynamic";
+
 export default async function ProjectsPage() {
   const session = await auth();
   if (!session) redirect("/auth/signin");

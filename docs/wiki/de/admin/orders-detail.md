@@ -152,6 +152,10 @@ Klick auf den Stop öffnet ein Popover mit Aufgabenliste:
 2. Trage **Bezeichnung** und **Termin** (beides Pflicht) ein.
 3. Speichern legt den Meilenstein im aktuellen Sprint an und öffnet direkt das Popover, damit du Aufgaben hinzufügen kannst.
 
+## Abrechnung
+
+Im Seitenbereich rechts findest du die **Angebots-** und **Rechnungs-Karte**. Von hier aus läuft der gesamte Abrechnungsprozess: Angebot erstellen und versenden, Freigabe durch den Kunden, Rechnung ausstellen, Zahlungen erfassen sowie Mahnungen und Storno. Der vollständige Ablauf ist unter [[Angebote & Rechnungen|billing]] beschrieben.
+
 ## Verknüpfte Druckjobs
 
 Im Seitenbereich siehst du, welchen [[Druckjobs]] dieser Auftrag aktuell zugeordnet ist. Du kannst die Zuweisung direkt hier ändern oder den verlinkten Job öffnen.

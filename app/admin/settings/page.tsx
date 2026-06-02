@@ -19,7 +19,7 @@ export default async function SettingsPage({
 
   const [{ tab }, t] = await Promise.all([searchParams, getTranslations("admin")]);
 
-  const [settings, phases, members, machines, partPhases, projectPhases] = await Promise.all([
+  const [settings, phases, members, machines, partPhases, projectPhases, projectFilePhases] = await Promise.all([
     getSettings(),
     prisma.orderPhase.findMany({
       orderBy: { position: "asc" },
@@ -47,6 +47,10 @@ export default async function SettingsPage({
     prisma.projectPhase.findMany({
       orderBy: { position: "asc" },
       include: { _count: { select: { projects: { where: { archivedAt: null } } } } },
+    }),
+    prisma.projectFilePhase.findMany({
+      orderBy: { position: "asc" },
+      include: { _count: { select: { files: true } } },
     }),
   ]);
 
@@ -79,6 +83,7 @@ export default async function SettingsPage({
         initialMachines={serializedMachines}
         initialPartPhases={partPhases}
         initialProjectPhases={projectPhases}
+        initialProjectFilePhases={projectFilePhases}
       />
     </div>
   );

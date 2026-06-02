@@ -152,6 +152,10 @@ Click a stop to open a popover with its task list:
 2. Fill in **Name** and **Due date** (both required).
 3. Saving creates the milestone in the active sprint and immediately opens its popover so you can add tasks.
 
+## Billing
+
+The right-hand sidebar holds the **quote** and **invoice** cards. The entire billing process runs from here: create and send a quote, customer approval, issue an invoice, record payments, plus reminders and cancellation. The full flow is described under [[Quotes & Invoices|billing]].
+
 ## Linked print jobs
 
 The sidebar shows which [[Print Jobs|jobs]] this order is currently assigned to. You can change the assignment directly here or open the linked job.

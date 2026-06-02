@@ -10,7 +10,8 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, Building2, Scale, Mail, MessageSquare, Layers, LayoutList, FolderKanban, Users, Printer, FileText, Upload } from "lucide-react";
+import { Plus, Trash2, Building2, Scale, Mail, MessageSquare, Layers, LayoutList, FolderKanban, Files, Users, Printer, FileText, Upload, History } from "lucide-react";
+import { TIMELINE_EVENTS, TIMELINE_GROUP_ORDER, settingKey, MASTER_SETTING_KEY, isEventVisible, type TimelineGroup } from "@/lib/tracking-timeline";
 import Image from "next/image";
 import { PhaseManager } from "@/components/admin/PhaseManager";
 import { TeamManager } from "@/components/admin/TeamManager";
@@ -18,6 +19,8 @@ import { MachineManager } from "@/components/admin/MachineManager";
 import { PartPhaseManager } from "@/components/admin/PartPhaseManager";
 import { ProjectPhaseManagerInline } from "@/components/admin/ProjectPhaseManagerInline";
 import type { ProjectPhaseData } from "@/components/admin/ProjectPhaseManager";
+import { ProjectFilePhaseManagerInline } from "@/components/admin/ProjectFilePhaseManagerInline";
+import type { ProjectFilePhaseData } from "@/components/admin/ProjectFilePhaseManagerInline";
 
 interface Phase {
   id: string;
@@ -73,6 +76,7 @@ interface SettingsFormProps {
   initialMachines: Machine[];
   initialPartPhases: PartPhase[];
   initialProjectPhases: ProjectPhaseData[];
+  initialProjectFilePhases: ProjectFilePhaseData[];
 }
 
 function parseSurveyQuestions(raw: string | undefined): string[] {
@@ -95,6 +99,7 @@ const NAV_GROUPS = [
     items: [
       { key: "emails", label: "E-Mails", icon: Mail },
       { key: "survey", label: "Umfrage", icon: MessageSquare },
+      { key: "verlauf", label: "Kundenverlauf", icon: History },
     ],
   },
   {
@@ -103,6 +108,7 @@ const NAV_GROUPS = [
       { key: "phasen", label: "Phasen", icon: Layers },
       { key: "teilphasen", label: "Teilphasen", icon: LayoutList },
       { key: "projektphasen", label: "Projektphasen", icon: FolderKanban },
+      { key: "projektdateiphasen", label: "Projekt-Dateiphasen", icon: Files },
     ],
   },
   {
@@ -114,7 +120,35 @@ const NAV_GROUPS = [
   },
 ];
 
-const SETTINGS_SECTIONS = new Set(["general", "abrechnung", "belege", "emails", "survey", "legal"]);
+const SETTINGS_SECTIONS = new Set(["general", "abrechnung", "belege", "emails", "survey", "legal", "verlauf"]);
+
+// Labels for the customer-timeline visibility section (admin-only UI → German, like the rest of this form).
+const TIMELINE_GROUP_LABELS: Record<TimelineGroup, string> = {
+  status: "Status & Fortschritt",
+  files: "Dateien",
+  approvals: "Freigaben & Designprüfung",
+  billing: "Abrechnung",
+  survey: "Umfrage",
+};
+
+const TIMELINE_EVENT_LABELS: Record<string, string> = {
+  ORDER_CREATED: "Auftrag eingegangen",
+  PHASE_CHANGED: "Phasenwechsel (Statusänderung)",
+  TEAM_FILE_UPLOADED: "Datei vom Team geteilt",
+  FILE_UPLOADED: "Datei vom Kunden hochgeladen",
+  DESIGN_REVIEW_SENT: "Designprüfung angefragt",
+  VERIFICATION_SENT: "Freigabe angefragt",
+  PART_APPROVED: "Designfreigabe erteilt",
+  VERIFICATION_APPROVED: "Preisfreigabe erteilt",
+  VERIFICATION_REJECTED: "Freigabe abgelehnt",
+  PART_VERIFIED: "Teil verifiziert",
+  QUOTE_SENT: "Angebot gesendet",
+  INVOICE_ISSUED: "Rechnung gestellt",
+  PAYMENT_RECORDED: "Zahlung erfasst",
+  INVOICE_CANCELLED: "Rechnung storniert",
+  SURVEY_SENT: "Umfrage gesendet",
+  SURVEY_SUBMITTED: "Umfrage beantwortet",
+};
 
 export function SettingsForm({
   initialSettings,
@@ -125,6 +159,7 @@ export function SettingsForm({
   initialMachines,
   initialPartPhases,
   initialProjectPhases,
+  initialProjectFilePhases,
 }: SettingsFormProps) {
   const [settings, setSettings] = useState<Record<string, string>>(initialSettings);
   const [surveyQuestions, setSurveyQuestions] = useState<string[]>(
@@ -608,6 +643,65 @@ export function SettingsForm({
           </Card>
         )}
 
+        {/* Kundenverlauf */}
+        {activeSection === "verlauf" && (() => {
+          const timelineEnabled = settings[MASTER_SETTING_KEY] !== "false";
+          return (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Kundenverlauf</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Steuere, welche Ereignisse Kunden im „Verlauf" der Tracking-Seite sehen.
+                  Interne Vorgänge (Team-Zuweisung, Druckaufträge, interne Kommentare,
+                  Teilphasen, Preise) werden grundsätzlich nie übermittelt.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="tracking_timeline_enabled">Verlauf im Tracking anzeigen</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Wenn deaktiviert, erscheint die gesamte Verlaufs-Karte nicht.
+                    </p>
+                  </div>
+                  <Switch
+                    id="tracking_timeline_enabled"
+                    checked={timelineEnabled}
+                    onCheckedChange={(checked) => set(MASTER_SETTING_KEY, checked ? "true" : "false")}
+                  />
+                </div>
+
+                <Separator />
+
+                <div className="space-y-5">
+                  {TIMELINE_GROUP_ORDER.map((group) => (
+                    <div key={group} className="space-y-3">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                        {TIMELINE_GROUP_LABELS[group]}
+                      </p>
+                      <div className="space-y-3">
+                        {TIMELINE_EVENTS.filter((e) => e.group === group).map((e) => (
+                          <div key={e.action} className="flex items-center justify-between gap-4">
+                            <Label htmlFor={settingKey(e.action)} className="font-normal">
+                              {TIMELINE_EVENT_LABELS[e.action] ?? e.action}
+                            </Label>
+                            <Switch
+                              id={settingKey(e.action)}
+                              disabled={!timelineEnabled}
+                              checked={isEventVisible(e.action, settings)}
+                              onCheckedChange={(checked) => set(settingKey(e.action), checked ? "true" : "false")}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          );
+        })()}
+
         {/* Abrechnung */}
         {activeSection === "abrechnung" && (
           <Card>
@@ -902,6 +996,11 @@ export function SettingsForm({
         {/* Projektphasen */}
         {activeSection === "projektphasen" && (
           <ProjectPhaseManagerInline initialPhases={initialProjectPhases} />
+        )}
+
+        {/* Projekt-Dateiphasen */}
+        {activeSection === "projektdateiphasen" && (
+          <ProjectFilePhaseManagerInline initialPhases={initialProjectFilePhases} />
         )}
 
         {/* Maschinen */}
