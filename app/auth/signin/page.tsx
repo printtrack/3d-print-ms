@@ -13,7 +13,7 @@ export default function SignInPage() {
         className="absolute inset-0 pointer-events-none"
         style={{
           background:
-            "radial-gradient(ellipse 60% 50% at 50% 0%, oklch(0.72 0.18 55 / 12%) 0%, transparent 70%)",
+            "radial-gradient(ellipse 60% 50% at 50% 0%, color-mix(in oklab, var(--brand-accent) 12%, transparent) 0%, transparent 70%)",
         }}
       />
       {/* Grid pattern */}
@@ -30,7 +30,7 @@ export default function SignInPage() {
         <div className="flex items-center justify-center gap-3 mb-8">
           <div
             className="flex items-center justify-center h-10 w-10 rounded-xl"
-            style={{ backgroundColor: "oklch(0.72 0.18 55)" }}
+            style={{ backgroundColor: "var(--brand-accent)" }}
           >
             <Printer className="h-5 w-5 text-white" />
           </div>

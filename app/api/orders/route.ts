@@ -4,6 +4,7 @@ import { z } from "zod";
 import { sendOrderConfirmationEmail } from "@/lib/email";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { getSetting } from "@/lib/settings";
+import { getOrderFormConfig } from "@/lib/order-form-config";
 import { getCustomerSession } from "@/lib/customer-auth";
 
 const orderSchema = z.object({
@@ -11,6 +12,7 @@ const orderSchema = z.object({
   customerEmail: z.string().email(),
   description: z.string().min(10),
   deadline: z.string().datetime().nullable().optional(),
+  consentAccepted: z.boolean().optional(),
   accessCode: z.string().optional(),
   orderType: z.enum(["PRINT_ONLY", "DESIGN"]).default("PRINT_ONLY"),
   sourceLinks: z
@@ -36,6 +38,15 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const data = orderSchema.parse(body);
+
+    // Order-form config gates (mirror the client-side checks, locale-independent)
+    const formConfig = await getOrderFormConfig("de");
+    if (formConfig.deadlineVisible && formConfig.deadlineRequired && !data.deadline) {
+      return NextResponse.json({ error: "Liefertermin ist erforderlich." }, { status: 400 });
+    }
+    if (formConfig.consentRequired && data.consentAccepted !== true) {
+      return NextResponse.json({ error: "Zustimmung erforderlich." }, { status: 400 });
+    }
 
     // Access code gate
     const accessCodeEnabled = (await getSetting("access_code_enabled")) === "true";

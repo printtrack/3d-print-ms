@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
+import { getEnabledFeatures } from "@/lib/features";
 import { TutorialAwareJobsView } from "@/components/admin/tutorial/TutorialAwareJobsView";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -11,6 +12,8 @@ export const dynamic = "force-dynamic";
 export default async function JobsPage() {
   const session = await auth();
   if (!session) redirect("/auth/signin");
+
+  if (!(await getEnabledFeatures()).jobs) redirect("/admin");
 
   const [machines, jobs, users] = await Promise.all([
     prisma.machine.findMany({

@@ -128,6 +128,7 @@ interface OrderDetailProps {
   machines: Array<{ id: string; name: string }>;
   buildVolume?: { x: number; y: number; z: number };
   initialSprints: SprintUI[];
+  billing?: { quotes: boolean; invoices: boolean };
 }
 
 function getInitials(name: string) {
@@ -136,7 +137,7 @@ function getInitials(name: string) {
 
 
 
-export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin, parts: initialParts, availableFilaments, customerCredit: initialCustomerCredit, partPhases, machines, buildVolume, initialSprints }: OrderDetailProps) {
+export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin, parts: initialParts, availableFilaments, customerCredit: initialCustomerCredit, partPhases, machines, buildVolume, initialSprints, billing = { quotes: true, invoices: true } }: OrderDetailProps) {
   const t = useTranslations("admin");
   const tc = useTranslations("common");
   const rawLocale = useLocale();
@@ -1063,13 +1064,16 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
           )}
 
           {/* Quote editor */}
-          <QuoteEditor
-            orderId={order.id}
-            initialQuotes={order.quotes ?? []}
-            onChanged={() => router.refresh()}
-          />
+          {billing.quotes && (
+            <QuoteEditor
+              orderId={order.id}
+              initialQuotes={order.quotes ?? []}
+              onChanged={() => router.refresh()}
+            />
+          )}
 
           {/* Invoice card */}
+          {billing.invoices && (
           <InvoiceCard
             orderId={order.id}
             customerCreditCents={customerCredit?.balanceCents ?? null}
@@ -1096,6 +1100,7 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
             })()}
             onChanged={() => router.refresh()}
           />
+          )}
 
           {/* Survey */}
           <Card>

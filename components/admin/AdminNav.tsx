@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
 import { useTranslations } from "next-intl";
@@ -27,6 +28,7 @@ import {
 } from "lucide-react";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { useTutorial } from "@/lib/tutorial/use-tutorial";
+import type { FeatureKey } from "@/lib/features";
 
 interface NavItem {
   href: string;
@@ -34,6 +36,7 @@ interface NavItem {
   icon: React.ElementType;
   exact?: boolean;
   adminOnly?: boolean;
+  feature?: FeatureKey;
 }
 
 interface NavSection {
@@ -44,9 +47,11 @@ interface NavSection {
 interface AdminNavProps {
   userRole?: string;
   companyName?: string;
+  logoUrl?: string | null;
+  enabledFeatures?: Partial<Record<FeatureKey, boolean>>;
 }
 
-export function AdminNav({ userRole, companyName = "3D Print CMS" }: AdminNavProps) {
+export function AdminNav({ userRole, companyName = "3D Print CMS", logoUrl = null, enabledFeatures = {} }: AdminNavProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -64,21 +69,21 @@ export function AdminNav({ userRole, companyName = "3D Print CMS" }: AdminNavPro
       label: t("orders_production"),
       items: [
         { href: "/admin/orders", label: t("orders"), icon: ClipboardList },
-        { href: "/admin/jobs", label: t("print_jobs"), icon: Layers },
-        { href: "/admin/projects", label: t("projects"), icon: FolderKanban },
+        { href: "/admin/jobs", label: t("print_jobs"), icon: Layers, feature: "jobs" },
+        { href: "/admin/projects", label: t("projects"), icon: FolderKanban, feature: "projects" },
       ],
     },
     {
       label: t("planning_resources"),
       items: [
-        { href: "/admin/planning", label: t("planning"), icon: CalendarRange },
-        { href: "/admin/inventory", label: t("inventory"), icon: Package },
+        { href: "/admin/planning", label: t("planning"), icon: CalendarRange, feature: "planning" },
+        { href: "/admin/inventory", label: t("inventory"), icon: Package, feature: "inventory" },
       ],
     },
     {
       label: t("knowledge_admin"),
       items: [
-        { href: "/admin/knowledge", label: t("knowledge"), icon: BookOpen },
+        { href: "/admin/knowledge", label: t("knowledge"), icon: BookOpen, feature: "knowledge" },
         { href: "/admin/customers", label: t("customers"), icon: Users2, adminOnly: true },
         { href: "/admin/settings", label: t("settings"), icon: SlidersHorizontal, adminOnly: true },
       ],
@@ -99,19 +104,32 @@ export function AdminNav({ userRole, companyName = "3D Print CMS" }: AdminNavPro
   const navLinks = (onLinkClick?: () => void) => (
     <>
       <div className="flex items-center gap-3 px-5 py-5 border-b border-border/60">
-        <div
-          className="flex items-center justify-center h-7 w-7 rounded-lg flex-shrink-0"
-          style={{ backgroundColor: "oklch(0.72 0.18 55)" }}
-        >
-          <Printer className="h-4 w-4 text-white" />
-        </div>
+        {logoUrl ? (
+          <Image
+            src={logoUrl}
+            alt={companyName}
+            width={28}
+            height={28}
+            unoptimized
+            className="h-7 w-7 rounded-lg object-contain flex-shrink-0"
+          />
+        ) : (
+          <div
+            className="flex items-center justify-center h-7 w-7 rounded-lg flex-shrink-0"
+            style={{ backgroundColor: "var(--brand-accent)" }}
+          >
+            <Printer className="h-4 w-4 text-white" />
+          </div>
+        )}
         <span className="font-semibold text-base leading-tight">{companyName}</span>
       </div>
 
       <nav aria-label="Admin-Navigation" className="flex-1 px-3 py-4 overflow-y-auto">
         {navSections.map((section, sectionIndex) => {
           const visibleItems = section.items.filter(
-            (item) => !item.adminOnly || userRole === "ADMIN",
+            (item) =>
+              (!item.adminOnly || userRole === "ADMIN") &&
+              (!item.feature || enabledFeatures[item.feature] !== false),
           );
           if (visibleItems.length === 0) return null;
 
@@ -139,7 +157,7 @@ export function AdminNav({ userRole, companyName = "3D Print CMS" }: AdminNavPro
                         {active && (
                           <span
                             className="absolute left-0 top-1 bottom-1 w-[3px] rounded-full"
-                            style={{ backgroundColor: "oklch(0.72 0.18 55)" }}
+                            style={{ backgroundColor: "var(--brand-accent)" }}
                           />
                         )}
                         <item.icon className={cn("h-4 w-4 flex-shrink-0", active && "text-primary")} />

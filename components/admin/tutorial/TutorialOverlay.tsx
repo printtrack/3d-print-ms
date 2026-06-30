@@ -205,7 +205,7 @@ export function TutorialOverlay({ onSkip }: Props) {
               <rect width="100%" height="100%" fill={DARK} mask="url(#tutorial-mask-fi)" />
               <rect x={sp.left - 1} y={sp.top - 1} width={sp.width + 2} height={sp.height + 2}
                 rx={RADIUS + 1} ry={RADIUS + 1} fill="none"
-                stroke="oklch(0.72 0.18 55)" strokeWidth="2" className="tutorial-ring" />
+                stroke="var(--brand-accent)" strokeWidth="2" className="tutorial-ring" />
             </svg>
           ) : (
             <div style={{ position: "fixed", inset: 0, background: DARK }} />
@@ -223,9 +223,9 @@ export function TutorialOverlay({ onSkip }: Props) {
             style={{
               position: "fixed",
               top: sp.top, left: sp.left, width: sp.width, height: sp.height,
-              border: "2px solid oklch(0.72 0.18 55)",
+              border: "2px solid var(--brand-accent)",
               borderRadius: RADIUS,
-              boxShadow: "0 0 0 6px oklch(0.72 0.18 55 / 0.15)",
+              boxShadow: "0 0 0 6px color-mix(in oklab, var(--brand-accent) 15%, transparent)",
               pointerEvents: "none",
               zIndex: 9991,
             }}
@@ -245,7 +245,7 @@ export function TutorialOverlay({ onSkip }: Props) {
         <div className="bg-card rounded-lg shadow-xl border border-border overflow-hidden">
           <div
             className="absolute left-0 top-0 bottom-0 w-1 rounded-l-lg"
-            style={{ backgroundColor: "oklch(0.72 0.18 55)" }}
+            style={{ backgroundColor: "var(--brand-accent)" }}
           />
           <div className="pl-4 pr-4 pt-4 pb-3">
             <div className="flex items-start justify-between gap-2 mb-2">
@@ -272,7 +272,7 @@ export function TutorialOverlay({ onSkip }: Props) {
 
           {(currentDef.showNext || currentDef.id === "viewer_guide") && (
             <div className="px-4 pb-3 flex justify-end border-t border-border/60 pt-3">
-              <Button size="sm" className="h-8" style={{ backgroundColor: "oklch(0.72 0.18 55)" }} onClick={advance}>
+              <Button size="sm" className="h-8" style={{ backgroundColor: "var(--brand-accent)" }} onClick={advance}>
                 {t("controls.next")}
               </Button>
             </div>

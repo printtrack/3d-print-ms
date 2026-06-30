@@ -2,11 +2,12 @@ import { DM_Serif_Display } from "next/font/google";
 import { Printer, Zap, Shield, Eye, MessageCircle } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getTranslations } from "next-intl/server";
+import { getTranslations, getLocale } from "next-intl/server";
 
 import { OrderForm } from "@/components/customer/OrderForm";
 import { Button } from "@/components/ui/button";
 import { getSetting } from "@/lib/settings";
+import { getOrderFormConfig, type OrderFormConfig } from "@/lib/order-form-config";
 import { CONTENT } from "./content";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
@@ -38,6 +39,8 @@ export default async function Home() {
     (await getSetting("company_name")) ?? CONTENT.fallbackCompanyName;
   const contactEmail = (await getSetting("contact_email")) ?? "";
   const accessCodeEnabled = (await getSetting("access_code_enabled")) === "true";
+  const locale = (await getLocale()) === "en" ? "en" : "de";
+  const orderFormConfig = await getOrderFormConfig(locale);
   const t = await getTranslations("landing");
   const tNav = await getTranslations("nav");
 
@@ -48,7 +51,7 @@ export default async function Home() {
         <HeroSection t={t} />
         <FeaturesSection t={t} />
         <HowItWorksSection t={t} />
-        <OrderFormSection accessCodeEnabled={accessCodeEnabled} t={t} />
+        <OrderFormSection accessCodeEnabled={accessCodeEnabled} orderFormConfig={orderFormConfig} t={t} />
       </main>
       <Footer companyName={companyName} contactEmail={contactEmail} t={t} tNav={tNav} />
     </div>
@@ -301,7 +304,7 @@ function HowItWorksSection({ t }: { t: LT }) {
 // Order Form
 // ---------------------------------------------------------------------------
 
-function OrderFormSection({ accessCodeEnabled, t }: { accessCodeEnabled: boolean; t: LT }) {
+function OrderFormSection({ accessCodeEnabled, orderFormConfig, t }: { accessCodeEnabled: boolean; orderFormConfig: OrderFormConfig; t: LT }) {
   return (
     <section id="order-form" className="py-24 bg-white scroll-mt-20">
       <div className="container mx-auto px-6">
@@ -322,7 +325,7 @@ function OrderFormSection({ accessCodeEnabled, t }: { accessCodeEnabled: boolean
             {t("order_subheadline")}
           </p>
         </div>
-        <OrderForm accessCodeEnabled={accessCodeEnabled} />
+        <OrderForm accessCodeEnabled={accessCodeEnabled} config={orderFormConfig} />
       </div>
     </section>
   );

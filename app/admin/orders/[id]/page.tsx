@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { OrderDetail } from "@/components/admin/OrderDetail";
 import { runJobAutoTransition } from "@/lib/jobs-auto-transition";
 import { runInvoiceAutoTransition, runPaymentReminders } from "@/lib/invoice-auto-transition";
+import { getEnabledFeatures } from "@/lib/features";
 import { getReservedGramsByFilament } from "@/lib/filament-reservations";
 import { TUTORIAL_ORDER_ID, TUTORIAL_ORDER_DETAIL, TUTORIAL_PARTS, TUTORIAL_PHASES, TUTORIAL_PART_PHASES, TUTORIAL_MACHINES, TUTORIAL_FILAMENT } from "@/lib/tutorial/sample-data";
 
@@ -374,14 +375,19 @@ export default async function OrderDetailPage({ params }: PageProps) {
         machines={TUTORIAL_MACHINES.map((m) => ({ id: m.id, name: m.name }))}
         buildVolume={{ x: 256, y: 256, z: 256 }}
         initialSprints={[]}
+        billing={{ quotes: true, invoices: true }}
       />
     );
   }
 
+  const features = await getEnabledFeatures();
+
   // Run before fetching so part phases + job links are current
   await runJobAutoTransition().catch(() => null);
-  await runInvoiceAutoTransition().catch(() => null);
-  await runPaymentReminders().catch(() => null);
+  if (features.invoices) {
+    await runInvoiceAutoTransition().catch(() => null);
+    await runPaymentReminders().catch(() => null);
+  }
   const { order, phases, teamMembers, parts, availableFilaments, customerCredit, partPhases, activeMachines, buildVolume, sprints } = await getData(id);
 
   if (!order) notFound();
@@ -402,6 +408,7 @@ export default async function OrderDetailPage({ params }: PageProps) {
       machines={activeMachines}
       buildVolume={buildVolume}
       initialSprints={sprints}
+      billing={{ quotes: features.quotes, invoices: features.invoices }}
     />
   );
 }

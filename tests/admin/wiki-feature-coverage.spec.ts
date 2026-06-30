@@ -45,6 +45,9 @@ const FEATURE_CHECKS: FeatureCheck[] = [
   { feature: "Project file phases", de: ["Dateiphasen"], en: ["file phases"] },
   { feature: "Project internal comments", de: ["rein interne"], en: ["purely internal"] },
   { feature: "Tracking timeline visibility", de: ["Kundenverlauf"], en: ["Customer timeline", "tracking timeline"] },
+  { feature: "Feature modules", de: ["Funktionsumfang"], en: ["feature scope"] },
+  { feature: "Branding", de: ["Akzentfarbe", "eigenes Logo"], en: ["accent color", "own logo"] },
+  { feature: "Order form config", de: ["Auftragsformular anpassen"], en: ["configure the order form"] },
 ];
 
 function readWikiText(locale: "de" | "en"): string {

@@ -127,7 +127,7 @@ function dotBackground(s: ComputedStop): string | undefined {
   const done = s.tasksDone;
   const slice = 360 / n;
   const gap = n > 1 ? 3 : 0;
-  const doneColor = s.state === "overdue" ? "oklch(0.55 0.2 27)" : "oklch(0.72 0.18 55)";
+  const doneColor = s.state === "overdue" ? "oklch(0.55 0.2 27)" : "var(--brand-accent)";
   const undoneColor = s.state === "overdue" ? "oklch(0.55 0.2 27 / 22%)" : "oklch(0.88 0 0)";
   const parts: string[] = [];
   for (let i = 0; i < n; i++) {
@@ -237,7 +237,7 @@ function SprintChip({
     ringStyle = { background: "oklch(0.88 0 0)" };
   } else {
     const deg = pct * 360;
-    const filled = active ? "oklch(0.72 0.18 55)" : "oklch(0.62 0.15 55)";
+    const filled = active ? "var(--brand-accent)" : "var(--brand-accent-dim)";
     const empty = "oklch(0.88 0 0)";
     ringStyle = { background: `conic-gradient(from -90deg, ${filled} 0deg ${deg}deg, ${empty} ${deg}deg 360deg)` };
   }

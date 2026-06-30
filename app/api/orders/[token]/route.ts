@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSettings } from "@/lib/settings";
 import { visibleTrackingActions } from "@/lib/tracking-timeline";
+import { isFeatureEnabled } from "@/lib/features";
 
 export async function GET(
   _req: NextRequest,
@@ -156,7 +157,9 @@ export async function GET(
     }
 
     const settings = await getSettings();
-    const invoiceRaw = order.invoices[0] ?? null;
+    const quotesEnabled = isFeatureEnabled("quotes", settings);
+    const invoicesEnabled = isFeatureEnabled("invoices", settings);
+    const invoiceRaw = invoicesEnabled ? (order.invoices[0] ?? null) : null;
     const paidCents = invoiceRaw ? invoiceRaw.payments.reduce((s, p) => s + p.amountCents, 0) : 0;
 
     const { quotes: _quotes, invoices: _invoices, ...orderRest } = order;
@@ -188,7 +191,7 @@ export async function GET(
         quoteId: vr.quoteId ?? null,
         rejectionReason: vr.rejectionReason ?? null,
       })),
-      activeQuote: order.quotes[0]
+      activeQuote: quotesEnabled && order.quotes[0]
         ? {
             ...order.quotes[0],
             items: order.quotes[0].items.map((it) => ({

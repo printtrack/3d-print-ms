@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
+import { getEnabledFeatures } from "@/lib/features";
 import { InventoryManager } from "@/components/admin/InventoryManager";
 import { getReservedGramsByFilament } from "@/lib/filament-reservations";
 
@@ -9,6 +10,8 @@ export const dynamic = "force-dynamic";
 export default async function InventoryPage() {
   const session = await auth();
   if (!session) redirect("/auth/signin");
+
+  if (!(await getEnabledFeatures()).inventory) redirect("/admin");
 
   const [filaments, reserved] = await Promise.all([
     prisma.filament.findMany({

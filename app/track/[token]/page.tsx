@@ -4,6 +4,7 @@ import { Printer, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { getSetting } from "@/lib/settings";
+import { getEnabledFeatures } from "@/lib/features";
 
 interface PageProps {
   params: Promise<{ token: string }>;
@@ -21,12 +22,36 @@ async function getOrder(token: string) {
 
 export default async function TrackPage({ params }: PageProps) {
   const { token } = await params;
-  const [order, t, companyName] = await Promise.all([
-    getOrder(token),
+  const [t, companyName, features] = await Promise.all([
     getTranslations("track"),
     getSetting("company_name"),
+    getEnabledFeatures(),
   ]);
 
+  if (!features.tracking) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-background to-muted/30">
+        <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+          <div className="container mx-auto px-4 py-4 flex items-center gap-3">
+            <Printer className="h-6 w-6 text-primary" />
+            <h1 className="text-xl font-semibold">{companyName ?? "3D Print CMS"}</h1>
+          </div>
+        </header>
+        <main className="container mx-auto px-4 py-24">
+          <div className="max-w-md mx-auto text-center space-y-3">
+            <h2 className="text-2xl font-bold tracking-tight">{t("unavailable_title")}</h2>
+            <p className="text-muted-foreground">{t("unavailable_desc")}</p>
+            <Link href="/" className="inline-flex items-center gap-2 text-sm text-primary hover:underline">
+              <ArrowLeft className="h-4 w-4" />
+              {t("new_order_cta")}
+            </Link>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
+  const order = await getOrder(token);
   if (!order) notFound();
 
   return (

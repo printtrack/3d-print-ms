@@ -50,10 +50,16 @@
 :root {
   --radius: 0.625rem;
 
-  /* Landing page design tokens — edit these to restyle the marketing page */
-  --landing-accent: oklch(0.72 0.18 55);
-  --landing-accent-dim: oklch(0.62 0.15 55);
-  --landing-accent-glow: oklch(0.72 0.18 55 / 30%);
+  /* Configurable brand accent (default amber). Overridden at runtime from the
+     `brand_accent_color` setting via a <style> injected in the root layout, so
+     the whole app (admin, landing, portal, tracking) follows one accent. */
+  --brand-accent: oklch(0.72 0.18 55);
+  --brand-accent-dim: oklch(0.62 0.15 55);
+
+  /* Landing page design tokens — accent derives from the brand accent above */
+  --landing-accent: var(--brand-accent);
+  --landing-accent-dim: var(--brand-accent-dim);
+  --landing-accent-glow: color-mix(in oklab, var(--brand-accent) 30%, transparent);
   --landing-hero-bg: oklch(0.10 0.01 260);
   --landing-hero-surface: oklch(0.15 0.01 260);
   --background: oklch(1 0 0);
@@ -167,10 +173,10 @@
    See components/admin/RoadmapStrip.tsx
    ========================================================= */
 :root {
-  --roadmap-brand: oklch(0.72 0.18 55);
-  --roadmap-brand-dim: oklch(0.62 0.15 55);
-  --roadmap-brand-soft: oklch(0.72 0.18 55 / 8%);
-  --roadmap-brand-line: oklch(0.72 0.18 55 / 25%);
+  --roadmap-brand: var(--brand-accent);
+  --roadmap-brand-dim: var(--brand-accent-dim);
+  --roadmap-brand-soft: color-mix(in oklab, var(--brand-accent) 8%, transparent);
+  --roadmap-brand-line: color-mix(in oklab, var(--brand-accent) 25%, transparent);
   --roadmap-green: oklch(0.6 0.18 145);
   --roadmap-green-soft: oklch(0.6 0.18 145 / 10%);
   --roadmap-red: oklch(0.55 0.2 27);
@@ -205,7 +211,7 @@
 .rs-chip.active {
   border-color: var(--roadmap-brand);
   background: var(--roadmap-brand-soft);
-  box-shadow: 0 1px 0 oklch(0.72 0.18 55 / 12%) inset, 0 2px 8px oklch(0.72 0.18 55 / 8%);
+  box-shadow: 0 1px 0 color-mix(in oklab, var(--brand-accent) 12%, transparent) inset, 0 2px 8px color-mix(in oklab, var(--brand-accent) 8%, transparent);
 }
 .rs-chip.done { color: var(--muted-foreground); }
 .rs-chip.done .rs-chip-name { text-decoration: line-through; text-decoration-color: oklch(0.85 0 0); }

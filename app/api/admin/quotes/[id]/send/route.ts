@@ -3,6 +3,7 @@ import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { sendQuoteEmail } from "@/lib/email";
 import { formatQuoteNumber } from "@/lib/billing-pdf";
+import { assertFeature } from "@/lib/features";
 
 export async function POST(
   _req: NextRequest,
@@ -10,6 +11,9 @@ export async function POST(
 ) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const guard = await assertFeature("quotes");
+  if (guard) return guard;
 
   const { id } = await params;
   const userId = session.user?.id;

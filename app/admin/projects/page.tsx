@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
+import { getEnabledFeatures } from "@/lib/features";
 import { ProjectsView } from "@/components/admin/ProjectsView";
 import type { ProjectKanbanItem, ProjectPhaseData } from "@/components/admin/ProjectKanbanBoard";
 import type { GanttProject } from "@/components/admin/ProjectGantt";
@@ -10,6 +11,8 @@ export const dynamic = "force-dynamic";
 export default async function ProjectsPage() {
   const session = await auth();
   if (!session) redirect("/auth/signin");
+
+  if (!(await getEnabledFeatures()).projects) redirect("/admin");
 
   const userRole = (session.user as { role?: string })?.role;
 

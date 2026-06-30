@@ -27,11 +27,11 @@ export function TutorialWelcomeDialog({ onStart, onSkip }: Props) {
           <div
             className="flex items-center justify-center w-12 h-12 rounded-xl mb-3"
             style={{
-              background: "linear-gradient(135deg, oklch(0.72 0.18 55 / 0.15) 0%, oklch(0.62 0.15 55 / 0.08) 100%)",
-              border: "1px solid oklch(0.72 0.18 55 / 0.3)",
+              background: "linear-gradient(135deg, color-mix(in oklab, var(--brand-accent) 15%, transparent) 0%, color-mix(in oklab, var(--brand-accent-dim) 8%, transparent) 100%)",
+              border: "1px solid color-mix(in oklab, var(--brand-accent) 30%, transparent)",
             }}
           >
-            <Sparkles className="h-6 w-6" style={{ color: "oklch(0.62 0.15 55)" }} />
+            <Sparkles className="h-6 w-6" style={{ color: "var(--brand-accent-dim)" }} />
           </div>
           <DialogTitle className="text-xl">{t("welcome.title")}</DialogTitle>
           <DialogDescription className="text-sm leading-relaxed">
@@ -43,8 +43,8 @@ export function TutorialWelcomeDialog({ onStart, onSkip }: Props) {
         <div
           className="rounded-lg p-4 text-sm"
           style={{
-            background: "oklch(0.72 0.18 55 / 0.06)",
-            border: "1px solid oklch(0.72 0.18 55 / 0.2)",
+            background: "color-mix(in oklab, var(--brand-accent) 6%, transparent)",
+            border: "1px solid color-mix(in oklab, var(--brand-accent) 20%, transparent)",
           }}
         >
           <p className="font-medium mb-2 text-foreground">{t("welcome.story_label")}</p>
@@ -72,7 +72,7 @@ export function TutorialWelcomeDialog({ onStart, onSkip }: Props) {
           <Button
             onClick={onStart}
             className="flex-1 sm:flex-none"
-            style={{ backgroundColor: "oklch(0.72 0.18 55)" }}
+            style={{ backgroundColor: "var(--brand-accent)" }}
           >
             <Sparkles className="h-4 w-4 mr-2" />
             {t("welcome.start")}

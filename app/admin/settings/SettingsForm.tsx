@@ -10,8 +10,10 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, Building2, Scale, Mail, MessageSquare, Layers, LayoutList, FolderKanban, Files, Users, Printer, FileText, Upload, History } from "lucide-react";
+import { Plus, Trash2, Building2, Scale, Mail, MessageSquare, Layers, LayoutList, FolderKanban, Files, Users, Printer, FileText, Upload, History, ToggleRight, Palette, ClipboardList } from "lucide-react";
 import { TIMELINE_EVENTS, TIMELINE_GROUP_ORDER, settingKey, MASTER_SETTING_KEY, isEventVisible, type TimelineGroup } from "@/lib/tracking-timeline";
+import { FEATURES, type FeatureKey } from "@/lib/features";
+import { SUPPORTED_FORMATS } from "@/lib/order-form-config";
 import Image from "next/image";
 import { PhaseManager } from "@/components/admin/PhaseManager";
 import { TeamManager } from "@/components/admin/TeamManager";
@@ -86,9 +88,17 @@ function parseSurveyQuestions(raw: string | undefined): string[] {
 
 const NAV_GROUPS = [
   {
+    label: "Funktionsumfang",
+    items: [
+      { key: "module", label: "Module", icon: ToggleRight },
+    ],
+  },
+  {
     label: "Allgemein",
     items: [
       { key: "general", label: "Unternehmen", icon: Building2 },
+      { key: "marke", label: "Marke", icon: Palette },
+      { key: "auftragsformular", label: "Auftragsformular", icon: ClipboardList },
       { key: "abrechnung", label: "Abrechnung", icon: Scale },
       { key: "belege", label: "Belege", icon: FileText },
       { key: "legal", label: "Rechtliches", icon: Scale },
@@ -120,7 +130,22 @@ const NAV_GROUPS = [
   },
 ];
 
-const SETTINGS_SECTIONS = new Set(["general", "abrechnung", "belege", "emails", "survey", "legal", "verlauf"]);
+const SETTINGS_SECTIONS = new Set(["module", "general", "marke", "auftragsformular", "abrechnung", "belege", "emails", "survey", "legal", "verlauf"]);
+
+// Admin-only UI → German labels, matching the rest of this form.
+const FEATURE_LABELS: Record<FeatureKey, { label: string; description: string }> = {
+  quotes: { label: "Angebote", description: "Angebote im Auftrag erstellen, versenden und vom Kunden freigeben lassen." },
+  invoices: { label: "Rechnungen", description: "Rechnungen aus genehmigten Angeboten erstellen, ausstellen und Zahlungen erfassen. Benötigt das Modul „Angebote“." },
+  jobs: { label: "Druckjobs", description: "Druckaufträge planen (Timeline & Warteschlange) und Maschinen zuordnen." },
+  projects: { label: "Projekte", description: "Größere Projekte mit Sprint-Roadmap, eigenen Dateien und Phasen verwalten." },
+  planning: { label: "Planung", description: "Übergreifende Planungsansicht (Kalender/Zeitleiste)." },
+  inventory: { label: "Inventar", description: "Filament- und Materialbestand verwalten." },
+  knowledge: { label: "Wissensdatenbank", description: "Problem-/Lösungs-Einträge mit Tags, Anhängen und Verlinkungen." },
+  portal: { label: "Kundenportal", description: "Login-Bereich, in dem Kunden ihre Aufträge selbst einsehen." },
+  tracking: { label: "Sendungsverfolgung", description: "Öffentliche Tracking-Seite, die Kunden ohne Login über einen Link erreichen." },
+  survey: { label: "Umfrage", description: "Zufriedenheitsumfrage nach Abschluss eines Auftrags." },
+  timeline: { label: "Kundenverlauf", description: "Grafische Verlaufs-Timeline auf der Tracking-/Portal-Seite (Detailsteuerung unter „Kundenverlauf“)." },
+};
 
 // Labels for the customer-timeline visibility section (admin-only UI → German, like the rest of this form).
 const TIMELINE_GROUP_LABELS: Record<TimelineGroup, string> = {
@@ -264,6 +289,57 @@ export function SettingsForm({
 
       {/* Content */}
       <div className="flex-1 min-w-0">
+        {/* Module / Funktionsumfang */}
+        {activeSection === "module" && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-base">Module</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Lege fest, welche Funktionen geladen werden. Deaktivierte Module verschwinden aus
+                der Navigation und sind nicht mehr erreichbar. Standard: alle aktiv.
+              </p>
+            </CardHeader>
+            <CardContent className="space-y-1">
+              {FEATURES.map((f, i) => {
+                const def = FEATURE_LABELS[f.key];
+                const raw = settings[f.settingKey];
+                const selfOn = raw === undefined ? f.defaultEnabled : raw === "true";
+                const depRaw = f.dependsOn
+                  ? settings[FEATURES.find((d) => d.key === f.dependsOn)!.settingKey]
+                  : undefined;
+                const depOn = f.dependsOn
+                  ? (depRaw === undefined
+                      ? FEATURES.find((d) => d.key === f.dependsOn)!.defaultEnabled
+                      : depRaw === "true")
+                  : true;
+                const blocked = !depOn;
+                return (
+                  <div key={f.key}>
+                    {i > 0 && <Separator className="my-1" />}
+                    <div className="flex items-center justify-between gap-4 py-2">
+                      <div className="space-y-0.5">
+                        <Label htmlFor={f.settingKey}>{def.label}</Label>
+                        <p className="text-xs text-muted-foreground">{def.description}</p>
+                        {blocked && (
+                          <p className="text-xs text-amber-600">
+                            Inaktiv, weil das übergeordnete Modul deaktiviert ist.
+                          </p>
+                        )}
+                      </div>
+                      <Switch
+                        id={f.settingKey}
+                        checked={selfOn && depOn}
+                        disabled={blocked}
+                        onCheckedChange={(checked) => set(f.settingKey, checked ? "true" : "false")}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </CardContent>
+          </Card>
+        )}
+
         {/* Allgemein */}
         {activeSection === "general" && (
           <Card>
@@ -907,6 +983,21 @@ export function SettingsForm({
           </Card>
         )}
 
+        {/* Marke (App-weites Branding) */}
+        {activeSection === "marke" && (
+          <MarkeSection
+            settings={settings}
+            set={set}
+            onLogoChanged={(url) => set("billing_logo_url", url)}
+            onFaviconChanged={(url) => set("brand_favicon_url", url)}
+          />
+        )}
+
+        {/* Auftragsformular */}
+        {activeSection === "auftragsformular" && (
+          <AuftragsformularSection settings={settings} set={set} />
+        )}
+
         {/* Belege (PDF-Branding) */}
         {activeSection === "belege" && (
           <BelegeSection
@@ -1011,6 +1102,361 @@ export function SettingsForm({
 
       </div>
     </div>
+  );
+}
+
+interface AuftragsformularSectionProps {
+  settings: Record<string, string>;
+  set: (key: string, value: string) => void;
+}
+
+function AuftragsformularSection({ settings, set }: AuftragsformularSectionProps) {
+  const selectedFormats = (() => {
+    const raw = settings.orderform_accepted_formats;
+    if (!raw) return new Set(SUPPORTED_FORMATS);
+    const wanted = new Set(raw.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean));
+    const chosen = SUPPORTED_FORMATS.filter((f) => wanted.has(f));
+    return new Set(chosen.length ? chosen : SUPPORTED_FORMATS);
+  })();
+
+  function toggleFormat(fmt: string, on: boolean) {
+    const next = new Set(selectedFormats);
+    if (on) next.add(fmt);
+    else next.delete(fmt);
+    if (next.size === 0) {
+      toast.error("Mindestens ein Format muss erlaubt bleiben.");
+      return;
+    }
+    set("orderform_accepted_formats", SUPPORTED_FORMATS.filter((f) => next.has(f)).join(","));
+  }
+
+  const deadlineVisible = settings.orderform_field_deadline_visible !== "false";
+  const consentRequired = settings.orderform_consent_required === "true";
+
+  return (
+    <div className="space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Felder</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Welche optionalen Felder im öffentlichen Auftragsformular erscheinen. Name, E-Mail und
+            Beschreibung sind immer Pflicht.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-1">
+          <div className="flex items-center justify-between py-2">
+            <Label htmlFor="orderform_field_ordertype_visible">Auftragstyp anzeigen</Label>
+            <Switch
+              id="orderform_field_ordertype_visible"
+              checked={settings.orderform_field_ordertype_visible !== "false"}
+              onCheckedChange={(c) => set("orderform_field_ordertype_visible", c ? "true" : "false")}
+            />
+          </div>
+          <Separator className="my-1" />
+          <div className="flex items-center justify-between py-2">
+            <Label htmlFor="orderform_field_deadline_visible">Liefertermin anzeigen</Label>
+            <Switch
+              id="orderform_field_deadline_visible"
+              checked={deadlineVisible}
+              onCheckedChange={(c) => set("orderform_field_deadline_visible", c ? "true" : "false")}
+            />
+          </div>
+          <Separator className="my-1" />
+          <div className="flex items-center justify-between py-2">
+            <div className="space-y-0.5">
+              <Label htmlFor="orderform_field_deadline_required">Liefertermin als Pflichtfeld</Label>
+              {!deadlineVisible && (
+                <p className="text-xs text-amber-600">Nur wirksam, wenn der Liefertermin angezeigt wird.</p>
+              )}
+            </div>
+            <Switch
+              id="orderform_field_deadline_required"
+              checked={settings.orderform_field_deadline_required === "true"}
+              disabled={!deadlineVisible}
+              onCheckedChange={(c) => set("orderform_field_deadline_required", c ? "true" : "false")}
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Dateien</CardTitle>
+          <p className="text-sm text-muted-foreground">Erlaubte Formate und Grenzen für Datei-Uploads.</p>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <div className="space-y-2">
+            <Label>Erlaubte Formate</Label>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {SUPPORTED_FORMATS.map((fmt) => (
+                <label key={fmt} className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4"
+                    checked={selectedFormats.has(fmt)}
+                    onChange={(e) => toggleFormat(fmt, e.target.checked)}
+                  />
+                  {fmt.replace(".", "").toUpperCase()}
+                </label>
+              ))}
+            </div>
+          </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="orderform_max_file_mb">Max. Dateigröße (MB)</Label>
+              <Input
+                id="orderform_max_file_mb"
+                type="number"
+                min={1}
+                value={settings.orderform_max_file_mb ?? ""}
+                placeholder="50"
+                onChange={(e) => set("orderform_max_file_mb", e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="orderform_max_files">Max. Anzahl Dateien</Label>
+              <Input
+                id="orderform_max_files"
+                type="number"
+                min={0}
+                value={settings.orderform_max_files ?? ""}
+                placeholder="0 = unbegrenzt"
+                onChange={(e) => set("orderform_max_files", e.target.value)}
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Einleitung &amp; Zustimmung</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Optionaler Einleitungstext über dem Formular und eine Pflicht-Zustimmung vor dem Absenden.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-5">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="orderform_intro_text_de">Einleitungstext (Deutsch)</Label>
+              <Textarea
+                id="orderform_intro_text_de"
+                rows={3}
+                value={settings.orderform_intro_text_de ?? ""}
+                onChange={(e) => set("orderform_intro_text_de", e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="orderform_intro_text_en">Einleitungstext (Englisch)</Label>
+              <Textarea
+                id="orderform_intro_text_en"
+                rows={3}
+                value={settings.orderform_intro_text_en ?? ""}
+                onChange={(e) => set("orderform_intro_text_en", e.target.value)}
+              />
+            </div>
+          </div>
+          <Separator />
+          <div className="flex items-center justify-between">
+            <Label htmlFor="orderform_consent_required">Zustimmung als Pflicht-Checkbox</Label>
+            <Switch
+              id="orderform_consent_required"
+              checked={consentRequired}
+              onCheckedChange={(c) => set("orderform_consent_required", c ? "true" : "false")}
+            />
+          </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="orderform_consent_text_de">Zustimmungstext (Deutsch)</Label>
+              <Textarea
+                id="orderform_consent_text_de"
+                rows={2}
+                disabled={!consentRequired}
+                value={settings.orderform_consent_text_de ?? ""}
+                onChange={(e) => set("orderform_consent_text_de", e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="orderform_consent_text_en">Zustimmungstext (Englisch)</Label>
+              <Textarea
+                id="orderform_consent_text_en"
+                rows={2}
+                disabled={!consentRequired}
+                value={settings.orderform_consent_text_en ?? ""}
+                onChange={(e) => set("orderform_consent_text_en", e.target.value)}
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+interface MarkeSectionProps {
+  settings: Record<string, string>;
+  set: (key: string, value: string) => void;
+  onLogoChanged: (url: string) => void;
+  onFaviconChanged: (url: string) => void;
+}
+
+function MarkeSection({ settings, set, onLogoChanged, onFaviconChanged }: MarkeSectionProps) {
+  const logoRef = useRef<HTMLInputElement>(null);
+  const faviconRef = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState<"logo" | "favicon" | null>(null);
+  const logoUrl = settings.billing_logo_url ?? "";
+  const faviconUrl = settings.brand_favicon_url ?? "";
+  const accent = settings.brand_accent_color || "oklch(0.72 0.18 55)";
+
+  async function upload(kind: "logo" | "favicon", file: File) {
+    setBusy(kind);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      formData.append("kind", kind);
+      const res = await fetch("/api/admin/uploads/branding", { method: "POST", body: formData });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Upload fehlgeschlagen");
+      if (kind === "logo") onLogoChanged(data.url);
+      else onFaviconChanged(data.url);
+      toast.success(kind === "logo" ? "Logo aktualisiert" : "Favicon aktualisiert");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Upload fehlgeschlagen");
+    } finally {
+      setBusy(null);
+      if (kind === "logo" && logoRef.current) logoRef.current.value = "";
+      if (kind === "favicon" && faviconRef.current) faviconRef.current.value = "";
+    }
+  }
+
+  async function remove(kind: "logo" | "favicon") {
+    if (!confirm(kind === "logo" ? "Logo wirklich entfernen?" : "Favicon wirklich entfernen?")) return;
+    try {
+      const res = await fetch(`/api/admin/uploads/branding?kind=${kind}`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+      if (kind === "logo") onLogoChanged("");
+      else onFaviconChanged("");
+      toast.success("Entfernt");
+    } catch {
+      toast.error("Konnte nicht entfernt werden");
+    }
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Marke</CardTitle>
+        <p className="text-sm text-muted-foreground">
+          Akzentfarbe, Logo und Favicon der gesamten Anwendung (Admin, Landing, Portal, Tracking).
+        </p>
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {/* Accent color */}
+        <div className="space-y-2">
+          <Label htmlFor="brand_accent_color">Akzentfarbe</Label>
+          <div className="flex items-center gap-2">
+            <Input
+              id="brand_accent_color"
+              value={settings.brand_accent_color ?? ""}
+              onChange={(e) => set("brand_accent_color", e.target.value)}
+              placeholder="oklch(0.72 0.18 55)"
+              className="font-mono"
+            />
+            <input
+              type="color"
+              aria-label="Farbwähler"
+              className="h-9 w-9 shrink-0 cursor-pointer rounded-md border bg-transparent"
+              onChange={(e) => set("brand_accent_color", e.target.value)}
+            />
+            <div className="h-9 w-9 shrink-0 rounded-md border" style={{ backgroundColor: accent }} />
+          </div>
+          <p className="text-xs text-muted-foreground">
+            HEX (z. B. <span className="font-mono">#2563eb</span>) oder eine beliebige CSS-Farbe.
+            Leer lassen für den Standard (Amber).
+          </p>
+        </div>
+
+        <Separator />
+
+        {/* Logo */}
+        <div className="space-y-3">
+          <Label>Logo</Label>
+          <p className="text-xs text-muted-foreground">
+            Erscheint in der Seitenleiste und auf Belegen. Wird mit dem Beleg-Logo geteilt.
+          </p>
+          <div className="flex items-center gap-4">
+            {logoUrl ? (
+              <div className="relative h-16 w-16 overflow-hidden rounded-md border bg-white">
+                <Image src={logoUrl} alt="Logo" fill sizes="64px" className="object-contain p-1.5" unoptimized />
+              </div>
+            ) : (
+              <div className="flex h-16 w-16 items-center justify-center rounded-md border border-dashed text-[10px] text-muted-foreground">
+                Kein Logo
+              </div>
+            )}
+            <div className="flex flex-col gap-2">
+              <input
+                ref={logoRef}
+                type="file"
+                accept="image/jpeg,image/png,image/svg+xml"
+                className="hidden"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) upload("logo", f); }}
+              />
+              <Button type="button" variant="outline" size="sm" disabled={busy === "logo"} onClick={() => logoRef.current?.click()}>
+                <Upload className="mr-2 h-4 w-4" />
+                {busy === "logo" ? "Lädt …" : logoUrl ? "Ersetzen" : "Hochladen"}
+              </Button>
+              {logoUrl && (
+                <Button type="button" variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => remove("logo")}>
+                  <Trash2 className="mr-2 h-4 w-4" /> Entfernen
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <Separator />
+
+        {/* Favicon */}
+        <div className="space-y-3">
+          <Label>Favicon</Label>
+          <p className="text-xs text-muted-foreground">Browser-Tab-Symbol (PNG, SVG oder ICO).</p>
+          <div className="flex items-center gap-4">
+            {faviconUrl ? (
+              <div className="relative h-10 w-10 overflow-hidden rounded-md border bg-white">
+                <Image src={faviconUrl} alt="Favicon" fill sizes="40px" className="object-contain p-1" unoptimized />
+              </div>
+            ) : (
+              <div className="flex h-10 w-10 items-center justify-center rounded-md border border-dashed text-[9px] text-muted-foreground">
+                –
+              </div>
+            )}
+            <div className="flex flex-col gap-2">
+              <input
+                ref={faviconRef}
+                type="file"
+                accept="image/png,image/svg+xml,image/x-icon,.ico"
+                className="hidden"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) upload("favicon", f); }}
+              />
+              <Button type="button" variant="outline" size="sm" disabled={busy === "favicon"} onClick={() => faviconRef.current?.click()}>
+                <Upload className="mr-2 h-4 w-4" />
+                {busy === "favicon" ? "Lädt …" : faviconUrl ? "Ersetzen" : "Hochladen"}
+              </Button>
+              {faviconUrl && (
+                <Button type="button" variant="ghost" size="sm" className="text-destructive hover:text-destructive" onClick={() => remove("favicon")}>
+                  <Trash2 className="mr-2 h-4 w-4" /> Entfernen
+                </Button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <p className="text-xs text-muted-foreground">
+          Der Anwendungstitel (Browser-Tab) entspricht dem Unternehmensnamen aus dem Reiter „Unternehmen“.
+        </p>
+      </CardContent>
+    </Card>
   );
 }
 

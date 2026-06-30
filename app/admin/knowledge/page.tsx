@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
+import { getEnabledFeatures } from "@/lib/features";
 import { KnowledgeManager } from "@/components/admin/KnowledgeManager";
 
 export const dynamic = "force-dynamic";
@@ -8,6 +9,8 @@ export const dynamic = "force-dynamic";
 export default async function KnowledgePage() {
   const session = await auth();
   if (!session) redirect("/auth/signin");
+
+  if (!(await getEnabledFeatures()).knowledge) redirect("/admin");
 
   const userRole = (session.user as { role?: string })?.role;
 

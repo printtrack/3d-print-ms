@@ -6,6 +6,7 @@ import { PortalOrderDetail } from "@/components/portal/PortalOrderDetail";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { getSettings } from "@/lib/settings";
+import { getEnabledFeatures } from "@/lib/features";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -14,6 +15,8 @@ interface PageProps {
 export default async function PortalOrderDetailPage({ params }: PageProps) {
   const customer = await getCustomerSessionFromCookies();
   if (!customer) redirect("/portal/signin");
+
+  const features = await getEnabledFeatures();
 
   const { id } = await params;
   const order = await prisma.order.findUnique({
@@ -94,7 +97,7 @@ export default async function PortalOrderDetailPage({ params }: PageProps) {
           submittedAt: order.surveyResponse.submittedAt?.toISOString() ?? null,
         }
       : null,
-    activeQuote: order.quotes[0]
+    activeQuote: features.quotes && order.quotes[0]
       ? {
           id: order.quotes[0].id,
           number: order.quotes[0].number ?? null,
@@ -120,6 +123,7 @@ export default async function PortalOrderDetailPage({ params }: PageProps) {
         }
       : null,
     activeInvoice: await (async () => {
+      if (!features.invoices) return null;
       const inv = order.invoices[0];
       if (!inv || !inv.number) return null;
       const settings = await getSettings();

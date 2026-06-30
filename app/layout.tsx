@@ -5,16 +5,21 @@ import { Toaster } from "@/components/ui/sonner";
 import { AuthSessionProvider } from "@/components/SessionProvider";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
+import { getBranding, brandAccentCss } from "@/lib/branding";
 
 const geist = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
 });
 
-export const metadata: Metadata = {
-  title: "3D Print CMS",
-  description: "3D Print Order Management System",
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const { companyName, faviconUrl } = await getBranding();
+  return {
+    title: companyName,
+    description: "3D Print Order Management System",
+    ...(faviconUrl ? { icons: { icon: faviconUrl } } : {}),
+  };
+}
 
 export default async function RootLayout({
   children,
@@ -23,9 +28,15 @@ export default async function RootLayout({
 }>) {
   const locale = await getLocale();
   const messages = await getMessages();
+  const accentCss = brandAccentCss(await getBranding());
 
   return (
     <html lang={locale}>
+      {accentCss ? (
+        <head>
+          <style dangerouslySetInnerHTML={{ __html: accentCss }} />
+        </head>
+      ) : null}
       <body className={`${geist.variable} antialiased`}>
         <a
           href="#main-content"

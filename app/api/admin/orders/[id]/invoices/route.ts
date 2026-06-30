@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { createDraftInvoiceFromQuote } from "@/lib/invoices";
+import { assertFeature } from "@/lib/features";
 import { z } from "zod";
 
 const postSchema = z.object({
@@ -33,6 +34,9 @@ export async function POST(
 ) {
   const session = await auth();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const guard = await assertFeature("invoices");
+  if (guard) return guard;
 
   const { id: orderId } = await params;
   const userId = session.user?.id;

@@ -80,7 +80,7 @@ export function WikiSidebar({ pages }: WikiSidebarProps) {
                     {active && (
                       <span
                         className="absolute left-0 top-1 bottom-1 w-[3px] rounded-full"
-                        style={{ backgroundColor: "oklch(0.72 0.18 55)" }}
+                        style={{ backgroundColor: "var(--brand-accent)" }}
                       />
                     )}
                     <span className="pl-1">{page.title}</span>

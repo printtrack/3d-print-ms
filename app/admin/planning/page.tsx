@@ -1,12 +1,15 @@
 import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
+import { getEnabledFeatures } from "@/lib/features";
 import { PlanningView } from "@/components/admin/PlanningView";
 import type { PlanningOrder, PlanningUser } from "@/components/admin/PlanningView";
 
 export default async function PlanningPage() {
   const session = await auth();
   if (!session) redirect("/auth/signin");
+
+  if (!(await getEnabledFeatures()).planning) redirect("/admin");
 
   const [rawOrders, rawUsers] = await Promise.all([
     prisma.order.findMany({

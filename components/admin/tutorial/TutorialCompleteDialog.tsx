@@ -61,7 +61,7 @@ export function TutorialCompleteDialog({ onFinish, onRestart }: Props) {
           <Button
             onClick={onFinish}
             className="flex-1 sm:flex-none gap-2"
-            style={{ backgroundColor: "oklch(0.72 0.18 55)" }}
+            style={{ backgroundColor: "var(--brand-accent)" }}
           >
             {t("complete.finish")}
             <ArrowRight className="h-4 w-4" />

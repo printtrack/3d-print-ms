@@ -54,6 +54,41 @@ Wichtig:
 - **Interne Vorgänge werden grundsätzlich nie an Kunden übermittelt** — Team-Zuweisungen, Druckaufträge, interne Kommentare, Teilphasen-Wechsel und Preisänderungen erscheinen nie im Kundenverlauf, unabhängig von den Schaltern. Die Filterung passiert serverseitig, diese Daten erreichen den Browser des Kunden gar nicht.
 - **Abrechnungs-Ereignisse** (Angebot gesendet, Rechnung gestellt, Zahlung eingegangen, Rechnung storniert) sind **standardmäßig ausgeschaltet**, da Angebot und Rechnung ohnehin als eigene Karten im Tracking erscheinen. Bei Bedarf einzeln aktivierbar.
 
+## Module (Tab: Module)
+
+Unter **Funktionsumfang → Module** legst du fest, welche Funktionen das System lädt. So passt du das Produkt an deinen Betrieb an — z. B. „nur Angebote, keine Rechnungen" oder ein Betrieb ganz ohne Wissensdatenbank.
+
+- Jedes Modul hat einen eigenen Schalter. **Standard: alle aktiv** — der Funktionsumfang ist also vollständig, bis du etwas abschaltest.
+- Deaktivierte Module verschwinden aus der Navigation und sind nicht mehr erreichbar (ruft man die Adresse direkt auf, leitet das System zurück zur Übersicht).
+- **Rechnungen** benötigen das Modul **Angebote** — ist „Angebote" aus, sind Rechnungen automatisch deaktiviert und der Schalter ist ausgegraut.
+- Schaltbar sind u. a.: Angebote, Rechnungen, Druckjobs, Projekte, Planung, Inventar, Wissensdatenbank, Kundenportal, Sendungsverfolgung, Umfrage und Kundenverlauf.
+
+## Marke (Tab: Marke)
+
+Im Reiter **Marke** individualisierst du das Erscheinungsbild der gesamten Anwendung
+(White-Label) — Admin, Landing-Page, Kundenportal und Tracking folgen denselben Vorgaben.
+
+- **Akzentfarbe** — die App-weite Markenfarbe (Standard: Amber). Eingabe als HEX (z. B.
+  `#2563eb`) oder beliebige CSS-Farbe; ein Farbwähler steht bereit. Leer = Standard.
+- **Eigenes Logo** — wird in der Seitenleiste und auf Belegen angezeigt (geteilt mit dem
+  Beleg-Logo). JPG, PNG oder SVG, max. 1 MB.
+- **Favicon** — das Symbol im Browser-Tab (PNG, SVG oder ICO).
+- Der **Anwendungstitel** (Browser-Tab) entspricht dem Unternehmensnamen aus dem Reiter
+  „Unternehmen“.
+
+## Auftragsformular (Tab: Auftragsformular)
+
+Hier kannst du das **Auftragsformular anpassen**, mit dem Kunden auf der Startseite einen
+Druckauftrag einreichen — passend zum Intake deines Betriebs.
+
+- **Felder** — Auftragstyp und Liefertermin lassen sich ein-/ausblenden; der Liefertermin kann
+  zum Pflichtfeld gemacht werden. Name, E-Mail und Beschreibung sind immer Pflicht.
+- **Dateien** — erlaubte Formate (Auswahl aus JPG, PNG, GIF, WEBP, STL, OBJ, 3MF), maximale
+  Dateigröße (MB) und maximale Anzahl Dateien (0 = unbegrenzt). Die Grenzen werden auch
+  serverseitig erzwungen.
+- **Einleitung & Zustimmung** — optionaler Einleitungstext über dem Formular sowie eine
+  Pflicht-Zustimmung (Checkbox) vor dem Absenden, jeweils in Deutsch und Englisch.
+
 ## Rechtliches (Tab: Rechtliches)
 
 Hinterlege Impressum und Datenschutzerklärung. Diese Texte erscheinen auf den öffentlichen Seiten (`/legal/impressum`, `/legal/datenschutz`).

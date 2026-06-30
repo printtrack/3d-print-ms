@@ -1,5 +1,7 @@
+import { redirect } from "next/navigation";
 import { getCustomerSessionFromCookies } from "@/lib/customer-auth";
 import { getSetting } from "@/lib/settings";
+import { getEnabledFeatures } from "@/lib/features";
 import { prisma } from "@/lib/db";
 import { PortalNav } from "@/components/portal/PortalNav";
 import { CustomerVerificationBanner } from "@/components/portal/CustomerVerificationBanner";
@@ -10,6 +12,8 @@ export default async function PortalLayout({
 }: {
   children: React.ReactNode;
 }) {
+  if (!(await getEnabledFeatures()).portal) redirect("/");
+
   const session = await getCustomerSessionFromCookies();
   const companyName = (await getSetting("company_name")) ?? "3D Print CMS";
 

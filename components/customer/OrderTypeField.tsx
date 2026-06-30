@@ -6,9 +6,9 @@ import { cn } from "@/lib/utils";
 
 export type OrderType = "PRINT_ONLY" | "DESIGN";
 
-// Single brand accent (amber) — see DESIGN.md. Applied inline since there is no
-// global utility class for it (same approach as PhaseChip / DeadlineChip).
-const ACCENT = "oklch(0.72 0.18 55)";
+// Configurable brand accent — see DESIGN.md. Applied inline via the global
+// `--brand-accent` CSS variable (same approach as PhaseChip / DeadlineChip).
+const ACCENT = "var(--brand-accent)";
 
 const OPTIONS: Array<{
   value: OrderType;
@@ -46,12 +46,17 @@ export function OrderTypeField({ value, onChange }: Props) {
                 "group relative flex items-start gap-3 rounded-lg border p-4 text-left transition-all",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-1",
                 selected
-                  ? "shadow-[0_1px_0_oklch(0.72_0.18_55_/_12%)_inset,0_2px_10px_oklch(0.72_0.18_55_/_10%)]"
+                  ? ""
                   : "border-border hover:border-foreground/25 hover:bg-accent/40"
               )}
               style={
                 selected
-                  ? { borderColor: ACCENT, background: "oklch(0.72 0.18 55 / 7%)" }
+                  ? {
+                      borderColor: ACCENT,
+                      background: "color-mix(in oklab, var(--brand-accent) 7%, transparent)",
+                      boxShadow:
+                        "0 1px 0 color-mix(in oklab, var(--brand-accent) 12%, transparent) inset, 0 2px 10px color-mix(in oklab, var(--brand-accent) 10%, transparent)",
+                    }
                   : undefined
               }
             >

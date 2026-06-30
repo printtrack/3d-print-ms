@@ -6,17 +6,7 @@ import { randomUUID } from "crypto";
 import { getUploadDir } from "@/lib/uploads";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { validateFileContent } from "@/lib/file-validation";
-
-const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
-const ALLOWED_TYPES = new Set([
-  "image/jpeg",
-  "image/png",
-  "image/gif",
-  "image/webp",
-  "model/stl",
-  "application/octet-stream",
-]);
-const ALLOWED_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".stl", ".obj", ".3mf"]);
+import { getOrderFormConfig } from "@/lib/order-form-config";
 
 export async function POST(req: NextRequest) {
   const ip = getClientIp(req);
@@ -46,18 +36,28 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Keine Dateien gefunden" }, { status: 400 });
     }
 
+    const config = await getOrderFormConfig("de");
+    const maxBytes = config.maxFileMb * 1024 * 1024;
+    const allowedExtensions = new Set(config.acceptedFormats);
+    if (config.maxFiles > 0 && files.length > config.maxFiles) {
+      return NextResponse.json(
+        { error: `Maximal ${config.maxFiles} Datei(en) erlaubt.` },
+        { status: 400 },
+      );
+    }
+
     const uploadDir = path.join(getUploadDir(), orderId);
     await mkdir(uploadDir, { recursive: true });
 
     const savedFiles = [];
 
     for (const file of files) {
-      if (file.size > MAX_FILE_SIZE) {
+      if (file.size > maxBytes) {
         continue; // Skip oversized files
       }
 
       const ext = path.extname(file.name).toLowerCase();
-      if (!ALLOWED_EXTENSIONS.has(ext)) {
+      if (!allowedExtensions.has(ext)) {
         continue; // Skip disallowed extensions
       }
 

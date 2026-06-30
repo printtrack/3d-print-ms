@@ -14,22 +14,27 @@ import { CONTENT } from "@/app/content";
 import { useTranslations } from "next-intl";
 import { OrderTypeField, type OrderType } from "@/components/customer/OrderTypeField";
 import { SourceLinksField, type SourceLink } from "@/components/customer/SourceLinksField";
+import { SUPPORTED_FORMATS, DEFAULT_MAX_FILE_MB, type OrderFormConfig } from "@/lib/order-form-config";
 
-const ACCEPTED_TYPES = [
-  "image/jpeg",
-  "image/png",
-  "image/gif",
-  "image/webp",
-  "model/stl",
-  "application/octet-stream",
-  ".stl",
-  ".obj",
-  ".3mf",
-];
+const DEFAULT_CONFIG: OrderFormConfig = {
+  deadlineVisible: true,
+  deadlineRequired: false,
+  orderTypeVisible: true,
+  acceptedFormats: [...SUPPORTED_FORMATS],
+  maxFileMb: DEFAULT_MAX_FILE_MB,
+  maxFiles: 0,
+  consentRequired: false,
+  introText: "",
+  consentText: "",
+};
 
-const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
-
-export function OrderForm({ accessCodeEnabled = false }: { accessCodeEnabled?: boolean }) {
+export function OrderForm({
+  accessCodeEnabled = false,
+  config = DEFAULT_CONFIG,
+}: {
+  accessCodeEnabled?: boolean;
+  config?: OrderFormConfig;
+}) {
   const router = useRouter();
   const t = useTranslations("order_form");
   const tc = useTranslations("common");
@@ -37,6 +42,7 @@ export function OrderForm({ accessCodeEnabled = false }: { accessCodeEnabled?: b
   const [files, setFiles] = useState<File[]>([]);
   const [orderType, setOrderType] = useState<OrderType>("PRINT_ONLY");
   const [sourceLinks, setSourceLinks] = useState<SourceLink[]>([]);
+  const [consent, setConsent] = useState(false);
   const [formData, setFormData] = useState({
     customerName: "",
     customerEmail: "",
@@ -48,14 +54,27 @@ export function OrderForm({ accessCodeEnabled = false }: { accessCodeEnabled?: b
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const selected = Array.from(e.target.files ?? []);
+    const maxBytes = config.maxFileMb * 1024 * 1024;
     const valid = selected.filter((f) => {
-      if (f.size > MAX_FILE_SIZE) {
+      if (f.size > maxBytes) {
         toast.error(tc("file_too_large", { name: f.name }));
+        return false;
+      }
+      const ext = `.${f.name.split(".").pop()?.toLowerCase() ?? ""}`;
+      if (!config.acceptedFormats.includes(ext)) {
+        toast.error(t("file_type_not_allowed", { name: f.name }));
         return false;
       }
       return true;
     });
-    setFiles((prev) => [...prev, ...valid]);
+    setFiles((prev) => {
+      const combined = [...prev, ...valid];
+      if (config.maxFiles > 0 && combined.length > config.maxFiles) {
+        toast.error(t("max_files_error", { count: config.maxFiles }));
+        return combined.slice(0, config.maxFiles);
+      }
+      return combined;
+    });
     e.target.value = "";
   }
 
@@ -73,6 +92,16 @@ export function OrderForm({ accessCodeEnabled = false }: { accessCodeEnabled?: b
       toast.error(t("required_fields_error"));
       return;
     }
+    if (config.deadlineVisible && config.deadlineRequired && !formData.deadline) {
+      toast.error(t("deadline_required_error"));
+      return;
+    }
+    if (config.consentRequired && !consent) {
+      toast.error(t("consent_required_error"));
+      return;
+    }
+
+    const effectiveOrderType: OrderType = config.orderTypeVisible ? orderType : "PRINT_ONLY";
 
     setLoading(true);
 
@@ -86,13 +115,14 @@ export function OrderForm({ accessCodeEnabled = false }: { accessCodeEnabled?: b
           customerEmail: formData.customerEmail,
           description: formData.description,
           deadline: formData.deadline ? new Date(formData.deadline).toISOString() : null,
-          orderType,
+          orderType: effectiveOrderType,
           sourceLinks:
-            orderType === "PRINT_ONLY"
+            effectiveOrderType === "PRINT_ONLY"
               ? sourceLinks
                   .filter((l) => l.url.trim().length > 0)
                   .map((l) => ({ url: l.url.trim(), label: l.label.trim() || undefined }))
               : [],
+          consentAccepted: consent,
           ...(accessCodeEnabled ? { accessCode: formData.accessCode } : {}),
         }),
       });
@@ -210,6 +240,11 @@ export function OrderForm({ accessCodeEnabled = false }: { accessCodeEnabled?: b
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">
+          {config.introText && (
+            <p className="text-sm text-muted-foreground whitespace-pre-line rounded-md bg-muted/50 p-3">
+              {config.introText}
+            </p>
+          )}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="customerName">{t("name_label")}</Label>
@@ -234,9 +269,11 @@ export function OrderForm({ accessCodeEnabled = false }: { accessCodeEnabled?: b
             </div>
           </div>
 
-          <OrderTypeField value={orderType} onChange={setOrderType} />
+          {config.orderTypeVisible && (
+            <OrderTypeField value={orderType} onChange={setOrderType} />
+          )}
 
-          {orderType === "PRINT_ONLY" && (
+          {config.orderTypeVisible && orderType === "PRINT_ONLY" && (
             <SourceLinksField value={sourceLinks} onChange={setSourceLinks} />
           )}
 
@@ -256,16 +293,21 @@ export function OrderForm({ accessCodeEnabled = false }: { accessCodeEnabled?: b
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="deadline">{t("deadline_label")}</Label>
-            <Input
-              id="deadline"
-              type="date"
-              min={new Date().toISOString().split("T")[0]}
-              value={formData.deadline}
-              onChange={(e) => setFormData((p) => ({ ...p, deadline: e.target.value }))}
-            />
-          </div>
+          {config.deadlineVisible && (
+            <div className="space-y-2">
+              <Label htmlFor="deadline">
+                {t("deadline_label")}{config.deadlineRequired ? " *" : ""}
+              </Label>
+              <Input
+                id="deadline"
+                type="date"
+                min={new Date().toISOString().split("T")[0]}
+                value={formData.deadline}
+                onChange={(e) => setFormData((p) => ({ ...p, deadline: e.target.value }))}
+                required={config.deadlineRequired}
+              />
+            </div>
+          )}
 
           {accessCodeEnabled && (
             <div className="space-y-2">
@@ -290,9 +332,12 @@ export function OrderForm({ accessCodeEnabled = false }: { accessCodeEnabled?: b
             <div className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary/50 transition-colors">
               <Upload className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
               <p className="text-sm text-muted-foreground mb-2">
-                {tc("file_types_3d")}
+                {config.acceptedFormats.map((f) => f.replace(".", "").toUpperCase()).join(", ")}
               </p>
-              <p className="text-xs text-muted-foreground mb-3">{tc("max_file_size")}</p>
+              <p className="text-xs text-muted-foreground mb-3">
+                {t("max_size_hint", { mb: config.maxFileMb })}
+                {config.maxFiles > 0 ? ` · ${t("max_files_hint", { count: config.maxFiles })}` : ""}
+              </p>
               <label htmlFor="file-upload">
                 <Button type="button" variant="outline" size="sm" asChild>
                   <span className="cursor-pointer">{tc("select_files")}</span>
@@ -302,7 +347,7 @@ export function OrderForm({ accessCodeEnabled = false }: { accessCodeEnabled?: b
                 id="file-upload"
                 type="file"
                 multiple
-                accept=".jpg,.jpeg,.png,.gif,.webp,.stl,.obj,.3mf"
+                accept={config.acceptedFormats.join(",")}
                 className="hidden"
                 onChange={handleFileChange}
               />
@@ -335,6 +380,19 @@ export function OrderForm({ accessCodeEnabled = false }: { accessCodeEnabled?: b
               </ul>
             )}
           </div>
+
+          {config.consentRequired && (
+            <label className="flex items-start gap-2 text-sm text-muted-foreground">
+              <input
+                type="checkbox"
+                className="mt-0.5 h-4 w-4 shrink-0"
+                checked={consent}
+                onChange={(e) => setConsent(e.target.checked)}
+                aria-label={t("consent_aria")}
+              />
+              <span>{config.consentText || t("consent_default")}</span>
+            </label>
+          )}
 
           <Button type="submit" className="w-full" disabled={loading}>
             {loading ? tc("submitting") : tc("submit")}
