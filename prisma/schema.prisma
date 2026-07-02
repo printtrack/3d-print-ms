@@ -123,6 +123,7 @@ model User {
   jobAssignees     PrintJobAssignee[]
   fileNotes        OrderFileNote[]
   projectComments  ProjectComment[]
+  calendarEvents   CalendarEvent[]
 }
 
 model ProjectPhase {
@@ -751,6 +752,38 @@ model Setting {
   key       String   @id
   value     String   @db.Text
   updatedAt DateTime @updatedAt
+}
+
+// Allgemeiner Termin ohne Auftragsbezug (z. B. Wartung, Messe, Urlaub).
+model CalendarEvent {
+  id          String   @id @default(cuid())
+  title       String
+  note        String?  @db.Text
+  startAt     DateTime
+  endAt       DateTime
+  allDay      Boolean  @default(true)
+  color       String   @default("#64748b")
+  ownerId     String?
+  owner       User?    @relation(fields: [ownerId], references: [id], onDelete: SetNull)
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([ownerId])
+  @@index([startAt])
+}
+
+// Abonnierter Web-Kalender (iCal/ICS, z. B. Ferienkalender). Shop-weit.
+model CalendarSubscription {
+  id            String    @id @default(cuid())
+  name          String
+  url           String    @db.Text
+  color         String    @default("#0ea5e9")
+  isActive      Boolean   @default(true)
+  lastFetchedAt DateTime?
+  lastError     String?   @db.Text
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 }
 
 model PasswordResetToken {

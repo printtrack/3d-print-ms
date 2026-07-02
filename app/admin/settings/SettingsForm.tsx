@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, Building2, Scale, Mail, MessageSquare, Layers, LayoutList, FolderKanban, Files, Users, Printer, FileText, Upload, History, ToggleRight, Palette, ClipboardList } from "lucide-react";
+import { Plus, Trash2, Building2, Scale, Mail, MessageSquare, Layers, LayoutList, FolderKanban, Files, Users, Printer, FileText, Upload, History, ToggleRight, Palette, ClipboardList, CalendarRange } from "lucide-react";
 import { TIMELINE_EVENTS, TIMELINE_GROUP_ORDER, settingKey, MASTER_SETTING_KEY, isEventVisible, type TimelineGroup } from "@/lib/tracking-timeline";
 import { FEATURES, type FeatureKey } from "@/lib/features";
 import { SUPPORTED_FORMATS } from "@/lib/order-form-config";
@@ -18,6 +18,7 @@ import Image from "next/image";
 import { PhaseManager } from "@/components/admin/PhaseManager";
 import { TeamManager } from "@/components/admin/TeamManager";
 import { MachineManager } from "@/components/admin/MachineManager";
+import { CalendarSubscriptionManager, type CalendarSubscription } from "@/components/admin/CalendarSubscriptionManager";
 import { PartPhaseManager } from "@/components/admin/PartPhaseManager";
 import { ProjectPhaseManagerInline } from "@/components/admin/ProjectPhaseManagerInline";
 import type { ProjectPhaseData } from "@/components/admin/ProjectPhaseManager";
@@ -79,6 +80,7 @@ interface SettingsFormProps {
   initialPartPhases: PartPhase[];
   initialProjectPhases: ProjectPhaseData[];
   initialProjectFilePhases: ProjectFilePhaseData[];
+  initialSubscriptions: CalendarSubscription[];
 }
 
 function parseSurveyQuestions(raw: string | undefined): string[] {
@@ -126,6 +128,7 @@ const NAV_GROUPS = [
     items: [
       { key: "team", label: "Team", icon: Users },
       { key: "maschinen", label: "Maschinen", icon: Printer },
+      { key: "webkalender", label: "Web-Kalender", icon: CalendarRange },
     ],
   },
 ];
@@ -185,6 +188,7 @@ export function SettingsForm({
   initialPartPhases,
   initialProjectPhases,
   initialProjectFilePhases,
+  initialSubscriptions,
 }: SettingsFormProps) {
   const [settings, setSettings] = useState<Record<string, string>>(initialSettings);
   const [surveyQuestions, setSurveyQuestions] = useState<string[]>(
@@ -1097,6 +1101,11 @@ export function SettingsForm({
         {/* Maschinen */}
         {activeSection === "maschinen" && (
           <MachineManager initialMachines={initialMachines} />
+        )}
+
+        {/* Web-Kalender */}
+        {activeSection === "webkalender" && (
+          <CalendarSubscriptionManager initialSubscriptions={initialSubscriptions} />
         )}
 
 

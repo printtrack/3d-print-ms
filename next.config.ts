@@ -7,6 +7,9 @@ const nextConfig: NextConfig = {
   devIndicators: false,
   output: 'standalone',
   distDir: process.env.NEXT_DIST_DIR ?? '.next',
+  // node-ical (and its rrule/ical.js deps) must run as a real Node module, not be
+  // bundled by Turbopack — bundling breaks its BigInt usage ("e.BigInt is not a function").
+  serverExternalPackages: ["node-ical"],
   async headers() {
     return [
       {

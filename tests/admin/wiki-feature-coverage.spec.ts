@@ -48,6 +48,9 @@ const FEATURE_CHECKS: FeatureCheck[] = [
   { feature: "Feature modules", de: ["Funktionsumfang"], en: ["feature scope"] },
   { feature: "Branding", de: ["Akzentfarbe", "eigenes Logo"], en: ["accent color", "own logo"] },
   { feature: "Order form config", de: ["Auftragsformular anpassen"], en: ["configure the order form"] },
+  { feature: "Planning views", de: ["Auslastung", "Agenda"], en: ["Workload", "Agenda"] },
+  { feature: "Planning general appointments", de: ["Termin anlegen", "ohne Auftragsbezug"], en: ["New appointment", "not tied to an order"] },
+  { feature: "Planning web calendars", de: ["Web-Kalender", "iCal/ICS"], en: ["web calendar", "iCal/ICS"] },
 ];
 
 function readWikiText(locale: "de" | "en"): string {

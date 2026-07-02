@@ -28,6 +28,7 @@ export async function resetDb() {
     "ProjectComment", "ProjectFile", "ProjectAuditLog", "ProjectAssignee", "Project", "ProjectFilePhase", "ProjectPhase",
     "KnowledgeEntry", "KnowledgeFile",
     "Session", "Account", "PasswordResetToken",
+    "CalendarEvent", "CalendarSubscription",
     "CustomerEmailVerificationToken", "OrderPartIteration", "CustomerCredit", "Customer", "User", "VerificationToken",
   ]) {
     await prismaTest.$executeRawUnsafe(`TRUNCATE TABLE \`${table}\``);
@@ -296,6 +297,53 @@ export async function createTestOrder(
       estimatedCompletionAt: overrides.estimatedCompletionAt,
       projectId: overrides.projectId,
       customerId: overrides.customerId,
+    },
+  });
+}
+
+export async function createTestCalendarEvent(
+  overrides: Partial<{
+    title: string;
+    note: string | null;
+    startAt: Date;
+    endAt: Date;
+    allDay: boolean;
+    color: string;
+    ownerId: string | null;
+  }> = {}
+) {
+  const start = overrides.startAt ?? new Date();
+  return prismaTest.calendarEvent.create({
+    data: {
+      title: overrides.title ?? "Test Termin",
+      note: overrides.note ?? null,
+      startAt: start,
+      endAt: overrides.endAt ?? start,
+      allDay: overrides.allDay ?? true,
+      color: overrides.color ?? "#64748b",
+      ownerId: overrides.ownerId ?? null,
+    },
+  });
+}
+
+export async function createTestCalendarSubscription(
+  overrides: Partial<{
+    name: string;
+    url: string;
+    color: string;
+    isActive: boolean;
+    lastFetchedAt: Date | null;
+    lastError: string | null;
+  }> = {}
+) {
+  return prismaTest.calendarSubscription.create({
+    data: {
+      name: overrides.name ?? "Test Kalender",
+      url: overrides.url ?? "https://example.com/cal.ics",
+      color: overrides.color ?? "#0ea5e9",
+      isActive: overrides.isActive ?? true,
+      lastFetchedAt: overrides.lastFetchedAt ?? null,
+      lastError: overrides.lastError ?? null,
     },
   });
 }

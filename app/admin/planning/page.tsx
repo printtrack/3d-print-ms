@@ -4,6 +4,10 @@ import { prisma } from "@/lib/db";
 import { getEnabledFeatures } from "@/lib/features";
 import { PlanningView } from "@/components/admin/PlanningView";
 import type { PlanningOrder, PlanningUser } from "@/components/admin/PlanningView";
+import type { PlanningCalendarEvent } from "@/lib/planning-entries";
+import { fetchSubscriptionEvents } from "@/lib/web-calendar";
+
+export const dynamic = "force-dynamic";
 
 export default async function PlanningPage() {
   const session = await auth();
@@ -11,7 +15,7 @@ export default async function PlanningPage() {
 
   if (!(await getEnabledFeatures()).planning) redirect("/admin");
 
-  const [rawOrders, rawUsers] = await Promise.all([
+  const [rawOrders, rawUsers, rawEvents, subscriptions] = await Promise.all([
     prisma.order.findMany({
       where: { archivedAt: null },
       include: {
@@ -53,7 +57,22 @@ export default async function PlanningPage() {
       select: { id: true, name: true, email: true, role: true },
       orderBy: { name: "asc" },
     }),
+    prisma.calendarEvent.findMany({
+      orderBy: { startAt: "asc" },
+      include: { owner: { select: { id: true, name: true } } },
+    }),
+    prisma.calendarSubscription.findMany({ orderBy: { createdAt: "asc" } }),
   ]);
+
+  // Resolve subscribed web-calendar feeds within a generous planning window.
+  const now = new Date();
+  const rangeStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 45);
+  const rangeEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 120);
+  const feedEvents = await fetchSubscriptionEvents(
+    subscriptions.map((s) => ({ id: s.id, name: s.name, url: s.url, color: s.color, isActive: s.isActive })),
+    rangeStart,
+    rangeEnd
+  );
 
   const orders: PlanningOrder[] = rawOrders.map((o) => ({
     id: o.id,
@@ -109,5 +128,23 @@ export default async function PlanningPage() {
     role: u.role,
   }));
 
-  return <PlanningView initialOrders={orders} users={users} />;
+  const events: PlanningCalendarEvent[] = rawEvents.map((e) => ({
+    id: e.id,
+    title: e.title,
+    note: e.note,
+    startAt: e.startAt.toISOString(),
+    endAt: e.endAt.toISOString(),
+    allDay: e.allDay,
+    color: e.color,
+    owner: e.owner ? { id: e.owner.id, name: e.owner.name } : null,
+  }));
+
+  return (
+    <PlanningView
+      initialOrders={orders}
+      users={users}
+      initialEvents={events}
+      feedEvents={feedEvents}
+    />
+  );
 }

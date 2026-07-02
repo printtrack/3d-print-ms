@@ -19,7 +19,7 @@ export default async function SettingsPage({
 
   const [{ tab }, t] = await Promise.all([searchParams, getTranslations("admin")]);
 
-  const [settings, phases, members, machines, partPhases, projectPhases, projectFilePhases] = await Promise.all([
+  const [settings, phases, members, machines, partPhases, projectPhases, projectFilePhases, subscriptions] = await Promise.all([
     getSettings(),
     prisma.orderPhase.findMany({
       orderBy: { position: "asc" },
@@ -52,6 +52,7 @@ export default async function SettingsPage({
       orderBy: { position: "asc" },
       include: { _count: { select: { files: true } } },
     }),
+    prisma.calendarSubscription.findMany({ orderBy: { createdAt: "asc" } }),
   ]);
 
   const serializedMembers = members.map((m) => ({
@@ -64,6 +65,16 @@ export default async function SettingsPage({
     hourlyRate: m.hourlyRate ? Number(m.hourlyRate) : null,
     createdAt: m.createdAt.toISOString(),
     updatedAt: m.updatedAt.toISOString(),
+  }));
+
+  const serializedSubscriptions = subscriptions.map((s) => ({
+    id: s.id,
+    name: s.name,
+    url: s.url,
+    color: s.color,
+    isActive: s.isActive,
+    lastFetchedAt: s.lastFetchedAt ? s.lastFetchedAt.toISOString() : null,
+    lastError: s.lastError,
   }));
 
   return (
@@ -84,6 +95,7 @@ export default async function SettingsPage({
         initialPartPhases={partPhases}
         initialProjectPhases={projectPhases}
         initialProjectFilePhases={projectFilePhases}
+        initialSubscriptions={serializedSubscriptions}
       />
     </div>
   );
