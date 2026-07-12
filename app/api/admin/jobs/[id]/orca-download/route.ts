@@ -8,6 +8,7 @@ import { parseStl } from "@/lib/stl-parser";
 import { buildThreeMF } from "@/lib/threemf-builder";
 import type { ThreeMFObject, ThreeMFMetadata } from "@/lib/threemf-builder";
 import { buildLabelMesh } from "@/lib/label-mesh";
+import { resolveFilamentForPart } from "@/lib/filament-resolve";
 
 export async function GET(
   _req: NextRequest,
@@ -38,9 +39,11 @@ export async function GET(
                 orderBy: { createdAt: "desc" },
                 take: 1,
               },
-              filament: {
-                select: { id: true, name: true, material: true, color: true, colorHex: true, brand: true },
-              },
+              material: true,
+              materialAny: true,
+              color: true,
+              colorAny: true,
+              variantGroupId: true,
             },
           },
         },
@@ -55,7 +58,18 @@ export async function GET(
 
   for (const jp of job.parts) {
     const part = jp.orderPart;
-    const latestStl = part.files[0];
+    // Own STL, or the shared design of the part's color-variant group.
+    let latestStl: (typeof part.files)[number] | undefined = part.files[0];
+    if (!latestStl && part.variantGroupId) {
+      latestStl = await prisma.orderFile.findFirst({
+        where: {
+          orderId: part.orderId,
+          originalName: { contains: ".stl" },
+          orderPart: { variantGroupId: part.variantGroupId },
+        },
+        orderBy: { createdAt: "desc" },
+      }) ?? undefined;
+    }
     if (!latestStl) continue;
 
     const filePath = path.join(getUploadDir(), part.orderId, latestStl.filename);
@@ -90,13 +104,17 @@ export async function GET(
     quantity: 1,
   });
 
-  // Collect unique filaments from parts
+  // Collect unique filaments from parts by resolving each part's material+color
+  // requirement to a concrete spool.
+  const inventory = await prisma.filament.findMany({
+    select: { id: true, name: true, material: true, color: true, colorHex: true, brand: true, isActive: true, remainingGrams: true },
+  });
   const filamentMap = new Map<
     string,
     { material: string; color: string; colorHex: string | null; brand: string | null; name: string }
   >();
   for (const jp of job.parts) {
-    const f = jp.orderPart.filament;
+    const f = resolveFilamentForPart(jp.orderPart, inventory);
     if (f) {
       filamentMap.set(f.id, {
         material: f.material,

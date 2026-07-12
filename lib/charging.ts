@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { getSetting } from "@/lib/settings";
+import { resolveFilamentForPart } from "@/lib/filament-resolve";
 
 export interface IterationInput {
   orderPartId: string;
@@ -26,14 +27,22 @@ export async function computeCharges(
 
   const partIds = [...new Set(iterations.map((i) => i.orderPartId))];
 
-  const parts = await prisma.orderPart.findMany({
-    where: { id: { in: partIds } },
-    select: {
-      id: true,
-      filament: { select: { pricePerKg: true } },
-      order: { select: { isPrototype: true } },
-    },
-  });
+  const [parts, filaments] = await Promise.all([
+    prisma.orderPart.findMany({
+      where: { id: { in: partIds } },
+      select: {
+        id: true,
+        material: true,
+        materialAny: true,
+        color: true,
+        colorAny: true,
+        order: { select: { isPrototype: true } },
+      },
+    }),
+    prisma.filament.findMany({
+      select: { material: true, color: true, isActive: true, remainingGrams: true, pricePerKg: true },
+    }),
+  ]);
 
   const partMap = new Map(parts.map((p) => [p.id, p]));
 
@@ -44,8 +53,10 @@ export async function computeCharges(
 
   return iterations.map((iter) => {
     const part = partMap.get(iter.orderPartId);
+    // Resolve the concrete spool (material+color) for its price.
+    const resolved = part ? resolveFilamentForPart(part, filaments) : null;
 
-    if (!part?.filament?.pricePerKg) {
+    if (!resolved?.pricePerKg) {
       return { ...iter, costCents: null, reason: "no_price" };
     }
 
@@ -53,12 +64,12 @@ export async function computeCharges(
       return { ...iter, costCents: null, reason: "misprint_skipped" };
     }
 
-    if (part.order.isPrototype && chargePrototypes !== "true") {
+    if (part!.order.isPrototype && chargePrototypes !== "true") {
       return { ...iter, costCents: null, reason: "prototype_skipped" };
     }
 
     const costCents = Math.round(
-      (iter.gramsActual / 1000) * Number(part.filament.pricePerKg) * 100
+      (iter.gramsActual / 1000) * Number(resolved.pricePerKg) * 100
     );
     return { ...iter, costCents, reason: "charged" };
   });

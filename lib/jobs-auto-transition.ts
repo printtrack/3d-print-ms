@@ -1,16 +1,21 @@
 import { prisma } from "@/lib/db";
+import { currentlyDownMachineIds } from "@/lib/machine-downtime";
 
 export async function runJobAutoTransition(): Promise<{ started: string[]; completed: string[] }> {
   const now = new Date();
 
   // 1. PLANNED/SLICED → IN_PROGRESS: plannedAt has passed
-  const toStart = await prisma.printJob.findMany({
-    where: {
-      status: { in: ["PLANNED", "SLICED"] },
-      plannedAt: { lte: now, not: null },
-    },
-    include: { parts: { include: { orderPart: true } }, machine: { select: { name: true } } },
-  });
+  const downMachineIds = await currentlyDownMachineIds(now);
+  const toStart = (
+    await prisma.printJob.findMany({
+      where: {
+        status: { in: ["PLANNED", "SLICED"] },
+        plannedAt: { lte: now, not: null },
+      },
+      include: { parts: { include: { orderPart: true } }, machine: { select: { name: true } } },
+    })
+    // Don't auto-start jobs on a machine that is currently down — it can't print.
+  ).filter((job) => !downMachineIds.has(job.machineId));
 
   for (const job of toStart) {
     await prisma.printJob.update({

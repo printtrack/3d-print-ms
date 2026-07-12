@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { poolKey } from "@/lib/filament-resolve";
 
 // Aktive Job-Status: alle, deren Filament noch nicht verbraucht ist.
 // Bei DONE wurde es beim Verify schon vom remainingGrams abgezogen;
@@ -6,28 +7,27 @@ import { prisma } from "@/lib/db";
 const ACTIVE_JOB_STATUSES = ["PLANNED", "SLICED", "IN_PROGRESS", "AWAITING_VERIFICATION"] as const;
 
 /**
- * Summiert die eingeplante Filament-Menge aller aktiven Druckjobs pro filamentId.
+ * Reservierung pro (material|color)-**Pool**. Ein Teil pinnt keine konkrete Spule
+ * mehr, sondern eine Material+Farbe-Anforderung — mehrere Spulen desselben Pools
+ * teilen sich den Bestand.
  *
  * Vorrang-Logik pro Job:
- * - Wenn `filamentUsages` Records existieren (= G-Code wurde hochgeladen und
- *   extrahiert), nutze deren Werte. `PrintJobFilament.gramsActual` ist hier
- *   irreführend benannt: nach G-Code-Upload steht da die geplante Menge aus
- *   dem G-Code, NICHT der tatsächliche Verbrauch (der wird beim Verify aus
- *   `OrderPartIteration.gramsActual` direkt am `Filament.remainingGrams`
- *   abgezogen, ohne PrintJobFilament zu mutieren).
- * - Sonst: summiere `OrderPart.gramsEstimated * quantity` pro filamentId der
- *   Job-Parts. Parts ohne filamentId oder ohne Estimate werden ignoriert.
+ * - Wenn `filamentUsages` existieren (G-Code hochgeladen): deren `gramsActual`
+ *   dem Pool der jeweiligen Spule (`material|color`) zuordnen.
+ * - Sonst: `OrderPart.gramsEstimated * quantity` je Pool der Job-Parts summieren.
+ *   Teile ohne konkretes Material+Farbe (unset/"egal") sind keinem Pool
+ *   zuzuordnen und werden übersprungen.
  */
-export async function getReservedGramsByFilament(): Promise<Map<string, number>> {
+export async function getReservedGramsByPool(): Promise<Map<string, number>> {
   const activeJobs = await prisma.printJob.findMany({
     where: { status: { in: [...ACTIVE_JOB_STATUSES] } },
     select: {
       id: true,
-      filamentUsages: { select: { filamentId: true, gramsActual: true } },
+      filamentUsages: { select: { gramsActual: true, filament: { select: { material: true, color: true } } } },
       parts: {
         select: {
           orderPart: {
-            select: { filamentId: true, gramsEstimated: true, quantity: true },
+            select: { material: true, materialAny: true, color: true, colorAny: true, gramsEstimated: true, quantity: true },
           },
         },
       },
@@ -35,44 +35,72 @@ export async function getReservedGramsByFilament(): Promise<Map<string, number>>
   });
 
   const reserved = new Map<string, number>();
-  const add = (filamentId: string, grams: number) => {
-    reserved.set(filamentId, (reserved.get(filamentId) ?? 0) + grams);
+  const add = (key: string, grams: number) => {
+    reserved.set(key, (reserved.get(key) ?? 0) + grams);
   };
 
   for (const job of activeJobs) {
     if (job.filamentUsages.length > 0) {
-      for (const u of job.filamentUsages) add(u.filamentId, u.gramsActual);
+      for (const u of job.filamentUsages) add(poolKey(u.filament.material, u.filament.color), u.gramsActual);
       continue;
     }
     for (const p of job.parts) {
       const op = p.orderPart;
-      if (!op.filamentId || op.gramsEstimated == null) continue;
-      add(op.filamentId, op.gramsEstimated * op.quantity);
+      if (!op.material || op.materialAny || !op.color || op.colorAny || op.gramsEstimated == null) continue;
+      add(poolKey(op.material, op.color), op.gramsEstimated * op.quantity);
     }
   }
 
   return reserved;
 }
 
-export interface FilamentAvailability {
+export interface PoolAvailability {
   remaining: number;
   reserved: number;
   available: number;
 }
 
 /**
- * Liefert pro Filament Bestand, Reservierung und Verfügbarkeit (kann negativ sein).
+ * Pro (material|color)-Pool: Gesamtbestand (Summe aller Spulen dieses Pools),
+ * Reservierung und Verfügbarkeit (kann negativ sein).
  */
-export async function getFilamentAvailability(): Promise<Map<string, FilamentAvailability>> {
+export async function getPoolAvailability(): Promise<Map<string, PoolAvailability>> {
   const [filaments, reserved] = await Promise.all([
-    prisma.filament.findMany({ select: { id: true, remainingGrams: true } }),
-    getReservedGramsByFilament(),
+    prisma.filament.findMany({ select: { material: true, color: true, remainingGrams: true } }),
+    getReservedGramsByPool(),
   ]);
 
-  const out = new Map<string, FilamentAvailability>();
+  const remainingByPool = new Map<string, number>();
   for (const f of filaments) {
-    const r = reserved.get(f.id) ?? 0;
-    out.set(f.id, { remaining: f.remainingGrams, reserved: r, available: f.remainingGrams - r });
+    const key = poolKey(f.material, f.color);
+    remainingByPool.set(key, (remainingByPool.get(key) ?? 0) + f.remainingGrams);
+  }
+
+  const out = new Map<string, PoolAvailability>();
+  const keys = new Set([...remainingByPool.keys(), ...reserved.keys()]);
+  for (const key of keys) {
+    const remaining = remainingByPool.get(key) ?? 0;
+    const r = reserved.get(key) ?? 0;
+    out.set(key, { remaining, reserved: r, available: remaining - r });
+  }
+  return out;
+}
+
+/**
+ * Wie viele Teile verlangen jeden (material|color)-Pool — für die
+ * Bestands-/Nutzungsanzeige im Inventar (ersetzt den früheren
+ * `_count.orderParts` pro Spule).
+ */
+export async function getPartCountByPool(): Promise<Map<string, number>> {
+  const grouped = await prisma.orderPart.groupBy({
+    by: ["material", "color"],
+    where: { material: { not: null }, color: { not: null } },
+    _count: { _all: true },
+  });
+  const out = new Map<string, number>();
+  for (const g of grouped) {
+    if (!g.material || !g.color) continue;
+    out.set(poolKey(g.material, g.color), (out.get(poolKey(g.material, g.color)) ?? 0) + g._count._all);
   }
   return out;
 }

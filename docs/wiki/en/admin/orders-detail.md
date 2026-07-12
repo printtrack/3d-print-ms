@@ -59,6 +59,25 @@ Complex orders consist of multiple individual parts. The **Parts** section lets 
 - **Part files** — STL/3MF files can be assigned directly to a specific part
 - **Assignees per part** — a specific part can be assigned to an individual team member
 
+### Choosing material & color
+
+On each part, **material and color are selected separately** via two badge dropdowns in the part row — no longer a single filament spool.
+
+- **Material badge** — pick e.g. `PLA`, `PETG`. The list shows stock and the number of colors available per material.
+- **Color badge** — enabled once a material is chosen; shows available colors with a swatch and pool stock.
+- **"Any"** — either axis can be left open on purpose: **color any** (any color of the material is fine) or **material any** (any material of the color is fine). This gives [[Planning|planning]] room to combine parts and use the printer better.
+- **Stock hint** — with a concrete material + color, the chip shows whether stock covers the estimated weight.
+
+The chosen color also drives the **colored 3D preview**: the model renders in the selected filament color in the viewer (admin **and** customer).
+
+### Color variants — duplicate a part
+
+For an object in several colors (e.g. a keychain), create **one part per color**. A part's `⋯` menu offers **Duplicate (different color)**: it creates a new part with the name, quantity and material, and only resets the color so you can pick a new one. Each color then gets its own phase, planning and colored preview.
+
+**Shared design:** duplicated variants share **the same design** (a variant group, marked with a `Variant` chip). When you upload a new STL, it automatically updates **all** variants in the group — no need to re-upload it everywhere.
+
+**Detach:** if a variant should have a different design, choose **Detach design** in the `⋯` menu. The part gets its own copy of the current design and leaves the group; future design changes to the other variants no longer affect it.
+
 ## Files
 
 ### Customer files

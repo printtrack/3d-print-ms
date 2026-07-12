@@ -174,21 +174,24 @@ export function JobQueueBoard({ machines, initialJobs, onJobCreated, onJobUpdate
       ...updated,
     ]);
 
-    // Persist: machine change + positions
+    // Persist: machine change first (may be rejected, e.g. incompatible printer)
     try {
-      const patches: Promise<Response>[] = [];
-
       if (originalJob && originalJob.machineId !== newMachineId) {
-        patches.push(
-          fetch(`/api/admin/jobs/${active.id}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ machineId: newMachineId, queuePosition: movedJob.queuePosition }),
-          })
-        );
+        const res = await fetch(`/api/admin/jobs/${active.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ machineId: newMachineId, queuePosition: movedJob.queuePosition }),
+        });
+        if (!res.ok) {
+          const d = await res.json().catch(() => ({}));
+          toast.error(d.error ?? "Verschieben fehlgeschlagen");
+          setJobs(initialJobs); // revert optimistic move
+          return;
+        }
       }
 
       // Update queue positions for all jobs in the target column
+      const patches: Promise<Response>[] = [];
       for (const j of updated) {
         if (j.id !== active.id || originalJob?.machineId === newMachineId) {
           patches.push(

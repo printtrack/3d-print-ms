@@ -38,10 +38,15 @@ export interface PrintJob {
       id: string;
       orderId: string;
       name: string;
-      filamentId: string | null;
+      material: string | null;
+      materialAny: boolean;
+      color: string | null;
+      colorHex: string | null;
+      colorAny: boolean;
       quantity: number;
       order: { id: string; customerName: string; customerEmail: string; description: string };
-      filament: { id: string; name: string; material: string; color: string; colorHex: string | null } | null;
+      // Resolved spool price for the verify cost preview (null when not resolvable).
+      pricePerKg?: string | null;
     };
   }>;
   filamentUsages: Array<{

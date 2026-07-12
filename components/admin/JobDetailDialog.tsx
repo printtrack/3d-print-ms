@@ -73,9 +73,12 @@ interface OrderSearchResult {
   parts: Array<{
     id: string;
     name: string;
-    filamentId: string | null;
+    material: string | null;
+    materialAny: boolean;
+    color: string | null;
+    colorAny: boolean;
+    colorHex: string | null;
     quantity: number;
-    filament: { id: string; name: string; material: string; color: string; colorHex: string | null } | null;
   }>;
 }
 
@@ -119,13 +122,23 @@ export function JobDetailDialog({
     }
   }, [job]);
 
-  // Unique filaments from parts (for display when no G-code data yet)
+  // Unique material+color requirements from parts (for display when no G-code data yet)
   const partFilaments = useMemo(() => {
     if (!job) return [];
-    const map = new Map<string, PrintJob["parts"][0]["orderPart"]["filament"]>();
+    const map = new Map<string, { id: string; name: string; material: string; colorHex: string | null }>();
     for (const jp of job.parts) {
-      if (jp.orderPart.filament && jp.orderPart.filamentId) {
-        map.set(jp.orderPart.filamentId, jp.orderPart.filament);
+      const op = jp.orderPart;
+      const material = op.materialAny ? "egal" : op.material;
+      const color = op.colorAny ? "egal" : op.color;
+      if (!material && !color) continue;
+      const key = `${material ?? ""}|${color ?? ""}`;
+      if (!map.has(key)) {
+        map.set(key, {
+          id: key,
+          name: [material, color].filter(Boolean).join(" "),
+          material: material ?? "",
+          colorHex: op.colorHex,
+        });
       }
     }
     return [...map.values()];
@@ -152,14 +165,17 @@ export function JobDetailDialog({
           assigneeIds,
         }),
       });
-      if (!res.ok) throw new Error();
+      if (!res.ok) {
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.error ?? "");
+      }
       const { job: updated, warnings } = await res.json();
       onUpdated(updated);
       toast.success("Job aktualisiert");
       for (const w of warnings ?? []) toast.warning(w);
       onOpenChange(false);
-    } catch {
-      toast.error("Fehler beim Speichern");
+    } catch (e) {
+      toast.error((e as Error).message || "Fehler beim Speichern");
     } finally {
       setSaving(false);
     }
@@ -454,10 +470,10 @@ export function JobDetailDialog({
                           disabled={addingPart}
                           onClick={() => handleAddPart(part.id)}
                         >
-                          {part.filament?.colorHex && (
+                          {part.colorHex && (
                             <div
                               className="w-2.5 h-2.5 rounded-full shrink-0"
-                              style={{ backgroundColor: part.filament.colorHex }}
+                              style={{ backgroundColor: part.colorHex }}
                             />
                           )}
                           <span className="flex-1 truncate">{part.name}</span>
@@ -530,11 +546,11 @@ export function JobDetailDialog({
                 })
               ) : (
                 partFilaments.map((filament) => (
-                  <div key={filament!.id} className="flex items-center gap-2 p-2 bg-muted/40 rounded text-sm">
-                    {filament!.colorHex && (
-                      <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: filament!.colorHex }} />
+                  <div key={filament.id} className="flex items-center gap-2 p-2 bg-muted/40 rounded text-sm">
+                    {filament.colorHex && (
+                      <div className="w-3 h-3 rounded-full shrink-0" style={{ backgroundColor: filament.colorHex }} />
                     )}
-                    <p className="font-medium truncate">{filament!.name}</p>
+                    <p className="font-medium truncate">{filament.name}</p>
                   </div>
                 ))
               )}

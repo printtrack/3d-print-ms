@@ -5,11 +5,14 @@ import { z } from "zod";
 import { maybeAutoSendPartDesignVerification } from "@/lib/design-verification";
 import { evaluatePartEnterGate } from "@/lib/phase-conditions";
 import { triggerOrderAutoAdvance, triggerPartAutoAdvance } from "@/lib/phase-auto-advance";
+import { parseAxis, deriveColorHex } from "@/lib/filament-resolve";
 
 const patchSchema = z.object({
   name: z.string().min(1).optional(),
   description: z.string().nullable().optional(),
-  filamentId: z.string().nullable().optional(),
+  // Wire format per axis: concrete name | "ANY" (egal) | null (unset)
+  material: z.string().nullable().optional(),
+  color: z.string().nullable().optional(),
   gramsEstimated: z.number().int().positive().nullable().optional(),
   quantity: z.number().int().min(1).optional(),
   partPhaseId: z.string().nullable().optional(),
@@ -18,7 +21,6 @@ const patchSchema = z.object({
 });
 
 const partInclude = {
-  filament: { select: { id: true, name: true, material: true, color: true, colorHex: true, brand: true } },
   partPhase: { select: { id: true, name: true, color: true, isPrintReady: true, isReview: true, isPrinted: true, isMisprint: true } },
   files: true,
   printJobParts: {
@@ -87,12 +89,30 @@ export async function PATCH(
       }
     }
 
+    // Material / color requirement updates (independent axes, "ANY" = egal).
+    const mat = parseAxis(data.material);
+    const col = parseAxis(data.color);
+    let colorHexUpdate: { colorHex: string | null } | undefined;
+    if (col !== undefined) {
+      if (col.concrete) {
+        const matForHex = mat !== undefined ? mat.concrete : currentPart.material;
+        const filaments = await prisma.filament.findMany({
+          select: { material: true, color: true, colorHex: true },
+        });
+        colorHexUpdate = { colorHex: deriveColorHex(matForHex, col.concrete, filaments) };
+      } else {
+        colorHexUpdate = { colorHex: null };
+      }
+    }
+
     const part = await prisma.orderPart.update({
       where: { id: partId, orderId: id },
       data: {
         ...(data.name !== undefined ? { name: data.name } : {}),
         ...(data.description !== undefined ? { description: data.description } : {}),
-        ...(data.filamentId !== undefined ? { filamentId: data.filamentId } : {}),
+        ...(mat !== undefined ? { material: mat.concrete, materialAny: mat.any } : {}),
+        ...(col !== undefined ? { color: col.concrete, colorAny: col.any } : {}),
+        ...(colorHexUpdate ?? {}),
         ...(data.gramsEstimated !== undefined ? { gramsEstimated: data.gramsEstimated } : {}),
         ...(data.quantity !== undefined ? { quantity: data.quantity } : {}),
         ...(data.partPhaseId !== undefined ? { partPhaseId: data.partPhaseId } : {}),

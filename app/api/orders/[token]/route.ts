@@ -63,6 +63,7 @@ export async function GET(
           select: {
             id: true,
             name: true,
+            colorHex: true,
             files: {
               select: {
                 filename: true,

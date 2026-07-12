@@ -42,11 +42,18 @@ interface Filament {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
-  _count: { orderParts: number };
+  partCount: number;
+  compatibleMachines: { id: string; name: string }[];
+}
+
+interface MachineOption {
+  id: string;
+  name: string;
 }
 
 interface InventoryManagerProps {
   filaments: Filament[];
+  machines: MachineOption[];
   userRole: string;
 }
 
@@ -61,9 +68,10 @@ const emptyForm = {
   pricePerKg: "",
   notes: "",
   isActive: true,
+  compatibleMachineIds: [] as string[],
 };
 
-export function InventoryManager({ filaments: initial, userRole }: InventoryManagerProps) {
+export function InventoryManager({ filaments: initial, machines, userRole }: InventoryManagerProps) {
   const t = useTranslations("admin");
   const tc = useTranslations("common");
   const isAdmin = userRole === "ADMIN";
@@ -102,6 +110,7 @@ export function InventoryManager({ filaments: initial, userRole }: InventoryMana
       pricePerKg: f.pricePerKg ?? "",
       notes: f.notes ?? "",
       isActive: f.isActive,
+      compatibleMachineIds: f.compatibleMachines.map((m) => m.id),
     });
     setDialogOpen(true);
   }
@@ -125,6 +134,7 @@ export function InventoryManager({ filaments: initial, userRole }: InventoryMana
         pricePerKg: priceStr !== "" ? Number(priceStr) : null,
         notes: form.notes.trim() || null,
         isActive: form.isActive,
+        compatibleMachineIds: form.compatibleMachineIds,
       };
 
       let res: Response;
@@ -299,7 +309,7 @@ export function InventoryManager({ filaments: initial, userRole }: InventoryMana
                     : <span className="text-amber-600">{t("inventory_no_price_warning")}</span>
                   }
                 </span>
-                <span>Aufträge: {f._count.orderParts}</span>
+                <span>Teile: {f.partCount}</span>
               </div>
             </div>
           </div>
@@ -382,7 +392,7 @@ export function InventoryManager({ filaments: initial, userRole }: InventoryMana
                     <span className="text-xs text-amber-600">{t("inventory_no_price_warning")}</span>
                   )}
                 </td>
-                <td className="px-4 py-3">{f._count.orderParts}</td>
+                <td className="px-4 py-3">{f.partCount}</td>
                 <td className="px-4 py-3">
                   {f.isActive ? (
                     <Badge variant="default" className="text-xs">Aktiv</Badge>
@@ -526,6 +536,41 @@ export function InventoryManager({ filaments: initial, userRole }: InventoryMana
                 rows={3}
                 placeholder="Optionale Notizen..."
               />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium">{t("inventory_compat_machines")}</label>
+              <p className="text-xs text-muted-foreground">{t("inventory_compat_hint")}</p>
+              {machines.length === 0 ? (
+                <p className="text-xs text-muted-foreground italic">{t("inventory_compat_no_machines")}</p>
+              ) : (
+                <div className="flex flex-wrap gap-2 pt-1">
+                  {machines.map((m) => {
+                    const checked = form.compatibleMachineIds.includes(m.id);
+                    return (
+                      <button
+                        key={m.id}
+                        type="button"
+                        onClick={() =>
+                          setForm((p) => ({
+                            ...p,
+                            compatibleMachineIds: checked
+                              ? p.compatibleMachineIds.filter((id) => id !== m.id)
+                              : [...p.compatibleMachineIds, m.id],
+                          }))
+                        }
+                        className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                          checked
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "border-border text-muted-foreground hover:bg-muted"
+                        }`}
+                      >
+                        {m.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
 
             <label className="flex items-center gap-2 text-sm cursor-pointer">

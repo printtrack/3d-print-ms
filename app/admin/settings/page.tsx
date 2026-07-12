@@ -38,7 +38,10 @@ export default async function SettingsPage({
     }),
     prisma.machine.findMany({
       orderBy: { name: "asc" },
-      include: { _count: { select: { printJobs: true } } },
+      include: {
+        _count: { select: { printJobs: true } },
+        downtimes: { orderBy: { startedAt: "desc" }, take: 50 },
+      },
     }),
     prisma.partPhase.findMany({
       orderBy: { position: "asc" },
@@ -65,6 +68,13 @@ export default async function SettingsPage({
     hourlyRate: m.hourlyRate ? Number(m.hourlyRate) : null,
     createdAt: m.createdAt.toISOString(),
     updatedAt: m.updatedAt.toISOString(),
+    downtimes: m.downtimes.map((d) => ({
+      id: d.id,
+      reason: d.reason,
+      note: d.note,
+      startedAt: d.startedAt.toISOString(),
+      endedAt: d.endedAt ? d.endedAt.toISOString() : null,
+    })),
   }));
 
   const serializedSubscriptions = subscriptions.map((s) => ({

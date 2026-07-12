@@ -29,6 +29,11 @@ enum FileSource {
   TEAM
 }
 
+enum MachineDowntimeReason {
+  MAINTENANCE
+  DEFECT
+}
+
 enum OrderType {
   PRINT_ONLY
   DESIGN
@@ -218,8 +223,9 @@ model Filament {
   isActive         Boolean            @default(true)
   createdAt        DateTime           @default(now())
   updatedAt        DateTime           @updatedAt
-  orderParts        OrderPart[]
   printJobFilaments PrintJobFilament[]
+  // Machines this spool can be printed on. Empty = compatible with all machines.
+  compatibleMachines Machine[]        @relation("FilamentMachineCompat")
 }
 
 model Machine {
@@ -234,6 +240,24 @@ model Machine {
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
   printJobs    PrintJob[]
+  downtimes    MachineDowntime[]
+  // Filament spools that are compatible with this machine. Empty on the filament
+  // side = that spool works everywhere.
+  compatibleFilaments Filament[]      @relation("FilamentMachineCompat")
+}
+
+model MachineDowntime {
+  id        String                @id @default(cuid())
+  machineId String
+  machine   Machine               @relation(fields: [machineId], references: [id], onDelete: Cascade)
+  reason    MachineDowntimeReason
+  note      String?               @db.Text
+  startedAt DateTime              // may lie in the future = planned maintenance
+  endedAt   DateTime?             // null = open / ongoing
+  createdBy String?
+  createdAt DateTime              @default(now())
+
+  @@index([machineId])
 }
 
 model PrintJob {
@@ -294,8 +318,18 @@ model OrderPart {
   orderId        String
   name           String
   description    String?             @db.Text
-  filament       Filament?           @relation(fields: [filamentId], references: [id])
-  filamentId     String?
+  // Filament requirement: material + color are chosen separately. Each axis can be
+  // unset (null + *Any=false), concrete (string), or "egal"/any (null + *Any=true).
+  // colorHex is a snapshot of the chosen color for the 3D preview.
+  material       String?
+  materialAny    Boolean             @default(false)
+  color          String?
+  colorHex       String?
+  colorAny       Boolean             @default(false)
+  // Color variants of the same object share one design via variantGroupId.
+  // The design (DESIGN files) is shared across the group; a part can be
+  // "detached" (variantGroupId set to null) to get its own independent copy.
+  variantGroupId String?
   gramsEstimated   Int?
   gramsActualTotal Int?
   chargedCentsTotal Int?
@@ -317,6 +351,8 @@ model OrderPart {
   assignees             OrderPartAssignee[]
   verificationRequests  VerificationRequest[]
   iterations            OrderPartIteration[]
+
+  @@index([variantGroupId])
 }
 
 model OrderPartIteration {

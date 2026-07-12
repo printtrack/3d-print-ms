@@ -5,7 +5,8 @@ import { OrderDetail } from "@/components/admin/OrderDetail";
 import { runJobAutoTransition } from "@/lib/jobs-auto-transition";
 import { runInvoiceAutoTransition, runPaymentReminders } from "@/lib/invoice-auto-transition";
 import { getEnabledFeatures } from "@/lib/features";
-import { getReservedGramsByFilament } from "@/lib/filament-reservations";
+import { getPoolAvailability } from "@/lib/filament-reservations";
+import { poolKey } from "@/lib/filament-resolve";
 import { TUTORIAL_ORDER_ID, TUTORIAL_ORDER_DETAIL, TUTORIAL_PARTS, TUTORIAL_PHASES, TUTORIAL_PART_PHASES, TUTORIAL_MACHINES, TUTORIAL_FILAMENT } from "@/lib/tutorial/sample-data";
 
 interface PageProps {
@@ -104,9 +105,6 @@ async function getData(id: string) {
     prisma.orderPart.findMany({
       where: { orderId: id },
       include: {
-        filament: {
-          select: { id: true, name: true, material: true, color: true, colorHex: true, brand: true },
-        },
         partPhase: { select: { id: true, name: true, color: true, isPrintReady: true, isReview: true, isPrinted: true, isMisprint: true } },
         files: {
           include: {
@@ -158,14 +156,30 @@ async function getData(id: string) {
     }),
   ]);
 
-  if (!order) return { order: null, phases, teamMembers, parts: [], availableFilaments: [], customerCredit: null, partPhases, activeMachines, milestones: [], sprints: [] };
+  if (!order) return { order: null, phases, teamMembers, parts: [], availableFilaments: { colors: [] }, customerCredit: null, partPhases, activeMachines, milestones: [], sprints: [] };
 
-  // Reservation-aware availability per filament
-  const reservedByFilament = await getReservedGramsByFilament();
-  const availableFilamentsWithStock = availableFilaments.map((f) => {
-    const reserved = reservedByFilament.get(f.id) ?? 0;
-    return { ...f, reservedGrams: reserved, availableGrams: f.remainingGrams - reserved };
-  });
+  // Build the material/color inventory for the part badges: one entry per
+  // (material|color) pool with pool-wide availability.
+  const poolAvail = await getPoolAvailability();
+  const byPool = new Map<string, { material: string; color: string; colorHex: string | null; remainingGrams: number; reservedGrams: number; availableGrams: number }>();
+  for (const f of availableFilaments) {
+    const key = poolKey(f.material, f.color);
+    const pa = poolAvail.get(key);
+    const existing = byPool.get(key);
+    if (!existing) {
+      byPool.set(key, {
+        material: f.material,
+        color: f.color,
+        colorHex: f.colorHex,
+        remainingGrams: pa?.remaining ?? f.remainingGrams,
+        reservedGrams: pa?.reserved ?? 0,
+        availableGrams: pa?.available ?? f.remainingGrams,
+      });
+    } else if (!existing.colorHex && f.colorHex) {
+      existing.colorHex = f.colorHex;
+    }
+  }
+  const filamentInventory = { colors: [...byPool.values()] };
 
   // Look up customer credit by email
   const customerCreditRaw = await prisma.customer.findUnique({
@@ -350,7 +364,7 @@ async function getData(id: string) {
     })),
   }));
 
-  return { order: serialized, phases, teamMembers, parts: serializedParts, availableFilaments: availableFilamentsWithStock, customerCredit, partPhases, activeMachines, buildVolume, milestones: serializedMilestones, sprints: serializedSprints };
+  return { order: serialized, phases, teamMembers, parts: serializedParts, availableFilaments: filamentInventory, customerCredit, partPhases, activeMachines, buildVolume, milestones: serializedMilestones, sprints: serializedSprints };
 }
 
 export default async function OrderDetailPage({ params }: PageProps) {
@@ -369,7 +383,18 @@ export default async function OrderDetailPage({ params }: PageProps) {
         isAdmin={isAdmin}
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         parts={TUTORIAL_PARTS as any}
-        availableFilaments={[{ ...TUTORIAL_FILAMENT, brand: TUTORIAL_FILAMENT.brand ?? null, reservedGrams: 0, availableGrams: TUTORIAL_FILAMENT.remainingGrams }]}
+        availableFilaments={{
+          colors: [
+            {
+              material: TUTORIAL_FILAMENT.material,
+              color: TUTORIAL_FILAMENT.color,
+              colorHex: TUTORIAL_FILAMENT.colorHex,
+              remainingGrams: TUTORIAL_FILAMENT.remainingGrams,
+              reservedGrams: 0,
+              availableGrams: TUTORIAL_FILAMENT.remainingGrams,
+            },
+          ],
+        }}
         customerCredit={null}
         partPhases={TUTORIAL_PART_PHASES}
         machines={TUTORIAL_MACHINES.map((m) => ({ id: m.id, name: m.name }))}

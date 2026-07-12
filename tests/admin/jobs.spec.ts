@@ -667,7 +667,8 @@ const PRUSA_FILAMENT_GCODE = Buffer.from(
   ].join("\n")
 );
 
-test("gcode upload: creates PrintJobFilament record when job has matching filament", async ({ request }) => {
+test("gcode upload: creates PrintJobFilament record when job has matching filament", async ({ seed, request }) => {
+  void seed;
   const machine = await createTestMachine({ name: "Filament-Drucker 1" });
   const filament = await createTestFilament({ material: "PLA", colorHex: "#FF0000", remainingGrams: 200 });
   const phases = await prismaTest.orderPhase.findMany({ where: { isDefault: true } });
@@ -689,7 +690,8 @@ test("gcode upload: creates PrintJobFilament record when job has matching filame
   expect(usages[0].gramsActual).toBe(46); // Math.round(45.67)
 });
 
-test("gcode upload: returns material mismatch warning when G-code material differs from job filament", async ({ request }) => {
+test("gcode upload: returns material mismatch warning when G-code material differs from job filament", async ({ seed, request }) => {
+  void seed;
   const machine = await createTestMachine({ name: "Filament-Drucker 2" });
   const filament = await createTestFilament({ material: "PETG", remainingGrams: 200 }); // PETG in job, PLA in G-code
   const phases = await prismaTest.orderPhase.findMany({ where: { isDefault: true } });
@@ -709,7 +711,8 @@ test("gcode upload: returns material mismatch warning when G-code material diffe
   expect(warnings.some((w: string) => w.toLowerCase().includes("material"))).toBeTruthy();
 });
 
-test("gcode upload: returns insufficient filament warning when spool has too little left", async ({ request }) => {
+test("gcode upload: returns insufficient filament warning when spool has too little left", async ({ seed, request }) => {
+  void seed;
   const machine = await createTestMachine({ name: "Filament-Drucker 3" });
   const filament = await createTestFilament({ material: "PLA", colorHex: "#FF0000", remainingGrams: 10 }); // only 10g, need 46g
   const phases = await prismaTest.orderPhase.findMany({ where: { isDefault: true } });
@@ -729,7 +732,8 @@ test("gcode upload: returns insufficient filament warning when spool has too lit
   expect(warnings.some((w: string) => w.includes("Nicht genug"))).toBeTruthy();
 });
 
-test("gcode upload: does NOT deduct inventory immediately (deduction happens on DONE)", async ({ request }) => {
+test("gcode upload: does NOT deduct inventory immediately (deduction happens on DONE)", async ({ seed, request }) => {
+  void seed;
   const machine = await createTestMachine({ name: "Filament-Drucker 4" });
   const filament = await createTestFilament({ material: "PLA", colorHex: "#FF0000", remainingGrams: 200 });
   const phases = await prismaTest.orderPhase.findMany({ where: { isDefault: true } });
@@ -836,4 +840,33 @@ test("re-assignment allowed after job reaches DONE status", async ({ seed, reque
     data: { orderPartId: part.id },
   });
   expect(res.status()).toBe(201);
+});
+
+test("job cannot be moved to a printer incompatible with its filament", async ({ seed, request }) => {
+  void seed;
+  const machineA = await createTestMachine({ name: "Kompat A" });
+  const machineB = await createTestMachine({ name: "Inkompat B" });
+  const filament = await createTestFilament({
+    material: "TPU", color: "Schwarz", colorHex: "#000000", compatibleMachineIds: [machineA.id],
+  });
+  const phases = await prismaTest.orderPhase.findMany({ where: { isDefault: true } });
+  const order = await createTestOrder(phases[0].id);
+  const part = await createTestOrderPart(order.id, { filamentId: filament.id });
+  const job = await createTestPrintJob(machineA.id, { status: "PLANNED" });
+  await createTestPrintJobPart(job.id, part.id);
+
+  // Move to incompatible printer B → rejected
+  const bad = await request.patch(`/api/admin/jobs/${job.id}`, { data: { machineId: machineB.id } });
+  expect(bad.status()).toBe(422);
+  const afterBad = await prismaTest.printJob.findUnique({ where: { id: job.id } });
+  expect(afterBad?.machineId).toBe(machineA.id);
+
+  // Moving within a compatible printer still works (sanity)
+  const machineC = await createTestMachine({ name: "Kompat C" });
+  await prismaTest.filament.update({
+    where: { id: filament.id },
+    data: { compatibleMachines: { connect: { id: machineC.id } } },
+  });
+  const ok = await request.patch(`/api/admin/jobs/${job.id}`, { data: { machineId: machineC.id } });
+  expect(ok.ok()).toBeTruthy();
 });

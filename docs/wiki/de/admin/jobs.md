@@ -68,9 +68,14 @@ Im Job-Detail erfasst du verwendete Filamente mit Gramm-Angabe. Der eingetragene
 Über **Druckjobs vorschlagen** (Zauberstab-Symbol) lässt du das System automatisch berechnen, welche Teile auf welche Maschinen passen:
 
 1. Das System liest alle druckbereiten Teile (Teilphase: Druckbereit) aus offenen Aufträgen.
-2. Es berechnet den Footprint jedes Teils anhand seiner Bounding Box.
-3. Es versucht, Teile optimal auf verfügbare Maschinen zu verteilen (Bin-Packing-Algorithmus).
-4. Du bekommst einen Vorschlag präsentiert und kannst ihn annehmen, anpassen oder ablehnen.
+2. Es löst die **Material-/Farbanforderung** jedes Teils zu einer konkreten Spule auf und gruppiert Teile mit gleicher Spule.
+3. Es berechnet den Footprint jedes Teils anhand seiner Bounding Box.
+4. Es versucht, Teile optimal auf verfügbare Maschinen zu verteilen (Bin-Packing-Algorithmus).
+5. Du bekommst einen Vorschlag präsentiert und kannst ihn annehmen, anpassen oder ablehnen.
+
+**Material/Farbe „egal" nutzen:** Teile, bei denen [[in der Teileverwaltung|orders-detail]] die Farbe (oder das Material) auf **egal** steht, kann der Planner flexibel einem passenden konkreten Job zuordnen — so werden Teile zusammengelegt und der Drucker besser ausgelastet.
+
+**Drucker-Kompatibilität:** Ist ein Filament im [[Inventar]] nur mit bestimmten Druckern kompatibel, schlägt der Planner für das betroffene Material ausschließlich diese Drucker vor.
 
 Wenn für ein Teil im [[3D-Viewer & Druckorientierung|orders-3dviewer]] eine Druckorientierung gesetzt wurde, verwendet der Planner den Footprint der rotierten Bounding Box — was zu realistischerem Packing führt.
 

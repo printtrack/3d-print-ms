@@ -42,7 +42,16 @@ The inventory list shows all registered filaments with:
 2. Select **material** and **color** (or enter a custom color).
 3. Enter the **initial quantity in grams** (e.g. 1000 g for a 1 kg spool).
 4. Optional: enter **minimum stock**, **supplier**, and **batch**.
-5. Click **Save**.
+5. Optional: select **Compatible printers** (see below).
+6. Click **Save**.
+
+## Compatible printers
+
+Some filaments can only be printed on certain machines (e.g. ABS/ASA need an enclosure, TPU needs a direct drive). In the filament editor you can therefore set the **compatible printers**.
+
+- **Empty = compatible with all printers** (the default, no upkeep needed).
+- If one or more printers are selected, the filament applies **only** to those.
+- The restriction affects **planning only**: the job suggestion proposes only printers that are compatible with the matching filament for a part. The material/color selection on the part is unaffected.
 
 ## Adjusting stock manually
 

@@ -286,3 +286,88 @@ test("erstellt neuen Job wenn Material des neuen Teils nicht zum bestehenden Job
   // PLA-Gruppe hat keine neuen Teile → kein extend und kein new für PLA
   expect(extendProposals).toHaveLength(0);
 });
+
+// ---------------------------------------------------------------------------
+// Drucker-Kompatibilität — nur kompatible Maschinen werden vorgeschlagen
+// ---------------------------------------------------------------------------
+
+test("plant nur auf zum Filament kompatiblen Druckern", async ({ seed, page }) => {
+  void seed;
+  const machineA = await createTestMachine({ name: "Kompatibel A", buildVolumeX: 220, buildVolumeY: 220, buildVolumeZ: 250 });
+  const machineB = await createTestMachine({ name: "Inkompatibel B", buildVolumeX: 220, buildVolumeY: 220, buildVolumeZ: 250 });
+
+  // Spule nur mit Maschine A kompatibel
+  const filament = await createTestFilament({
+    material: "TPU", color: "Schwarz", colorHex: "#000000", compatibleMachineIds: [machineA.id],
+  });
+  await createTestPrintReadyPart({ filamentId: filament.id, name: "TPU Teil", gramsEstimated: 40 });
+
+  const res = await page.request.post("/api/admin/jobs/plan");
+  expect(res.ok()).toBeTruthy();
+  const { proposed } = await res.json();
+
+  expect(proposed.length).toBeGreaterThan(0);
+  for (const job of proposed as { machineId: string; machineName: string }[]) {
+    expect(job.machineId).toBe(machineA.id);
+    expect(job.machineName).toBe("Kompatibel A");
+  }
+  void machineB;
+});
+
+// ---------------------------------------------------------------------------
+// "Farbe egal" — bündelt mit konkretem Teil für bessere Auslastung
+// ---------------------------------------------------------------------------
+
+test("legt 'Farbe egal'-Teil mit konkretem Farb-Teil in einen Job", async ({ seed, page }) => {
+  void seed;
+  await createTestMachine({ name: "Auslastung", buildVolumeX: 250, buildVolumeY: 250, buildVolumeZ: 250 });
+  const red = await createTestFilament({ material: "PLA", color: "Rot", colorHex: "#FF0000", remainingGrams: 1000 });
+
+  // Konkretes Teil → PLA Rot (Anker)
+  await createTestPrintReadyPart({ filamentId: red.id, name: "Konkret Rot", gramsEstimated: 30, bboxX: 30, bboxY: 30, bboxZ: 30 });
+  // Material PLA, Farbe egal → sollte sich an den Rot-Anker anlegen
+  await createTestPrintReadyPart({ material: "PLA", colorAny: true, name: "Egal Farbe", gramsEstimated: 30, bboxX: 30, bboxY: 30, bboxZ: 30 });
+
+  const res = await page.request.post("/api/admin/jobs/plan");
+  expect(res.ok()).toBeTruthy();
+  const { proposed } = await res.json();
+
+  // Beide Teile teilen sich einen Job (gleiche aufgelöste Spule)
+  expect(proposed).toHaveLength(1);
+  const partNames = (proposed[0].parts as { partName: string }[]).map((p) => p.partName).sort();
+  expect(partNames).toEqual(["Egal Farbe", "Konkret Rot"]);
+});
+
+// ---------------------------------------------------------------------------
+// Farbvariante mit geteiltem Design — STL wird über die Gruppe aufgelöst
+// ---------------------------------------------------------------------------
+
+test("plant Farbvariante mit geteiltem Design (STL aus Variantengruppe)", async ({ seed, page }) => {
+  void seed;
+  await createTestMachine({ name: "Varianten-Drucker", buildVolumeX: 250, buildVolumeY: 250, buildVolumeZ: 250 });
+  const red = await createTestFilament({ material: "PLA", color: "Rot", colorHex: "#FF0000" });
+  await createTestFilament({ material: "PLA", color: "Blau", colorHex: "#0000FF" });
+
+  // Root-Teil mit echtem STL, druckbereit
+  const { part } = await createTestPrintReadyPart({ filamentId: red.id, name: "Root Rot", gramsEstimated: 20 });
+
+  // Duplizieren → Variante teilt sich das Design (kein eigenes STL)
+  const dupRes = await page.request.post(`/api/admin/orders/${part.orderId}/parts/${part.id}/duplicate`);
+  const clone = await dupRes.json();
+  const printReadyPhase = await prismaTest.partPhase.findFirst({ where: { isPrintReady: true } });
+  await prismaTest.orderPart.update({
+    where: { id: clone.id },
+    data: { color: "Blau", colorHex: "#0000FF", gramsEstimated: 20, partPhaseId: printReadyPhase!.id },
+  });
+
+  const res = await page.request.post("/api/admin/jobs/plan");
+  expect(res.ok()).toBeTruthy();
+  const { proposed, skipped } = await res.json();
+
+  const cloneSkipped = (skipped as { orderPartId: string }[]).some((s) => s.orderPartId === clone.id);
+  const clonePlanned = (proposed as { parts: { orderPartId: string }[] }[]).some((j) =>
+    j.parts.some((p) => p.orderPartId === clone.id)
+  );
+  expect(cloneSkipped).toBe(false);
+  expect(clonePlanned).toBe(true);
+});

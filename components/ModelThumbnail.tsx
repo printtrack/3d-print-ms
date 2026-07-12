@@ -10,21 +10,42 @@ import { get3DExtension } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 
+// Plastic-like base (filament is non-metallic), slightly glossy so lights
+// reveal form even on dark colors.
 const MATERIAL = new THREE.MeshStandardMaterial({
   color: "#6366f1",
-  roughness: 0.4,
-  metalness: 0.1,
+  roughness: 0.45,
+  metalness: 0,
 });
 
-async function loadModel(url: string, ext: string): Promise<THREE.Object3D> {
+// Lift very dark colors to a minimum lightness so surface detail stays visible.
+function renderColor(colorHex: string): THREE.Color {
+  const c = new THREE.Color(colorHex);
+  const hsl = { h: 0, s: 0, l: 0 };
+  c.getHSL(hsl);
+  c.setHSL(hsl.h, hsl.s, Math.max(hsl.l, 0.16));
+  return c;
+}
+
+function surfaceMaterial(colorHex?: string | null): THREE.MeshStandardMaterial {
+  if (!colorHex) return MATERIAL;
+  const color = renderColor(colorHex);
+  const mat = MATERIAL.clone();
+  mat.color = color;
+  mat.emissive = color.clone().multiplyScalar(0.12);
+  return mat;
+}
+
+async function loadModel(url: string, ext: string, colorHex?: string | null): Promise<THREE.Object3D> {
+  const material = surfaceMaterial(colorHex);
   if (ext === "stl") {
     const geo = await new STLLoader().loadAsync(url);
-    return new THREE.Mesh(geo, MATERIAL);
+    return new THREE.Mesh(geo, material);
   }
   if (ext === "obj") {
     const obj = await new OBJLoader().loadAsync(url);
     obj.traverse((child) => {
-      if ((child as THREE.Mesh).isMesh) (child as THREE.Mesh).material = MATERIAL;
+      if ((child as THREE.Mesh).isMesh) (child as THREE.Mesh).material = material;
     });
     return obj;
   }
@@ -50,9 +71,11 @@ export interface ModelThumbnailProps {
   noteCount?: number;
   onClick?: () => void;
   className?: string;
+  /** Tints the preview with the selected filament color. */
+  colorHex?: string | null;
 }
 
-export function ModelThumbnail({ url, filename, noteCount, onClick, className }: ModelThumbnailProps) {
+export function ModelThumbnail({ url, filename, noteCount, onClick, className, colorHex }: ModelThumbnailProps) {
   const t = useTranslations("model_viewer");
   const containerRef = useRef<HTMLDivElement>(null);
   const [loading, setLoading] = useState(true);
@@ -77,12 +100,17 @@ export function ModelThumbnail({ url, filename, noteCount, onClick, className }:
       camera.position.set(2, 1.5, 2);
       camera.lookAt(0, 0, 0);
 
-      scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-      const dir1 = new THREE.DirectionalLight(0xffffff, 1);
+      // Soft, even lighting so dark filament colors still reveal surface detail.
+      scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+      scene.add(new THREE.HemisphereLight(0xffffff, 0x505860, 0.9));
+      const dir1 = new THREE.DirectionalLight(0xffffff, 1.1);
       dir1.position.set(5, 10, 5);
       scene.add(dir1);
+      const dir2 = new THREE.DirectionalLight(0xffffff, 0.5);
+      dir2.position.set(-6, 4, -4);
+      scene.add(dir2);
 
-      const model = await loadModel(url, ext);
+      const model = await loadModel(url, ext, colorHex);
       if (cancelled) return;
       scaleToFit(model);
       scene.add(model);
@@ -109,7 +137,7 @@ export function ModelThumbnail({ url, filename, noteCount, onClick, className }:
       if (container.firstChild) container.innerHTML = "";
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [url, ext]);
+  }, [url, ext, colorHex]);
 
   if (error) {
     return (

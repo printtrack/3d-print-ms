@@ -42,7 +42,16 @@ Die Inventarliste zeigt alle eingetragenen Filamente mit:
 2. Wähle **Material** und **Farbe** aus (oder gib eine eigene Farbe ein).
 3. Trage die **Anfangsmenge in Gramm** ein (z. B. 1000 g für eine 1-kg-Spule).
 4. Optional: **Mindestbestand**, **Lieferant** und **Charge** eintragen.
-5. Klicke **Speichern**.
+5. Optional: **Kompatible Drucker** auswählen (siehe unten).
+6. Klicke **Speichern**.
+
+## Kompatible Drucker
+
+Manche Filamente lassen sich nur auf bestimmten Druckern verarbeiten (z. B. ABS/ASA nur mit geschlossener Kammer, TPU nur mit Direct-Drive). Im Filament-Editor kannst du deshalb die **kompatiblen Drucker** festlegen.
+
+- **Leer = mit allen Druckern kompatibel** (Standard, kein Pflegeaufwand).
+- Sind ein oder mehrere Drucker gewählt, gilt das Filament **nur** für diese.
+- Die Einschränkung wirkt sich **ausschließlich auf die [[Planung|planning]]** aus: der Job-Vorschlag schlägt für ein Teil nur Drucker vor, die zum passenden Filament kompatibel sind. Die Material-/Farbauswahl am Teil bleibt davon unberührt.
 
 ## Bestand manuell anpassen
 

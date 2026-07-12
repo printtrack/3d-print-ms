@@ -25,6 +25,7 @@ export default async function PortalOrderDetailPage({ params }: PageProps) {
       phase: true,
       files: {
         include: {
+          orderPart: { select: { colorHex: true } },
           notes: {
             select: {
               id: true,
@@ -73,6 +74,7 @@ export default async function PortalOrderDetailPage({ params }: PageProps) {
     deadline: order.deadline?.toISOString() ?? null,
     files: order.files.map((f) => ({
       ...f,
+      colorHex: f.orderPart?.colorHex ?? null,
       createdAt: f.createdAt.toISOString(),
       notes: order.isPrototype
         ? []

@@ -2,18 +2,20 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
+import { parseAxis, deriveColorHex } from "@/lib/filament-resolve";
 
 const createSchema = z.object({
   name: z.string().min(1),
   description: z.string().optional().nullable(),
-  filamentId: z.string().optional().nullable(),
+  // Wire format per axis: concrete name | "ANY" (egal) | null (unset)
+  material: z.string().optional().nullable(),
+  color: z.string().optional().nullable(),
   gramsEstimated: z.number().int().positive().optional().nullable(),
   quantity: z.number().int().min(1).optional(),
   assigneeIds: z.array(z.string()).optional(),
 });
 
 const partInclude = {
-  filament: { select: { id: true, name: true, material: true, color: true, colorHex: true, brand: true } },
   partPhase: { select: { id: true, name: true, color: true, isPrintReady: true } },
   files: {
     include: {
@@ -64,12 +66,27 @@ export async function POST(
 
     const defaultPartPhase = await prisma.partPhase.findFirst({ where: { isDefault: true } });
 
+    // New parts default to "egal" on both axes (intuitive + immediately plannable).
+    const mat = parseAxis(data.material) ?? { concrete: null, any: true };
+    const col = parseAxis(data.color) ?? { concrete: null, any: true };
+    let colorHex: string | null = null;
+    if (col.concrete) {
+      const filaments = await prisma.filament.findMany({
+        select: { material: true, color: true, colorHex: true },
+      });
+      colorHex = deriveColorHex(mat.concrete, col.concrete, filaments);
+    }
+
     const part = await prisma.orderPart.create({
       data: {
         orderId: id,
         name: data.name,
         description: data.description ?? null,
-        filamentId: data.filamentId ?? null,
+        material: mat.concrete,
+        materialAny: mat.any,
+        color: col.concrete,
+        colorAny: col.any,
+        colorHex,
         gramsEstimated: data.gramsEstimated ?? null,
         quantity: data.quantity ?? 1,
         partPhaseId: defaultPartPhase?.id ?? null,

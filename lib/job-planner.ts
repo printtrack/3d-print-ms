@@ -4,7 +4,9 @@ import { prisma } from "./db";
 import { computeBbox, pickPrintOrientation, applyQuaternionToBbox } from "./stl-bbox";
 import { isIdentityQuaternion } from "./stl-transform";
 import { getUploadDir } from "./uploads";
-import { getReservedGramsByFilament } from "./filament-reservations";
+import { getReservedGramsByPool } from "./filament-reservations";
+import { poolKey } from "./filament-resolve";
+import { currentlyDownMachineIds } from "./machine-downtime";
 
 export interface InsufficientFilament {
   available: number;
@@ -64,10 +66,35 @@ async function getPrintReadyParts() {
       },
     },
     include: {
-      filament: true,
       order: { select: { id: true } },
     },
   });
+}
+
+/** Inventory spool enriched with its compatible machine ids (empty = all machines). */
+interface PlannerFilament {
+  id: string;
+  material: string;
+  color: string;
+  colorHex: string | null;
+  name: string;
+  remainingGrams: number;
+  isActive: boolean;
+  compatibleMachineIds: string[];
+}
+
+function matchesAxes(f: PlannerFilament, part: PartWithRelations): boolean {
+  const matOk = part.materialAny || (!!part.material && f.material.toLowerCase() === part.material.toLowerCase());
+  const colOk = part.colorAny || (!!part.color && f.color.toLowerCase() === part.color.toLowerCase());
+  return matOk && colOk;
+}
+
+function isCompatible(f: PlannerFilament, machineId: string): boolean {
+  return f.compatibleMachineIds.length === 0 || f.compatibleMachineIds.includes(machineId);
+}
+
+function filamentLabelOf(f: PlannerFilament): string {
+  return `${f.material} ${f.color}${f.name ? ` (${f.name})` : ""}`;
 }
 
 async function findStlFile(part: PartWithRelations) {
@@ -77,6 +104,8 @@ async function findStlFile(part: PartWithRelations) {
       OR: [
         { orderPartId: part.id },
         { orderPartId: null },
+        // Color variants share one design owned by any group member.
+        ...(part.variantGroupId ? [{ orderPart: { variantGroupId: part.variantGroupId } }] : []),
       ],
     },
   });
@@ -109,10 +138,6 @@ async function ensureBboxCached(part: PartWithRelations): Promise<{ x: number; y
   } catch {
     return null;
   }
-}
-
-function materialKey(filament: { material: string; colorHex: string | null; color: string }): string {
-  return `${filament.material.toLowerCase()}|${(filament.colorHex ?? filament.color).toLowerCase()}`;
 }
 
 function packGroup(
@@ -214,37 +239,81 @@ function packGroup(
 }
 
 export async function plan(): Promise<{ proposed: ProposedJob[]; skipped: SkippedPart[] }> {
-  const [parts, machines, allFilaments, reservedByFilament] = await Promise.all([
+  const [parts, activeMachines, rawFilaments, reservedByPool, downMachineIds] = await Promise.all([
     getPrintReadyParts(),
     prisma.machine.findMany({ where: { isActive: true }, orderBy: { name: "asc" } }),
-    prisma.filament.findMany({ select: { id: true, remainingGrams: true } }),
-    getReservedGramsByFilament(),
+    prisma.filament.findMany({ include: { compatibleMachines: { select: { id: true } } } }),
+    getReservedGramsByPool(),
+    currentlyDownMachineIds(),
   ]);
+
+  // A machine that is currently down (maintenance / defect) can't take new jobs.
+  const machines = activeMachines.filter((m) => !downMachineIds.has(m.id));
 
   if (machines.length === 0) return { proposed: [], skipped: [] };
 
-  // Track per-filament how many grams have already been allocated to earlier
-  // proposed jobs in THIS run, so a second new-job proposal for the same
-  // filament correctly sees the depleted availability.
+  const allFilaments: PlannerFilament[] = rawFilaments.map((f) => ({
+    id: f.id,
+    material: f.material,
+    color: f.color,
+    colorHex: f.colorHex,
+    name: f.name,
+    remainingGrams: f.remainingGrams,
+    isActive: f.isActive,
+    compatibleMachineIds: f.compatibleMachines.map((m) => m.id),
+  }));
+  const activeFilaments = allFilaments.filter((f) => f.isActive);
+
+  // Total physical stock per (material|color) pool — reservation & availability
+  // are pool-wide now, not per single spool.
+  const poolRemaining = new Map<string, number>();
+  for (const f of allFilaments) {
+    const key = poolKey(f.material, f.color);
+    poolRemaining.set(key, (poolRemaining.get(key) ?? 0) + f.remainingGrams);
+  }
+
+  const machinesCompatibleWith = (f: PlannerFilament) => machines.filter((m) => isCompatible(f, m.id));
+
+  // Track per-pool grams already allocated to earlier proposals in THIS run.
   const proposedSoFar = new Map<string, number>();
-  const checkSufficiency = (filamentId: string, needed: number | null): InsufficientFilament | null => {
+  const checkSufficiency = (f: PlannerFilament, needed: number | null): InsufficientFilament | null => {
     if (needed === null) return null;
-    const filament = allFilaments.find((f) => f.id === filamentId);
-    if (!filament) return null;
-    const reserved = reservedByFilament.get(filamentId) ?? 0;
-    const alreadyProposed = proposedSoFar.get(filamentId) ?? 0;
-    const available = filament.remainingGrams - reserved - alreadyProposed;
-    if (needed > available) {
-      return { available, needed };
-    }
-    return null;
+    const key = poolKey(f.material, f.color);
+    const remaining = poolRemaining.get(key) ?? 0;
+    const reserved = reservedByPool.get(key) ?? 0;
+    const alreadyProposed = proposedSoFar.get(key) ?? 0;
+    const available = remaining - reserved - alreadyProposed;
+    return needed > available ? { available, needed } : null;
   };
-  const recordProposed = (filamentId: string, needed: number | null) => {
+  const recordProposed = (f: PlannerFilament, needed: number | null) => {
     if (needed === null) return;
-    proposedSoFar.set(filamentId, (proposedSoFar.get(filamentId) ?? 0) + needed);
+    const key = poolKey(f.material, f.color);
+    proposedSoFar.set(key, (proposedSoFar.get(key) ?? 0) + needed);
   };
 
-  // Load existing PLANNED jobs with no plannedAt (not yet scheduled)
+  // Resolve a part's material+color requirement to a concrete spool that has at
+  // least one compatible active machine. Returns the highest-stock candidate,
+  // optionally preferring a spool already chosen as an anchor (for co-batching).
+  const resolvePart = (
+    part: PartWithRelations,
+    preferIds?: Set<string>
+  ): PlannerFilament | { skip: string } => {
+    const matSet = part.materialAny || !!part.material;
+    const colSet = part.colorAny || !!part.color;
+    if (!matSet) return { skip: "Material nicht festgelegt" };
+    if (!colSet) return { skip: "Farbe nicht festgelegt" };
+    const axisMatches = activeFilaments.filter((f) => matchesAxes(f, part));
+    if (axisMatches.length === 0) return { skip: "Kein passendes Filament auf Lager" };
+    const compatMatches = axisMatches.filter((f) => machinesCompatibleWith(f).length > 0);
+    if (compatMatches.length === 0) return { skip: "Kein kompatibler Drucker verfügbar" };
+    if (preferIds) {
+      const anchor = compatMatches.find((f) => preferIds.has(f.id));
+      if (anchor) return anchor;
+    }
+    return [...compatMatches].sort((a, b) => b.remainingGrams - a.remainingGrams)[0];
+  };
+
+  // Load existing PLANNED, not-yet-scheduled jobs to prefer extending them.
   const existingPlannedJobs = await prisma.printJob.findMany({
     where: { status: "PLANNED", plannedAt: null },
     include: {
@@ -254,13 +323,22 @@ export async function plan(): Promise<{ proposed: ProposedJob[]; skipped: Skippe
           orderPart: {
             select: {
               id: true,
+              name: true,
               bboxXmm: true,
               bboxYmm: true,
               bboxZmm: true,
               gramsEstimated: true,
               quantity: true,
-              filamentId: true,
-              filament: { select: { material: true, color: true, colorHex: true } },
+              material: true,
+              materialAny: true,
+              color: true,
+              colorAny: true,
+              colorHex: true,
+              orientQx: true,
+              orientQy: true,
+              orientQz: true,
+              orientQw: true,
+              order: { select: { id: true } },
             },
           },
         },
@@ -277,9 +355,7 @@ export async function plan(): Promise<{ proposed: ProposedJob[]; skipped: Skippe
     let used = 0;
     for (const pjp of job.parts) {
       const p = pjp.orderPart;
-      if (p.bboxXmm && p.bboxYmm) {
-        used += p.bboxXmm * p.bboxYmm * p.quantity;
-      }
+      if (p.bboxXmm && p.bboxYmm) used += p.bboxXmm * p.bboxYmm * p.quantity;
     }
     existingJobUsedArea.set(job.id, Math.min(used, bedArea * 0.7));
   }
@@ -287,138 +363,133 @@ export async function plan(): Promise<{ proposed: ProposedJob[]; skipped: Skippe
   const skipped: SkippedPart[] = [];
   const proposed: ProposedJob[] = [];
 
-  // Resolve bboxes and group by material
-  const groups = new Map<string, Array<{ part: PartWithRelations; bbox: { x: number; y: number; z: number } }>>();
+  // --- Two-pass resolution: pin each plannable part to a concrete spool -------
+  const resolvedByPart = new Map<string, PlannerFilament>();
+  const anchors = new Set<string>();
+
+  // Pass 1: fully concrete parts (specific material AND color) seed the anchors.
+  for (const part of parts) {
+    if (part.material && !part.materialAny && part.color && !part.colorAny) {
+      const r = resolvePart(part);
+      if (!("skip" in r)) {
+        resolvedByPart.set(part.id, r);
+        anchors.add(r.id);
+      }
+    }
+  }
+  // Pass 2: everything else, preferring an anchor spool to fill an existing bed.
+  for (const part of parts) {
+    if (resolvedByPart.has(part.id)) continue;
+    const r = resolvePart(part, anchors);
+    if ("skip" in r) {
+      skipped.push({ orderPartId: part.id, partName: part.name, reason: r.skip });
+    } else {
+      resolvedByPart.set(part.id, r);
+    }
+  }
+
+  // --- Group resolved parts by concrete spool, resolving bboxes --------------
+  const groups = new Map<string, { filament: PlannerFilament; items: Array<{ part: PartWithRelations; bbox: { x: number; y: number; z: number } }> }>();
 
   await Promise.all(
     parts.map(async (part) => {
-      if (!part.filament) {
-        skipped.push({ orderPartId: part.id, partName: part.name, reason: "Kein Filament zugewiesen" });
-        return;
-      }
+      const filament = resolvedByPart.get(part.id);
+      if (!filament) return; // already skipped
       const bbox = await ensureBboxCached(part);
       if (!bbox) {
         skipped.push({ orderPartId: part.id, partName: part.name, reason: "Keine STL-Datei gefunden" });
         return;
       }
-      const key = materialKey(part.filament);
-      if (!groups.has(key)) groups.set(key, []);
-      groups.get(key)!.push({ part, bbox });
+      const g = groups.get(filament.id) ?? { filament, items: [] };
+      g.items.push({ part, bbox });
+      groups.set(filament.id, g);
     })
   );
 
-  // Build a map from materialKey → first existing PLANNED job that contains that material.
-  // This lets us prefer the machine of an existing job rather than round-robining to a different one.
-  const existingJobByMaterialKey = new Map<string, typeof existingPlannedJobs[number]>();
+  // Map resolved filamentId → first existing PLANNED job that already uses it,
+  // so we prefer extending that job (and its machine) over a fresh one.
+  const existingJobByFilamentId = new Map<string, typeof existingPlannedJobs[number]>();
   for (const job of existingPlannedJobs) {
     if (!machines.some((m) => m.id === job.machineId)) continue;
     for (const pjp of job.parts) {
-      const fil = pjp.orderPart.filament;
-      if (!fil) continue;
-      const key = materialKey(fil);
-      if (!existingJobByMaterialKey.has(key)) {
-        existingJobByMaterialKey.set(key, job);
-      }
+      const r = resolvePart(pjp.orderPart as unknown as PartWithRelations);
+      if ("skip" in r) continue;
+      if (!existingJobByFilamentId.has(r.id)) existingJobByFilamentId.set(r.id, job);
     }
   }
 
   let machineIdx = 0;
 
-  for (const [groupKey, groupParts] of groups.entries()) {
-    // Prefer the machine of an existing PLANNED job for this material over round-robin.
-    const existingJobForMaterial = existingJobByMaterialKey.get(groupKey);
-    let machine: typeof machines[number];
-    if (existingJobForMaterial) {
-      machine = machines.find((m) => m.id === existingJobForMaterial.machineId)!;
-    } else {
-      machine = machines[machineIdx % machines.length];
-      machineIdx++;
+  for (const [filamentId, group] of groups.entries()) {
+    const filament = group.filament;
+    const compatList = machinesCompatibleWith(filament);
+    if (compatList.length === 0) {
+      for (const { part } of group.items) {
+        skipped.push({ orderPartId: part.id, partName: part.name, reason: "Kein kompatibler Drucker verfügbar" });
+      }
+      continue;
     }
 
-    const filament = groupParts[0].part.filament!;
-    const build = { x: machine.buildVolumeX, y: machine.buildVolumeY, z: machine.buildVolumeZ };
-    const bedArea = build.x * build.y;
+    // Prefer the machine of an existing job using this spool, if it's compatible.
+    const existingJobForFilament = existingJobByFilamentId.get(filamentId);
+    let machine =
+      existingJobForFilament && compatList.some((m) => m.id === existingJobForFilament.machineId)
+        ? compatList.find((m) => m.id === existingJobForFilament.machineId)!
+        : compatList[machineIdx % compatList.length];
+    if (!existingJobForFilament) machineIdx++;
 
-    // Find an existing PLANNED job on this machine matching by materialKey (not filamentId),
-    // so that different filament entries with the same material+color are treated as the same group.
-    const matchingExistingJob = existingPlannedJobs.find((j) => {
-      if (j.machineId !== machine.id) return false;
-      return j.parts.some((pjp) => {
-        const fil = pjp.orderPart.filament;
-        return fil ? materialKey(fil) === groupKey : false;
-      });
-    });
+    const bedArea = machine.buildVolumeX * machine.buildVolumeY;
+    const filamentLabel = filamentLabelOf(filament);
 
-    if (matchingExistingJob) {
-      const usedArea = existingJobUsedArea.get(matchingExistingJob.id) ?? 0;
-      const batches = packGroup(groupParts, machine, skipped, usedArea);
+    // Existing job on the chosen machine that already uses this spool → extend it.
+    const matchingExistingJob = existingPlannedJobs.find(
+      (j) =>
+        j.machineId === machine.id &&
+        j.parts.some((pjp) => {
+          const r = resolvePart(pjp.orderPart as unknown as PartWithRelations);
+          return !("skip" in r) && r.id === filamentId;
+        })
+    );
 
-      if (batches.length > 0) {
-        const [firstBatch, ...rest] = batches;
-        const filamentLabel = `${filament.material} ${filament.color}${filament.name ? ` (${filament.name})` : ""}`;
+    const usedArea = matchingExistingJob ? existingJobUsedArea.get(matchingExistingJob.id) ?? 0 : 0;
+    const batches = packGroup(group.items, machine, skipped, usedArea);
+    if (batches.length === 0) continue;
 
+    batches.forEach((batch, i) => {
+      const isExtend = matchingExistingJob && i === 0;
+      const partsPayload = batch.batch.map(({ part }) => ({
+        orderPartId: part.id,
+        partName: part.name,
+        orderId: part.order.id,
+        quantity: part.quantity,
+      }));
+      if (isExtend) {
         proposed.push({
           type: "extend",
-          existingJobId: matchingExistingJob.id,
+          existingJobId: matchingExistingJob!.id,
           machineId: machine.id,
           machineName: machine.name,
           filamentId: filament.id,
           filamentLabel,
-          parts: firstBatch.batch.map(({ part }) => ({
-            orderPartId: part.id,
-            partName: part.name,
-            orderId: part.order.id,
-            quantity: part.quantity,
-          })),
-          addedGramsTotal: firstBatch.gramsTotal,
-          insufficientFilament: checkSufficiency(filament.id, firstBatch.gramsTotal),
+          parts: partsPayload,
+          addedGramsTotal: batch.gramsTotal,
+          insufficientFilament: checkSufficiency(filament, batch.gramsTotal),
         });
-        recordProposed(filament.id, firstBatch.gramsTotal);
-
-        for (const batch of rest) {
-          proposed.push({
-            type: "new",
-            machineId: machine.id,
-            machineName: machine.name,
-            filamentId: filament.id,
-            filamentLabel,
-            parts: batch.batch.map(({ part }) => ({
-              orderPartId: part.id,
-              partName: part.name,
-              orderId: part.order.id,
-              quantity: part.quantity,
-            })),
-            utilizationPct: Math.round((batch.usedArea / bedArea) * 100),
-            estimatedGramsTotal: batch.gramsTotal,
-            insufficientFilament: checkSufficiency(filament.id, batch.gramsTotal),
-          });
-          recordProposed(filament.id, batch.gramsTotal);
-        }
-      }
-    } else {
-      const batches = packGroup(groupParts, machine, skipped, 0);
-      const filamentLabel = `${filament.material} ${filament.color}${filament.name ? ` (${filament.name})` : ""}`;
-
-      for (const batch of batches) {
+      } else {
         proposed.push({
           type: "new",
           machineId: machine.id,
           machineName: machine.name,
           filamentId: filament.id,
           filamentLabel,
-          parts: batch.batch.map(({ part }) => ({
-            orderPartId: part.id,
-            partName: part.name,
-            orderId: part.order.id,
-            quantity: part.quantity,
-          })),
+          parts: partsPayload,
           utilizationPct: Math.round((batch.usedArea / bedArea) * 100),
           estimatedGramsTotal: batch.gramsTotal,
-          insufficientFilament: checkSufficiency(filament.id, batch.gramsTotal),
+          insufficientFilament: checkSufficiency(filament, batch.gramsTotal),
         });
-        recordProposed(filament.id, batch.gramsTotal);
       }
-    }
+      recordProposed(filament, batch.gramsTotal);
+    });
   }
 
   return { proposed, skipped };

@@ -18,7 +18,6 @@ const jobInclude = {
       orderPart: {
         include: {
           order: { select: { id: true, customerName: true, customerEmail: true, description: true } },
-          filament: { select: { id: true, name: true, material: true, color: true, colorHex: true } },
         },
       },
     },

@@ -51,6 +51,15 @@ const FEATURE_CHECKS: FeatureCheck[] = [
   { feature: "Planning views", de: ["Auslastung", "Agenda"], en: ["Workload", "Agenda"] },
   { feature: "Planning general appointments", de: ["Termin anlegen", "ohne Auftragsbezug"], en: ["New appointment", "not tied to an order"] },
   { feature: "Planning web calendars", de: ["Web-Kalender", "iCal/ICS"], en: ["web calendar", "iCal/ICS"] },
+  { feature: "Machine downtime & maintenance", de: ["Ausfall / Wartung melden", "Wieder verfügbar", "Ausfall-Historie"], en: ["Report outage", "Mark available", "downtime history"] },
+  { feature: "Machine downtime rescheduling", de: ["Umplanungs-Assistent"], en: ["reschedule assistant"] },
+  { feature: "Separate material & color selection", de: ["Material und Farbe getrennt"], en: ["material and color are selected separately"] },
+  { feature: "Filament any / egal option", de: ["Farbe egal", "Material egal"], en: ["color any", "material any"] },
+  { feature: "Part color-variant duplicate", de: ["Duplizieren (andere Farbe)"], en: ["Duplicate (different color)"] },
+  { feature: "Variant shared design", de: ["Geteiltes Design"], en: ["Shared design"] },
+  { feature: "Variant detach design", de: ["Design abkoppeln"], en: ["Detach design"] },
+  { feature: "Filament-machine compatibility", de: ["Kompatible Drucker"], en: ["Compatible printers"] },
+  { feature: "Colored 3D preview", de: ["farbige 3D-Vorschau"], en: ["colored 3D preview"] },
 ];
 
 function readWikiText(locale: "de" | "en"): string {

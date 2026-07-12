@@ -5,6 +5,7 @@ import { z } from "zod";
 import { checkJobOverlap } from "@/lib/overlap-check";
 import { publish } from "@/lib/event-bus";
 import { triggerOrderAutoAdvance, triggerPartAutoAdvance } from "@/lib/phase-auto-advance";
+import { resolveFilamentForPart, partPrintableOnMachine } from "@/lib/filament-resolve";
 
 const patchSchema = z.object({
   status: z.enum(["PLANNED", "SLICED", "IN_PROGRESS", "AWAITING_VERIFICATION", "DONE", "CANCELLED"]).optional(),
@@ -25,7 +26,6 @@ const jobInclude = {
       orderPart: {
         include: {
           order: { select: { id: true, customerName: true, customerEmail: true, description: true, isPrototype: true } },
-          filament: { select: { id: true, name: true, material: true, color: true, colorHex: true, pricePerKg: true } },
           files: { select: { id: true, filename: true, originalName: true, mimeType: true, orderId: true } },
         },
       },
@@ -39,6 +39,22 @@ const jobInclude = {
   files: { orderBy: { createdAt: "desc" as const } },
   assignees: { include: { user: { select: { id: true, name: true, email: true } } } },
 } as const;
+
+// Attach the resolved spool price (material+color) to each part for the verify
+// cost preview, since parts no longer point at a concrete filament.
+type JobWithParts = { parts: Array<{ orderPart: { material: string | null; materialAny: boolean; color: string | null; colorAny: boolean } & Record<string, unknown> } & Record<string, unknown>> } & Record<string, unknown>;
+async function attachPartPrices<T extends JobWithParts>(job: T): Promise<T> {
+  const inventory = await prisma.filament.findMany({
+    select: { material: true, color: true, isActive: true, remainingGrams: true, pricePerKg: true },
+  });
+  return {
+    ...job,
+    parts: job.parts.map((p) => {
+      const resolved = resolveFilamentForPart(p.orderPart, inventory);
+      return { ...p, orderPart: { ...p.orderPart, pricePerKg: resolved?.pricePerKg != null ? resolved.pricePerKg.toString() : null } };
+    }),
+  };
+}
 
 export async function GET(
   _req: NextRequest,
@@ -55,7 +71,7 @@ export async function GET(
   });
 
   if (!job) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
-  return NextResponse.json(job);
+  return NextResponse.json(await attachPartPrices(job));
 }
 
 export async function PATCH(
@@ -120,6 +136,31 @@ export async function PATCH(
       }
     }
 
+    // Filament–machine compatibility: block moving a job to a machine that
+    // can't print one of its parts' material/color (e.g. TPU-only spool).
+    if (data.machineId !== undefined && data.machineId !== current?.machineId) {
+      const [jobParts, filaments, target] = await Promise.all([
+        prisma.printJobPart.findMany({
+          where: { printJobId: id },
+          select: { orderPart: { select: { name: true, material: true, materialAny: true, color: true, colorAny: true } } },
+        }),
+        prisma.filament.findMany({ include: { compatibleMachines: { select: { id: true } } } }),
+        prisma.machine.findUnique({ where: { id: data.machineId }, select: { name: true } }),
+      ]);
+      const inv = filaments.map((f) => ({
+        material: f.material,
+        color: f.color,
+        compatibleMachineIds: f.compatibleMachines.map((m) => m.id),
+      }));
+      const blocked = jobParts.find((jp) => !partPrintableOnMachine(jp.orderPart, inv, data.machineId!));
+      if (blocked) {
+        return NextResponse.json(
+          { error: `Teil „${blocked.orderPart.name}" ist nicht mit Drucker „${target?.name ?? ""}" kompatibel` },
+          { status: 422 }
+        );
+      }
+    }
+
     if (data.status !== undefined) {
       updateData.status = data.status;
 
@@ -173,7 +214,7 @@ export async function PATCH(
       partIds.forEach((pid) => triggerPartAutoAdvance(pid));
     }
 
-    return NextResponse.json({ job, warnings: [] });
+    return NextResponse.json({ job: await attachPartPrices(job), warnings: [] });
   } catch (err) {
     if (err instanceof z.ZodError) {
       return NextResponse.json({ error: "Ungültige Eingabe" }, { status: 400 });

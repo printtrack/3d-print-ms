@@ -40,6 +40,8 @@ export interface ModelViewerProps {
   initialOrientation?: OrientationQuaternion;
   onOrientationChange?: (q: OrientationQuaternion) => void;
   orientationEditable?: boolean;
+  /** Tints the model with the selected filament color (hex). */
+  filamentColorHex?: string | null;
 }
 
 function scaleToFit(object: THREE.Object3D) {
@@ -52,10 +54,12 @@ function scaleToFit(object: THREE.Object3D) {
   object.position.sub(center);
 }
 
+// Plastic-like base (filament is non-metallic). Slightly glossy so directional
+// lights produce highlights that reveal surface form even on dark colors.
 const BASE_MATERIAL = new THREE.MeshStandardMaterial({
   color: "#6366f1",
-  roughness: 0.4,
-  metalness: 0.1,
+  roughness: 0.45,
+  metalness: 0,
 });
 
 const HIGHLIGHT_MATERIAL = new THREE.MeshBasicMaterial({
@@ -66,19 +70,43 @@ const HIGHLIGHT_MATERIAL = new THREE.MeshBasicMaterial({
   side: THREE.DoubleSide,
 });
 
-async function loadModel(url: string, ext: string): Promise<THREE.Object3D> {
+// Render color for the surface: keeps hue/saturation but lifts very dark colors
+// to a minimum lightness so shading detail stays visible (a pure-black matte
+// object otherwise reads as a flat silhouette).
+function renderColor(colorHex: string): THREE.Color {
+  const c = new THREE.Color(colorHex);
+  const hsl = { h: 0, s: 0, l: 0 };
+  c.getHSL(hsl);
+  c.setHSL(hsl.h, hsl.s, Math.max(hsl.l, 0.16));
+  return c;
+}
+
+// Build the surface material: a per-instance clone tinted with the filament
+// color when provided, else the shared default (must not mutate BASE_MATERIAL).
+function surfaceMaterial(colorHex?: string | null): THREE.MeshStandardMaterial {
+  if (!colorHex) return BASE_MATERIAL;
+  const color = renderColor(colorHex);
+  const mat = BASE_MATERIAL.clone();
+  mat.color = color;
+  mat.emissive = color.clone().multiplyScalar(0.12);
+  return mat;
+}
+
+async function loadModel(url: string, ext: string, colorHex?: string | null): Promise<THREE.Object3D> {
+  const material = surfaceMaterial(colorHex);
   if (ext === "stl") {
     const geo = await new STLLoader().loadAsync(url);
-    return new THREE.Mesh(geo, BASE_MATERIAL);
+    return new THREE.Mesh(geo, material);
   }
   if (ext === "obj") {
     const obj = await new OBJLoader().loadAsync(url);
     obj.traverse((child) => {
-      if ((child as THREE.Mesh).isMesh) (child as THREE.Mesh).material = BASE_MATERIAL;
+      if ((child as THREE.Mesh).isMesh) (child as THREE.Mesh).material = material;
     });
     return obj;
   }
   if (ext === "3mf") {
+    // 3MF carries its own colors/materials from the slicer; leave as-is.
     return await new ThreeMFLoader().loadAsync(url) as unknown as THREE.Object3D;
   }
   throw new Error(`Unsupported format: ${ext}`);
@@ -153,6 +181,7 @@ export function ModelViewer({
   initialOrientation,
   onOrientationChange,
   orientationEditable = false,
+  filamentColorHex,
 }: ModelViewerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasWrapRef = useRef<HTMLDivElement>(null);
@@ -243,15 +272,17 @@ export function ModelViewer({
       camera.position.copy(INITIAL_CAM);
       camera.up.set(0, 0, 1); // Z-up convention
 
-      scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-      const dir1 = new THREE.DirectionalLight(0xffffff, 1);
+      // Soft, even lighting so dark filament colors still reveal surface detail.
+      scene.add(new THREE.AmbientLight(0xffffff, 0.55));
+      scene.add(new THREE.HemisphereLight(0xffffff, 0x505860, 0.9));
+      const dir1 = new THREE.DirectionalLight(0xffffff, 1.1);
       dir1.position.set(5, -5, 10);
       scene.add(dir1);
-      const dir2 = new THREE.DirectionalLight(0xffffff, 0.3);
+      const dir2 = new THREE.DirectionalLight(0xffffff, 0.55);
       dir2.position.set(-5, 5, -5);
       scene.add(dir2);
 
-      const model = await loadModel(url, ext);
+      const model = await loadModel(url, ext, filamentColorHex);
       if (cancelled) return;
 
       // Apply user-chosen orientation before scaling so bbox is correct
@@ -522,7 +553,7 @@ export function ModelViewer({
       setLoaded(false);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [url, ext]);
+  }, [url, ext, filamentColorHex]);
 
   // Sync nav mode → OrbitControls mouse buttons
   useEffect(() => {

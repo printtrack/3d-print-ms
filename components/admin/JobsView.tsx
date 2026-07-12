@@ -24,6 +24,12 @@ interface Machine {
   createdAt: string;
   updatedAt: string;
   isActive: boolean;
+  downtimes?: {
+    id: string;
+    reason: "MAINTENANCE" | "DEFECT";
+    startedAt: string;
+    endedAt: string | null;
+  }[];
 }
 
 interface JobsViewProps {

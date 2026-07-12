@@ -14,8 +14,20 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Cpu, Pencil, Plus, Trash2 } from "lucide-react";
+import { Cpu, Pencil, Plus, Trash2, ChevronDown, ChevronRight, Wrench } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { MachineDowntimeDialog } from "@/components/admin/MachineDowntimeDialog";
+import { downtimeState } from "@/lib/machine-downtime";
+import { useLocale } from "next-intl";
+import { formatDateTime, localeToDateLocale } from "@/lib/utils";
+
+interface Downtime {
+  id: string;
+  reason: "MAINTENANCE" | "DEFECT";
+  note: string | null;
+  startedAt: string;
+  endedAt: string | null;
+}
 
 interface Machine {
   id: string;
@@ -27,6 +39,36 @@ interface Machine {
   notes: string | null;
   isActive: boolean;
   _count: { printJobs: number };
+  downtimes: Downtime[];
+}
+
+type MachineStatus = "operational" | "down" | "scheduled";
+
+function machineStatus(m: Machine): MachineStatus {
+  const now = new Date();
+  let scheduled = false;
+  for (const d of m.downtimes ?? []) {
+    const state = downtimeState(
+      { startedAt: new Date(d.startedAt), endedAt: d.endedAt ? new Date(d.endedAt) : null },
+      now
+    );
+    if (state === "ACTIVE") return "down";
+    if (state === "SCHEDULED") scheduled = true;
+  }
+  return scheduled ? "scheduled" : "operational";
+}
+
+function activeDowntime(m: Machine): Downtime | null {
+  const now = new Date();
+  return (
+    (m.downtimes ?? []).find(
+      (d) =>
+        downtimeState(
+          { startedAt: new Date(d.startedAt), endedAt: d.endedAt ? new Date(d.endedAt) : null },
+          now
+        ) === "ACTIVE"
+    ) ?? null
+  );
 }
 
 type FormData = {
@@ -42,9 +84,16 @@ type FormData = {
 export function MachineManager({ initialMachines }: { initialMachines: Machine[] }) {
   const t = useTranslations("admin");
   const tc = useTranslations("common");
-  const [machines, setMachines] = useState(initialMachines);
+  const locale = useLocale();
+  const dateLocale = localeToDateLocale(locale);
+  const [machines, setMachines] = useState<Machine[]>(
+    initialMachines.map((m) => ({ ...m, downtimes: m.downtimes ?? [] }))
+  );
   const [editingMachine, setEditingMachine] = useState<Machine | null>(null);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [downtimeMachine, setDowntimeMachine] = useState<Machine | null>(null);
+  const [downtimeOpen, setDowntimeOpen] = useState(false);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [formData, setFormData] = useState<FormData>({
     name: "",
     buildVolumeX: "",
@@ -56,12 +105,51 @@ export function MachineManager({ initialMachines }: { initialMachines: Machine[]
   });
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    fetch("/api/admin/machines")
+  function loadMachines() {
+    return fetch("/api/admin/machines")
       .then((r) => r.json())
-      .then((fresh) => setMachines(fresh))
+      .then((fresh: Machine[]) => setMachines(fresh.map((m) => ({ ...m, downtimes: m.downtimes ?? [] }))))
       .catch(() => {});
+  }
+
+  useEffect(() => {
+    loadMachines();
   }, []);
+
+  function openDowntime(machine: Machine) {
+    setDowntimeMachine(machine);
+    setDowntimeOpen(true);
+  }
+
+  async function markAvailable(machine: Machine) {
+    const dt = activeDowntime(machine);
+    if (!dt) return;
+    try {
+      const res = await fetch(`/api/admin/machines/${machine.id}/downtime/${dt.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ endedAt: new Date().toISOString() }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success(t("machine_downtime_resolved"));
+      loadMachines();
+    } catch {
+      toast.error(t("machine_downtime_failed"));
+    }
+  }
+
+  async function deleteDowntime(machine: Machine, downtimeId: string) {
+    if (!confirm(t("machine_downtime_delete_confirm"))) return;
+    try {
+      const res = await fetch(`/api/admin/machines/${machine.id}/downtime/${downtimeId}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) throw new Error();
+      loadMachines();
+    } catch {
+      toast.error(t("machine_downtime_failed"));
+    }
+  }
 
   function openCreate() {
     setFormData({ name: "", buildVolumeX: "", buildVolumeY: "", buildVolumeZ: "", hourlyRate: "", notes: "", isActive: true });
@@ -124,7 +212,7 @@ export function MachineManager({ initialMachines }: { initialMachines: Machine[]
         });
         if (!res.ok) throw new Error();
         const created = await res.json();
-        setMachines((prev) => [...prev, { ...created, _count: { printJobs: 0 } }]);
+        setMachines((prev) => [...prev, { ...created, _count: { printJobs: 0 }, downtimes: created.downtimes ?? [] }]);
         toast.success(t("machine_created"));
       }
       setIsDialogOpen(false);
@@ -168,46 +256,149 @@ export function MachineManager({ initialMachines }: { initialMachines: Machine[]
       </div>
 
       <div className="space-y-2">
-        {machines.map((machine) => (
-          <div
-            key={machine.id}
-            className="flex items-center gap-3 p-3 bg-card border rounded-lg"
-            data-testid="machine-row"
-          >
-            <Cpu className="h-5 w-5 text-muted-foreground shrink-0" />
+        {machines.map((machine) => {
+          const status = machineStatus(machine);
+          const dt = activeDowntime(machine);
+          const statusColor =
+            status === "down" ? "bg-destructive" : status === "scheduled" ? "bg-amber-500" : "bg-emerald-500";
+          const statusLabel =
+            status === "down"
+              ? t("machine_status_down")
+              : status === "scheduled"
+                ? t("machine_status_scheduled")
+                : t("machine_status_operational");
+          const isExpanded = expanded[machine.id] ?? false;
+          return (
+            <div key={machine.id} className="bg-card border rounded-lg" data-testid="machine-row">
+              <div className="flex items-center gap-3 p-3">
+                <span
+                  className={`h-2.5 w-2.5 rounded-full shrink-0 ${statusColor}`}
+                  title={statusLabel}
+                  data-testid="machine-status-dot"
+                  data-status={status}
+                />
+                <Cpu className="h-5 w-5 text-muted-foreground shrink-0" />
 
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="font-medium text-sm">{machine.name}</span>
-                {!machine.isActive && (
-                  <Badge variant="secondary" className="text-xs">{t("machine_badge_inactive")}</Badge>
-                )}
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="font-medium text-sm">{machine.name}</span>
+                    {status === "down" && (
+                      <Badge variant="destructive" className="text-xs">{statusLabel}</Badge>
+                    )}
+                    {status === "scheduled" && (
+                      <Badge variant="secondary" className="text-xs">{statusLabel}</Badge>
+                    )}
+                    {!machine.isActive && (
+                      <Badge variant="secondary" className="text-xs">{t("machine_badge_inactive")}</Badge>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {machine.buildVolumeX} × {machine.buildVolumeY} × {machine.buildVolumeZ} mm
+                    {machine.hourlyRate != null && ` · ${Number(machine.hourlyRate).toFixed(2)} €/h`}
+                  </p>
+                </div>
+
+                <span className="hidden sm:inline text-xs text-muted-foreground shrink-0">
+                  {machine._count.printJobs} {t("machine_badge_jobs")}
+                </span>
+
+                <div className="flex gap-1">
+                  {dt ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8"
+                      onClick={() => markAvailable(machine)}
+                      data-testid="machine-mark-available"
+                    >
+                      {t("machine_mark_available")}
+                    </Button>
+                  ) : (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => openDowntime(machine)}
+                      title={t("machine_report_outage")}
+                      data-testid="machine-report-outage"
+                    >
+                      <Wrench className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                  {machine.downtimes.length > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8"
+                      onClick={() => setExpanded((prev) => ({ ...prev, [machine.id]: !isExpanded }))}
+                      title={t("machine_downtime_history")}
+                      data-testid="machine-history-toggle"
+                    >
+                      {isExpanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
+                    </Button>
+                  )}
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => openEdit(machine)}
+                    data-testid="machine-edit"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-destructive hover:text-destructive"
+                    onClick={() => handleDelete(machine)}
+                    data-testid="machine-delete"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
               </div>
-              <p className="text-xs text-muted-foreground">
-                {machine.buildVolumeX} × {machine.buildVolumeY} × {machine.buildVolumeZ} mm
-                {machine.hourlyRate != null && ` · ${Number(machine.hourlyRate).toFixed(2)} €/h`}
-              </p>
-            </div>
 
-            <span className="hidden sm:inline text-xs text-muted-foreground shrink-0">
-              {machine._count.printJobs} {t("machine_badge_jobs")}
-            </span>
-
-            <div className="flex gap-1">
-              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(machine)}>
-                <Pencil className="h-3.5 w-3.5" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 text-destructive hover:text-destructive"
-                onClick={() => handleDelete(machine)}
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </Button>
+              {isExpanded && machine.downtimes.length > 0 && (
+                <div className="border-t px-3 py-2 space-y-1.5" data-testid="machine-history">
+                  <p className="text-xs font-medium text-muted-foreground">{t("machine_downtime_history")}</p>
+                  {machine.downtimes.map((d) => {
+                    const state = downtimeState(
+                      { startedAt: new Date(d.startedAt), endedAt: d.endedAt ? new Date(d.endedAt) : null }
+                    );
+                    return (
+                      <div key={d.id} className="flex items-center gap-2 text-xs" data-testid="downtime-row">
+                        <Badge
+                          variant={d.reason === "DEFECT" ? "destructive" : "secondary"}
+                          className="text-[10px] shrink-0"
+                        >
+                          {d.reason === "DEFECT" ? t("machine_reason_defect") : t("machine_reason_maintenance")}
+                        </Badge>
+                        <span className="text-muted-foreground">
+                          {formatDateTime(d.startedAt, dateLocale)}
+                          {" – "}
+                          {d.endedAt
+                            ? formatDateTime(d.endedAt, dateLocale)
+                            : state === "SCHEDULED"
+                              ? t("machine_downtime_scheduled_tag")
+                              : t("machine_downtime_ongoing")}
+                        </span>
+                        {d.note && <span className="text-muted-foreground truncate">· {d.note}</span>}
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6 ml-auto text-destructive hover:text-destructive shrink-0"
+                          onClick={() => deleteDowntime(machine, d.id)}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       {machines.length === 0 && (
@@ -311,6 +502,14 @@ export function MachineManager({ initialMachines }: { initialMachines: Machine[]
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <MachineDowntimeDialog
+        open={downtimeOpen}
+        onOpenChange={setDowntimeOpen}
+        machine={downtimeMachine}
+        allMachines={machines}
+        onChanged={loadMachines}
+      />
     </div>
   );
 }

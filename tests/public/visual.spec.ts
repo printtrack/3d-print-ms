@@ -1,3 +1,4 @@
+import type { Page } from "@playwright/test";
 import { test, expect } from "../fixtures/test-base";
 
 // Visual regression spec for stable static pages.
@@ -16,7 +17,7 @@ const SCREENSHOT_OPTIONS = {
   maxDiffPixelRatio: 0.02,
   // Disable CSS animations so we get a deterministic frame.
   animations: "disabled" as const,
-} satisfies Parameters<ReturnType<typeof expect>["toHaveScreenshot"]>[1];
+} satisfies Parameters<ReturnType<typeof expect<Page>>["toHaveScreenshot"]>[0];
 
 test.describe("Visual regression — static public pages", () => {
   test("landing page", async ({ seed, page }) => {

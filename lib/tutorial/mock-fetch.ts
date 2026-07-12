@@ -49,13 +49,17 @@ function makeJob(id: string, machineId: string, machineName: string, status: str
         id: TUTORIAL_PART_ID,
         orderId: TUTORIAL_ORDER_ID,
         name: "Elektronen-Träger",
-        filamentId: TUTORIAL_FILAMENT_ID,
+        material: TUTORIAL_FILAMENT.material,
+        materialAny: false,
+        color: TUTORIAL_FILAMENT.color,
+        colorHex: TUTORIAL_FILAMENT.colorHex,
+        colorAny: false,
+        pricePerKg: null,
         quantity: 3,
         files: [
           { id: "tutorial-file-1", filename: "elektronen-traeger.stl", originalName: "elektronen-traeger.stl", mimeType: "model/stl", orderId: TUTORIAL_ORDER_ID },
         ],
         order: { id: TUTORIAL_ORDER_ID, customerName: "Dr. M. Weber", customerEmail: "m.weber@gymnasium-leibniz.de", description: "3× Ersatz-Elektronen Atommodell" },
-        filament: TUTORIAL_FILAMENT,
       },
     }],
     filamentUsages: [],
@@ -83,13 +87,17 @@ export function createMockFetchHandler(opts: MockHandlerOptions) {
     if (PART_PATCH_RE.test(url) && method === "PATCH") {
       const body = init?.body ? JSON.parse(init.body as string) : {};
 
-      if ("filamentId" in body) {
-        const filament = body.filamentId === TUTORIAL_FILAMENT_ID ? TUTORIAL_FILAMENT : null;
+      if ("material" in body || "color" in body) {
+        const material = "material" in body ? (body.material === "ANY" ? null : body.material) : TUTORIAL_FILAMENT.material;
+        const materialAny = body.material === "ANY";
+        const color = "color" in body ? (body.color === "ANY" ? null : body.color) : TUTORIAL_FILAMENT.color;
+        const colorAny = body.color === "ANY";
         opts.onFilamentSelected();
         return jsonResponse({
           id: TUTORIAL_PART_ID, orderId: TUTORIAL_ORDER_ID,
-          name: "Elektronen-Träger", filamentId: body.filamentId ?? null,
-          filament, quantity: 3, partPhaseId: null, partPhase: null,
+          name: "Elektronen-Träger",
+          material, materialAny, color, colorHex: color ? TUTORIAL_FILAMENT.colorHex : null, colorAny,
+          quantity: 3, partPhaseId: null, partPhase: null,
           gramsEstimated: 8, iterationCount: 0,
           orientQx: 0, orientQy: 0, orientQz: 0, orientQw: 1,
           createdAt: NOW, updatedAt: NOW,
@@ -102,8 +110,10 @@ export function createMockFetchHandler(opts: MockHandlerOptions) {
         opts.onPartPhaseSet();
         return jsonResponse({
           id: TUTORIAL_PART_ID, orderId: TUTORIAL_ORDER_ID,
-          name: "Elektronen-Träger", filamentId: TUTORIAL_FILAMENT_ID,
-          filament: TUTORIAL_FILAMENT, quantity: 3,
+          name: "Elektronen-Träger",
+          material: TUTORIAL_FILAMENT.material, materialAny: false,
+          color: TUTORIAL_FILAMENT.color, colorHex: TUTORIAL_FILAMENT.colorHex, colorAny: false,
+          quantity: 3,
           partPhaseId: body.partPhaseId ?? null, partPhase,
           gramsEstimated: 8, iterationCount: 0,
           orientQx: 0, orientQy: 0, orientQz: 0, orientQw: 1,

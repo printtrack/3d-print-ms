@@ -100,6 +100,7 @@ interface TrackingData {
   parts?: Array<{
     id: string;
     name: string;
+    colorHex?: string | null;
     files: Array<{ filename: string; originalName: string; category: string; orderPartId: string | null; createdAt: string }>;
   }>;
   auditLogs: Array<{
@@ -415,6 +416,7 @@ export function TrackingView({ order, trackingToken }: { order: TrackingData; tr
                                 noteCount={file.notes.length}
                                 onClick={() => setOpenModelFileId(file.id)}
                                 className="h-20"
+                                colorHex={file.orderPartId ? (order.parts ?? []).find((p) => p.id === file.orderPartId)?.colorHex ?? null : null}
                               />
                             </div>
                             <ModelViewerDialog
@@ -425,6 +427,7 @@ export function TrackingView({ order, trackingToken }: { order: TrackingData; tr
                               filename={file.originalName}
                               mode="customer"
                               initialNotes={file.notes}
+                              filamentColorHex={file.orderPartId ? (order.parts ?? []).find((p) => p.id === file.orderPartId)?.colorHex ?? null : null}
                             />
                           </>
                         )}

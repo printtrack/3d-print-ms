@@ -56,6 +56,8 @@ interface ModelViewerDialogProps extends OrientationDialogProps {
   mode: "admin" | "customer";
   initialNotes: NoteData[] | CustomerNoteData[];
   onNotesChange?: (notes: NoteData[]) => void;
+  /** Selected filament color — tints the 3D model so it previews in that color. */
+  filamentColorHex?: string | null;
 }
 
 export function ModelViewerDialog({
@@ -71,6 +73,7 @@ export function ModelViewerDialog({
   buildVolume,
   initialOrientation,
   onOrientationSaved,
+  filamentColorHex,
 }: ModelViewerDialogProps) {
   const router = useRouter();
   const [notes, setNotes] = useState<NoteData[]>(initialNotes as NoteData[]);
@@ -403,6 +406,7 @@ export function ModelViewerDialog({
               initialOrientation={initialOrientation}
               orientationEditable={mode === "admin" && !!orderPartId}
               onOrientationChange={orderPartId ? autoSaveOrientation : undefined}
+              filamentColorHex={filamentColorHex}
             />
 
             {/* Filename chip — top left of viewer */}

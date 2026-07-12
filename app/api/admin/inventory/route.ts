@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { getReservedGramsByFilament } from "@/lib/filament-reservations";
+import { getPoolAvailability, getPartCountByPool } from "@/lib/filament-reservations";
+import { poolKey } from "@/lib/filament-resolve";
 import { z } from "zod";
 
 const VALID_MATERIALS = ["PLA", "PETG", "ABS", "TPU", "ASA", "Nylon", "PC", "Other"] as const;
@@ -17,7 +18,12 @@ const createSchema = z.object({
   pricePerKg: z.number().positive().optional().or(z.null()),
   notes: z.string().optional().or(z.null()),
   isActive: z.boolean().default(true),
+  compatibleMachineIds: z.array(z.string()).optional(),
 });
+
+const filamentInclude = {
+  compatibleMachines: { select: { id: true, name: true } },
+} as const;
 
 export async function GET(req: NextRequest) {
   const session = await auth();
@@ -25,21 +31,24 @@ export async function GET(req: NextRequest) {
 
   const material = req.nextUrl.searchParams.get("material");
 
-  const [filaments, reserved] = await Promise.all([
+  const [filaments, poolAvail, partCount] = await Promise.all([
     prisma.filament.findMany({
       where: material ? { material } : undefined,
-      include: { _count: { select: { orderParts: true } } },
+      include: filamentInclude,
       orderBy: [{ material: "asc" }, { name: "asc" }],
     }),
-    getReservedGramsByFilament(),
+    getPoolAvailability(),
+    getPartCountByPool(),
   ]);
 
   const withAvailability = filaments.map((f) => {
-    const reservedGrams = reserved.get(f.id) ?? 0;
+    const key = poolKey(f.material, f.color);
+    const pool = poolAvail.get(key);
     return {
       ...f,
-      reservedGrams,
-      availableGrams: f.remainingGrams - reservedGrams,
+      reservedGrams: pool?.reserved ?? 0,
+      availableGrams: pool?.available ?? f.remainingGrams,
+      partCount: partCount.get(key) ?? 0,
     };
   });
 
@@ -55,7 +64,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const data = createSchema.parse(body);
+    const { compatibleMachineIds, ...data } = createSchema.parse(body);
 
     const filament = await prisma.filament.create({
       data: {
@@ -64,8 +73,11 @@ export async function POST(req: NextRequest) {
         brand: data.brand || null,
         notes: data.notes || null,
         pricePerKg: data.pricePerKg ?? null,
+        ...(compatibleMachineIds && compatibleMachineIds.length > 0
+          ? { compatibleMachines: { connect: compatibleMachineIds.map((id) => ({ id })) } }
+          : {}),
       },
-      include: { _count: { select: { orderParts: true } } },
+      include: filamentInclude,
     });
 
     return NextResponse.json(filament, { status: 201 });

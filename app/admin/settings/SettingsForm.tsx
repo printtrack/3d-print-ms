@@ -58,6 +58,13 @@ interface Machine {
   notes: string | null;
   isActive: boolean;
   _count: { printJobs: number };
+  downtimes: {
+    id: string;
+    reason: "MAINTENANCE" | "DEFECT";
+    note: string | null;
+    startedAt: string;
+    endedAt: string | null;
+  }[];
 }
 
 interface PartPhase {

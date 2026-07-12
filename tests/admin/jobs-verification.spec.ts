@@ -58,6 +58,7 @@ test("happy path: alle Teile erfolgreich → Job wird DONE, Teil auf Gedruckt", 
 
   await page.getByText("1 Teile").first().click();
   await page.getByRole("button", { name: /Druck verifizieren/i }).click();
+  await expect(page.getByRole("heading", { name: "Druck verifizieren" })).toBeVisible();
 
   // Mark as successful and enter weight
   await page.getByRole("button", { name: /^Erfolgreich$/ }).click();
@@ -88,6 +89,7 @@ test("fehldruck-pfad: Teil als Fehldruck markiert → landet in Fehldruck-Phase"
 
   await page.getByText("1 Teile").first().click();
   await page.getByRole("button", { name: /Druck verifizieren/i }).click();
+  await expect(page.getByRole("heading", { name: "Druck verifizieren" })).toBeVisible();
 
   await page.getByRole("button", { name: /^Fehldruck$/ }).click();
   await page.getByRole("spinbutton").first().fill("10");

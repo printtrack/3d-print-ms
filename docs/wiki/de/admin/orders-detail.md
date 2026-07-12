@@ -59,6 +59,25 @@ Komplexe Aufträge bestehen aus mehreren Einzelteilen. Im Abschnitt **Teile** ve
 - **Teildateien** — Du kannst STL/3MF-Dateien direkt einem bestimmten Teil zuordnen.
 - **Beauftragte pro Teil** — Ein einzelnes Teil kann einem spezifischen Teammitglied zugewiesen werden.
 
+### Material & Farbe wählen
+
+Am Teil werden **Material und Farbe getrennt** über zwei Badge-Dropdowns in der Teilzeile gewählt — nicht mehr eine einzelne Filament-Spule.
+
+- **Material-Badge** — wähle z. B. `PLA`, `PETG`. Die Liste zeigt Bestand und Anzahl verfügbarer Farben je Material.
+- **Farbe-Badge** — nach der Material-Wahl aktiv; zeigt die verfügbaren Farben mit Farbtupfer und Pool-Bestand.
+- **„Egal"** — jede Achse kann bewusst offen gelassen werden: **Farbe egal** (jede Farbe des Materials ist ok) oder **Material egal** (jedes Material der Farbe ist ok). Das gibt der [[Planung|planning]] Spielraum, Teile zusammenzulegen und den Drucker besser auszulasten.
+- **Bestandshinweis** — bei konkretem Material + Farbe zeigt der Chip, ob der Bestand für das geschätzte Gewicht reicht.
+
+Die gewählte Farbe wird zusätzlich für die **farbige 3D-Vorschau** verwendet: das Modell erscheint im Viewer (Admin **und** Kunde) in der gewählten Filamentfarbe.
+
+### Farbvarianten — Teil duplizieren
+
+Für ein Objekt in mehreren Farben (z. B. ein Schlüsselanhänger) wird **pro Farbe ein eigenes Teil** angelegt. Über das `⋯`-Menü eines Teils gibt es **Duplizieren (andere Farbe)**: das legt ein neues Teil mit Name, Menge und Material an und setzt nur die Farbe zurück, sodass du sie neu wählst. So bekommt jede Farbe ihre eigene Phase, Planung und farbige Vorschau.
+
+**Geteiltes Design:** Duplizierte Varianten teilen sich **dasselbe Design** (eine Variantengruppe, erkennbar am `Variante`-Chip). Lädst du ein neues STL hoch, aktualisiert es automatisch **alle** Varianten der Gruppe — du musst es nicht überall neu hochladen.
+
+**Abkoppeln:** Soll eine Variante ein abweichendes Design bekommen, wähle im `⋯`-Menü **Design abkoppeln**. Das Teil erhält eine eigene Kopie des aktuellen Designs und verlässt die Gruppe; künftige Design-Änderungen an den anderen Varianten wirken sich dann nicht mehr auf dieses Teil aus.
+
 ## Dateien
 
 ### Kunden-Dateien

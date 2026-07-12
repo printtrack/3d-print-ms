@@ -12,7 +12,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
@@ -24,6 +23,8 @@ import { BulkFileActions } from "./BulkFileActions";
 import { CreateJobDialog } from "@/components/admin/CreateJobDialog";
 import { PartEditDialog } from "./PartEditDialog";
 import { PartLinkJobDialog } from "./PartLinkJobDialog";
+import { FilamentBadges } from "./FilamentBadges";
+import { Copy, Unlink, Link as LinkIcon } from "lucide-react";
 import { type OrderFileData, type FileCategory, type NoteData } from "./types";
 
 const ModelViewerDialog = dynamic(
@@ -37,7 +38,14 @@ export interface OrderPartData {
   orderId: string;
   name: string;
   description: string | null;
-  filamentId: string | null;
+  // Filament requirement: material + color chosen independently, each can be
+  // concrete, "egal" (materialAny/colorAny), or unset.
+  material: string | null;
+  materialAny: boolean;
+  color: string | null;
+  colorHex: string | null;
+  colorAny: boolean;
+  variantGroupId: string | null;
   gramsEstimated: number | null;
   quantity: number;
   iterationCount: number;
@@ -49,14 +57,6 @@ export interface OrderPartData {
   orientQw: number;
   createdAt: string;
   updatedAt: string;
-  filament: {
-    id: string;
-    name: string;
-    material: string;
-    color: string;
-    colorHex: string | null;
-    brand: string | null;
-  } | null;
   files: Array<{
     id: string;
     filename: string;
@@ -76,17 +76,22 @@ export interface OrderPartData {
   assignees: Array<{ user: { id: string; name: string; email: string } }>;
 }
 
-export interface FilamentOption {
-  id: string;
-  name: string;
+/** One (material|color) inventory pool with pool-wide availability. */
+export interface FilamentColorOption {
   material: string;
   color: string;
   colorHex: string | null;
-  brand: string | null;
   remainingGrams: number;
   reservedGrams: number;
   availableGrams: number;
 }
+
+export interface FilamentInventory {
+  colors: FilamentColorOption[];
+}
+
+/** Sentinel matching the API wire format for an "egal"/any axis. */
+export const FILAMENT_ANY = "ANY";
 
 export interface PartPhaseOption {
   id: string;
@@ -100,11 +105,12 @@ export interface PartPhaseOption {
 
 interface PartControlData {
   part: OrderPartData;
-  availableFilaments: FilamentOption[];
+  availableFilaments: FilamentInventory;
   availablePartPhases: PartPhaseOption[];
   machines: Array<{ id: string; name: string }>;
   onPartUpdated: (part: OrderPartData) => void;
   onPartDeleted: (partId: string) => void;
+  onPartAdded?: (part: OrderPartData) => void;
 }
 
 interface PartFileSectionProps {
@@ -361,19 +367,69 @@ export function PartFileSection({
     }
   }
 
-  async function handleFilamentChange(filamentId: string | null) {
+  async function patchPart(body: Record<string, unknown>) {
     if (!partData) return;
     try {
       const res = await fetch(`/api/admin/orders/${orderId}/parts/${partData.part.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ filamentId }),
+        body: JSON.stringify(body),
       });
       if (!res.ok) throw new Error();
       const updated = await res.json();
       partData.onPartUpdated(updated);
     } catch {
       toast.error(t("part_file_filament_failed"));
+    }
+  }
+
+  // Material change; switching material resets an incompatible concrete color.
+  function handleMaterialChange(value: string | null) {
+    if (!partData) return;
+    const p = partData.part;
+    const body: Record<string, unknown> = { material: value };
+    if (value && value !== FILAMENT_ANY && p.color && !p.colorAny) {
+      const stillValid = partData.availableFilaments.colors.some(
+        (c) => c.material === value && c.color === p.color
+      );
+      if (!stillValid) body.color = null;
+    }
+    patchPart(body);
+  }
+
+  function handleColorChange(value: string | null) {
+    patchPart({ color: value });
+  }
+
+  async function handleDuplicateColor() {
+    if (!partData) return;
+    try {
+      const res = await fetch(`/api/admin/orders/${orderId}/parts/${partData.part.id}/duplicate`, {
+        method: "POST",
+      });
+      if (!res.ok) throw new Error();
+      const clone = await res.json();
+      toast.success(t("part_file_duplicated"));
+      // Add the clone (with its copied STL) to the list immediately.
+      if (partData.onPartAdded) partData.onPartAdded(clone);
+      else router.refresh();
+    } catch {
+      toast.error(t("part_file_duplicate_failed"));
+    }
+  }
+
+  async function handleDetachDesign() {
+    if (!partData) return;
+    try {
+      const res = await fetch(`/api/admin/orders/${orderId}/parts/${partData.part.id}/detach-design`, {
+        method: "POST",
+      });
+      if (!res.ok) throw new Error();
+      toast.success(t("part_file_detached"));
+      // Files changed (own copy created) → reload from server.
+      router.refresh();
+    } catch {
+      toast.error(t("part_file_detach_failed"));
     }
   }
 
@@ -463,6 +519,29 @@ export function PartFileSection({
             <span className="text-xs text-muted-foreground bg-background/70 border rounded-full px-1.5 py-0.5">
               ×{part.quantity}
             </span>
+          )}
+          {part?.variantGroupId && (
+            isAdmin && partData ? (
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); handleDetachDesign(); }}
+                className="group/variant inline-flex items-center gap-1 text-[10px] font-medium text-muted-foreground bg-background/70 border rounded-full px-1.5 py-0.5 hover:border-destructive/40 hover:text-destructive transition-colors"
+                title={t("part_file_variant_hint")}
+              >
+                <LinkIcon className="h-2.5 w-2.5 group-hover/variant:hidden" />
+                <Unlink className="h-2.5 w-2.5 hidden group-hover/variant:inline" />
+                <span className="group-hover/variant:hidden">{t("part_file_variant")}</span>
+                <span className="hidden group-hover/variant:inline">{t("part_file_detach_short")}</span>
+              </button>
+            ) : (
+              <span
+                className="inline-flex items-center gap-1 text-[10px] font-medium text-muted-foreground bg-background/70 border rounded-full px-1.5 py-0.5"
+                title={t("part_file_variant_hint")}
+              >
+                <LinkIcon className="h-2.5 w-2.5" />
+                {t("part_file_variant")}
+              </span>
+            )
           )}
           {part && partData && partData.availablePartPhases.length > 0 && (
             <div onClick={(e) => e.stopPropagation()}>
@@ -634,6 +713,10 @@ export function PartFileSection({
                     <Pencil className="h-3.5 w-3.5 mr-2" />
                     Bearbeiten
                   </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleDuplicateColor}>
+                    <Copy className="h-3.5 w-3.5 mr-2" />
+                    {t("part_file_duplicate_color")}
+                  </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     onClick={handlePartDelete}
@@ -648,103 +731,39 @@ export function PartFileSection({
           )}
         </div>
 
-        {/* Secondary line — filament chip + iteration + description */}
-        {part && (part.filament || (isAdmin && partData) || (isPrototype && part.iterationCount > 0) || part.description) && (
+        {/* Secondary line — material/color badges + iteration + description */}
+        {part && ((isAdmin && partData) || part.material || part.materialAny || part.color || part.colorAny || (isPrototype && part.iterationCount > 0) || part.description) && (
           <div className="flex items-center gap-2 px-3 pb-2 text-[11px] text-muted-foreground">
-            {isAdmin && partData ? (() => {
-              const materials = [...new Set(partData.availableFilaments.map((f) => f.material))].sort();
-              return (
-                <div onClick={(e) => e.stopPropagation()}>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <button
-                        type="button"
-                        data-tutorial="filament-btn"
-                        className={cn(
-                          "flex items-center gap-1.5 text-[11px] px-1.5 py-0.5 rounded border transition-colors",
-                          part.filament
-                            ? "border-transparent hover:bg-muted/60 text-muted-foreground"
-                            : "border-dashed border-muted-foreground/40 text-muted-foreground/70 hover:bg-muted/40"
-                        )}
-                        title={t("part_file_select_filament")}
-                      >
-                        {part.filament ? (
-                          <>
-                            {part.filament.colorHex && (
-                              <span
-                                className="w-2 h-2 rounded-full border border-border shrink-0"
-                                style={{ backgroundColor: part.filament.colorHex }}
-                              />
-                            )}
-                            {part.filament.name}
-                          </>
-                        ) : (
-                          t("part_file_select_filament")
-                        )}
-                      </button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent data-tutorial="filament-dropdown" align="start" className="w-56">
-                      {materials.map((mat) => (
-                        <div key={mat}>
-                          <DropdownMenuLabel className="text-[10px] uppercase tracking-wide text-muted-foreground py-1">
-                            {mat}
-                          </DropdownMenuLabel>
-                          {partData.availableFilaments
-                            .filter((f) => f.material === mat)
-                            .map((f) => (
-                              <DropdownMenuItem
-                                key={f.id}
-                                onClick={() => handleFilamentChange(f.id)}
-                                className={cn("gap-2", part.filamentId === f.id && "bg-accent")}
-                              >
-                                {f.colorHex && (
-                                  <span
-                                    className="w-2.5 h-2.5 rounded-full shrink-0 border border-border"
-                                    style={{ backgroundColor: f.colorHex }}
-                                  />
-                                )}
-                                <span className="flex-1 truncate">{f.name}</span>
-                                <span
-                                  className={cn(
-                                    "text-[10px] shrink-0",
-                                    f.availableGrams < 0
-                                      ? "text-destructive font-medium"
-                                      : f.availableGrams < 250
-                                      ? "text-amber-600"
-                                      : "text-muted-foreground"
-                                  )}
-                                  title={f.reservedGrams > 0 ? `${f.remainingGrams} g Bestand · ${f.reservedGrams} g eingeplant` : undefined}
-                                >
-                                  {f.availableGrams} g
-                                </span>
-                              </DropdownMenuItem>
-                            ))}
-                        </div>
-                      ))}
-                      {part.filament && (
-                        <>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            onClick={() => handleFilamentChange(null)}
-                            className="text-muted-foreground"
-                          >
-                            Kein Filament
-                          </DropdownMenuItem>
-                        </>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              );
-            })() : part.filament ? (
+            {isAdmin && partData ? (
+              <FilamentBadges
+                material={part.material}
+                materialAny={part.materialAny}
+                color={part.color}
+                colorAny={part.colorAny}
+                colorHex={part.colorHex}
+                inventory={partData.availableFilaments}
+                estGrams={part.gramsEstimated}
+                onMaterialChange={handleMaterialChange}
+                onColorChange={handleColorChange}
+              />
+            ) : (part.material || part.materialAny || part.color || part.colorAny) ? (
               <span className="flex items-center gap-1.5">
-                {part.filament.colorHex && (
-                  <span
-                    className="w-2 h-2 rounded-full border border-border"
-                    style={{ backgroundColor: part.filament.colorHex }}
-                  />
+                <span>{part.materialAny ? t("part_material_any") : part.material}</span>
+                {(part.color || part.colorAny) && (
+                  <>
+                    <span className="opacity-50">·</span>
+                    {part.colorAny ? (
+                      <span>{t("part_color_any")}</span>
+                    ) : (
+                      <span className="flex items-center gap-1">
+                        {part.colorHex && (
+                          <span className="w-2 h-2 rounded-full border border-border" style={{ backgroundColor: part.colorHex }} />
+                        )}
+                        {part.color}
+                      </span>
+                    )}
+                  </>
                 )}
-                {part.filament.name}
               </span>
             ) : null}
             {isPrototype && part.iterationCount > 0 && (
@@ -898,6 +917,7 @@ export function PartFileSection({
                       currentPartId={partData?.part.id ?? null}
                       onPreview={onPreview}
                       onOpenViewer={setViewerFile}
+                      filamentColorHex={partData?.part.colorHex ?? null}
                     />
 
                     {/* Past designs */}
@@ -932,6 +952,7 @@ export function PartFileSection({
                                 currentPartId={partData?.part.id ?? null}
                                 onPreview={onPreview}
                                 onOpenViewer={setViewerFile}
+                      filamentColorHex={partData?.part.colorHex ?? null}
                               />
                             ))}
                           </div>
@@ -968,6 +989,7 @@ export function PartFileSection({
                         currentPartId={partData?.part.id ?? null}
                         onPreview={onPreview}
                         onOpenViewer={setViewerFile}
+                      filamentColorHex={partData?.part.colorHex ?? null}
                       />
                     );
                   })}
@@ -1033,6 +1055,7 @@ export function PartFileSection({
             setNoteUpdates((prev) => new Map(prev).set(viewerFile.id, updatedNotes));
           }}
           orderPartId={partData?.part.id}
+          filamentColorHex={partData?.part.colorHex ?? null}
           buildVolume={buildVolume}
           initialOrientation={currentOrientation}
           onOrientationSaved={(q) => setCurrentOrientation(q)}

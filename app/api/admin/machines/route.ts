@@ -24,7 +24,10 @@ export async function GET() {
 
   const machines = await prisma.machine.findMany({
     orderBy: { name: "asc" },
-    include: { _count: { select: { printJobs: true } } },
+    include: {
+      _count: { select: { printJobs: true } },
+      downtimes: { orderBy: { startedAt: "desc" }, take: 50 },
+    },
   });
 
   return NextResponse.json(machines);

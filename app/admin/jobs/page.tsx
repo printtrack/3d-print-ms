@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getEnabledFeatures } from "@/lib/features";
+import { resolveFilamentForPart } from "@/lib/filament-resolve";
 import { TutorialAwareJobsView } from "@/components/admin/tutorial/TutorialAwareJobsView";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -15,10 +16,11 @@ export default async function JobsPage() {
 
   if (!(await getEnabledFeatures()).jobs) redirect("/admin");
 
-  const [machines, jobs, users] = await Promise.all([
+  const [machines, jobs, users, inventory] = await Promise.all([
     prisma.machine.findMany({
       where: { isActive: true },
       orderBy: { name: "asc" },
+      include: { downtimes: { orderBy: { startedAt: "desc" }, take: 50 } },
     }),
     prisma.printJob.findMany({
       where: { status: { in: ["PLANNED", "SLICED", "IN_PROGRESS", "AWAITING_VERIFICATION"] } },
@@ -30,7 +32,6 @@ export default async function JobsPage() {
             orderPart: {
               include: {
                 order: { select: { id: true, customerName: true, customerEmail: true, description: true } },
-                filament: { select: { id: true, name: true, material: true, color: true, colorHex: true } },
               },
             },
           },
@@ -46,6 +47,9 @@ export default async function JobsPage() {
     prisma.user.findMany({
       select: { id: true, name: true, email: true },
       orderBy: { name: "asc" },
+    }),
+    prisma.filament.findMany({
+      select: { material: true, color: true, isActive: true, remainingGrams: true, pricePerKg: true },
     }),
   ]);
 
@@ -72,6 +76,12 @@ export default async function JobsPage() {
     hourlyRate: m.hourlyRate ? Number(m.hourlyRate) : null,
     createdAt: m.createdAt.toISOString(),
     updatedAt: m.updatedAt.toISOString(),
+    downtimes: m.downtimes.map((d) => ({
+      id: d.id,
+      reason: d.reason,
+      startedAt: d.startedAt.toISOString(),
+      endedAt: d.endedAt ? d.endedAt.toISOString() : null,
+    })),
   }));
 
   // Serialize dates
@@ -93,6 +103,11 @@ export default async function JobsPage() {
         ...p.orderPart,
         createdAt: p.orderPart.createdAt.toISOString(),
         updatedAt: p.orderPart.updatedAt.toISOString(),
+        // Resolve the concrete spool price for the verify cost preview.
+        pricePerKg: (() => {
+          const r = resolveFilamentForPart(p.orderPart, inventory);
+          return r?.pricePerKg != null ? r.pricePerKg.toString() : null;
+        })(),
       },
     })),
   }));

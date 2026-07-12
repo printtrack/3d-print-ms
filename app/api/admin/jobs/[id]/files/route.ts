@@ -7,6 +7,7 @@ import { randomUUID } from "crypto";
 import { getUploadDir } from "@/lib/uploads";
 import { validateFileContent } from "@/lib/file-validation";
 import { extractPrintTimeMinutes, extractFilamentData } from "@/lib/gcode-parser";
+import { resolveFilamentForPart } from "@/lib/filament-resolve";
 
 function colorDistance(hex1: string, hex2: string): number {
   const parse = (h: string) => [
@@ -92,10 +93,10 @@ export async function POST(
               include: {
                 orderPart: {
                   select: {
-                    filamentId: true,
-                    filament: {
-                      select: { id: true, name: true, material: true, colorHex: true, remainingGrams: true },
-                    },
+                    material: true,
+                    materialAny: true,
+                    color: true,
+                    colorAny: true,
                   },
                 },
               },
@@ -104,10 +105,20 @@ export async function POST(
         });
 
         type JobFilament = { id: string; name: string; material: string; colorHex: string | null; remainingGrams: number };
+        const inventory = await prisma.filament.findMany({
+          select: { id: true, name: true, material: true, color: true, colorHex: true, isActive: true, remainingGrams: true },
+        });
         const filamentMap = new Map<string, JobFilament>();
         for (const jp of jobWithParts?.parts ?? []) {
-          if (jp.orderPart.filament) {
-            filamentMap.set(jp.orderPart.filament.id, jp.orderPart.filament);
+          const resolved = resolveFilamentForPart(jp.orderPart, inventory);
+          if (resolved) {
+            filamentMap.set(resolved.id, {
+              id: resolved.id,
+              name: resolved.name,
+              material: resolved.material,
+              colorHex: resolved.colorHex,
+              remainingGrams: resolved.remainingGrams,
+            });
           }
         }
         const filamentList = [...filamentMap.values()];
@@ -186,7 +197,6 @@ export async function POST(
             orderPart: {
               include: {
                 order: { select: { id: true, customerName: true, customerEmail: true, description: true } },
-                filament: { select: { id: true, name: true, material: true, color: true, colorHex: true } },
               },
             },
           },

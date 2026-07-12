@@ -52,6 +52,31 @@ Klicke auf das **Stift-Symbol** neben der Maschine, ändere die Felder und klick
 
 Setze den Schalter **Aktiv** auf Aus. Die Maschine bleibt in der Liste sichtbar und historische Jobs bleiben erhalten — sie wird nur bei neuen Jobs nicht mehr zur Auswahl angeboten.
 
+## Ausfall & Wartung
+
+Jede Maschine hat links einen **Status-Punkt**: grün = in Betrieb, rot = ausgefallen, gelb = Wartung geplant. Anders als der Schalter *Aktiv* (dauerhaftes Ausmustern) bildet der Ausfall eine **vorübergehende** Nichtverfügbarkeit ab.
+
+### Ausfall oder Wartung melden
+
+1. Klicke bei der Maschine auf das **Schraubenschlüssel-Symbol** (*Ausfall / Wartung melden*).
+2. Wähle den **Grund** (Defekt oder Wartung) und trage optional eine Notiz ein.
+3. Für **geplante Wartung in der Zukunft** aktiviere *Wartung im Voraus planen* und gib einen geplanten Beginn an. Ohne Haken beginnt der Ausfall **sofort**.
+4. Klicke **Als ausgefallen markieren**.
+
+Solange eine Maschine ausgefallen ist, wird sie vom [[Druckjobs|Druckjob-Planner]] **nicht mehr vorgeschlagen** und geplante Jobs auf ihr werden **nicht automatisch gestartet**.
+
+### Betroffene Jobs umplanen
+
+Meldest du einen **sofortigen** Ausfall, öffnet sich direkt der **Umplanungs-Assistent**: Er listet die laufenden und geplanten Jobs auf der Maschine. Pro Job wählst du, ob er auf eine andere passende Maschine gelegt oder zurück ins Backlog (ungeplant) genommen wird. In der Timeline werden betroffene Jobs zusätzlich mit einem roten Rahmen und ⚠ markiert.
+
+### Wieder verfügbar machen
+
+Ist die Reparatur oder Wartung abgeschlossen, klicke **Wieder verfügbar**. Der Ausfall wird mit Endzeitpunkt abgeschlossen und die Maschine steht sofort wieder zur Verfügung. Eine Reparaturdauer musst du nie vorab schätzen.
+
+### Ausfall-Historie
+
+Über den **Pfeil** neben einer Maschine klappst du die **Ausfall-Historie** auf — alle vergangenen und laufenden Ausfälle mit Grund, Zeitraum und Notiz. Diese Historie ist die Grundlage für spätere Auslastungs- und Effektivitätsstatistiken.
+
 ## Maschine löschen
 
 Klicke auf das **Papierkorb-Symbol**. Eine Maschine kann nur gelöscht werden, wenn ihr **keine aktiven Jobs** mehr zugeordnet sind. Schließe oder entferne die Jobs zuerst.

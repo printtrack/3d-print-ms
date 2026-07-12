@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { useTranslations } from "next-intl";
 import { FlaskConical, Paperclip, Plus, RotateCcw } from "lucide-react";
 import Image from "next/image";
-import { PartFileSection, type OrderPartData, type FilamentOption, type PartPhaseOption } from "./PartFileSection";
+import { PartFileSection, type OrderPartData, type FilamentInventory, type PartPhaseOption } from "./PartFileSection";
 import { CATEGORY_LABELS, type OrderFileData, type FileCategory } from "./types";
 import { cn } from "@/lib/utils";
 
@@ -23,7 +23,7 @@ interface FileManagerProps {
   parts: OrderPartData[];
   isAdmin: boolean;
   onPartsRefresh: () => Promise<void>;
-  availableFilaments?: FilamentOption[];
+  availableFilaments?: FilamentInventory;
   availablePartPhases?: PartPhaseOption[];
   machines?: Array<{ id: string; name: string }>;
   onPartUpdated?: (part: OrderPartData) => void;
@@ -51,7 +51,7 @@ export function FileManager({
   parts,
   isAdmin,
   onPartsRefresh,
-  availableFilaments = [],
+  availableFilaments = { colors: [] },
   availablePartPhases = [],
   machines = [],
   onPartUpdated,
@@ -105,12 +105,28 @@ export function FileManager({
     variant?: "orphan";
   }> = [];
 
-  // Parts first when they exist
+  // Which parts belong to each variant group — variants share the DESIGN files.
+  const partIdsByGroup = new Map<string, Set<string>>();
   parts.forEach((p) => {
+    if (p.variantGroupId) {
+      const set = partIdsByGroup.get(p.variantGroupId) ?? new Set<string>();
+      set.add(p.id);
+      partIdsByGroup.set(p.variantGroupId, set);
+    }
+  });
+
+  // Parts first when they exist. A variant part also shows the group's shared
+  // DESIGN files (owned by whichever member they were uploaded to).
+  parts.forEach((p) => {
+    const groupPartIds = p.variantGroupId ? partIdsByGroup.get(p.variantGroupId) : null;
     sections.push({
       key: p.id,
       label: p.name,
-      files: files.filter((f) => f.orderPartId === p.id),
+      files: files.filter(
+        (f) =>
+          f.orderPartId === p.id ||
+          (!!groupPartIds && f.category === "DESIGN" && f.orderPartId !== null && groupPartIds.has(f.orderPartId))
+      ),
       part: p,
     });
   });
@@ -445,6 +461,7 @@ export function FileManager({
                         machines,
                         onPartUpdated,
                         onPartDeleted,
+                        onPartAdded,
                       }
                     : undefined
                 }

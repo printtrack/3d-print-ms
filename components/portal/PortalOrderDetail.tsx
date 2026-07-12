@@ -40,6 +40,7 @@ interface OrderFile {
   size: number;
   source: string;
   category: "REFERENCE" | "DESIGN" | "RESULT" | "OTHER";
+  colorHex?: string | null;
   createdAt: string;
   notes: Array<{
     id: string;
@@ -292,6 +293,7 @@ export function PortalOrderDetail({ order }: { order: Order }) {
                               noteCount={file.notes.length}
                               onClick={() => setOpenModelFileId(file.id)}
                               className="h-20"
+                              colorHex={file.colorHex ?? null}
                             />
                             </div>
                             <ModelViewerDialog
@@ -302,6 +304,7 @@ export function PortalOrderDetail({ order }: { order: Order }) {
                               filename={file.originalName}
                               mode="customer"
                               initialNotes={file.notes}
+                              filamentColorHex={file.colorHex ?? null}
                             />
                           </>
                         )}

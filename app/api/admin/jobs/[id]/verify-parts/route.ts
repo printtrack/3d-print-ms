@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { z } from "zod";
 import { publish } from "@/lib/event-bus";
 import { computeCharges } from "@/lib/charging";
+import { resolveFilamentForPart } from "@/lib/filament-resolve";
 
 const verifySchema = z.object({
   iterations: z.array(
@@ -39,7 +40,10 @@ export async function POST(
               select: {
                 id: true,
                 quantity: true,
-                filamentId: true,
+                material: true,
+                materialAny: true,
+                color: true,
+                colorAny: true,
                 order: { select: { id: true, customerEmail: true } },
               },
             },
@@ -91,14 +95,20 @@ export async function POST(
     // Compute charging decisions
     const charges = await computeCharges(iterations);
 
-    // Group: filament inventory deductions (gramsActual per filamentId)
+    // Group: filament inventory deductions. Parts specify a material+color
+    // requirement; resolve each to a concrete spool to deduct from. Parts with
+    // "egal"/unset axes can't be attributed to a spool and are skipped.
+    const inventory = await prisma.filament.findMany({
+      select: { id: true, material: true, color: true, isActive: true, remainingGrams: true },
+    });
     const filamentDeductions = new Map<string, number>();
     for (const iter of iterations) {
       const part = jobPartMap.get(iter.orderPartId);
-      if (part?.filamentId) {
+      const resolved = part ? resolveFilamentForPart(part, inventory) : null;
+      if (resolved) {
         filamentDeductions.set(
-          part.filamentId,
-          (filamentDeductions.get(part.filamentId) ?? 0) + iter.gramsActual
+          resolved.id,
+          (filamentDeductions.get(resolved.id) ?? 0) + iter.gramsActual
         );
       }
     }

@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import { getSettings } from "@/lib/settings";
+import { resolveFilamentForPart } from "@/lib/filament-resolve";
 
 export type QuoteItemInput = {
   description: string;
@@ -140,28 +141,34 @@ export async function buildItemsFromParts(
   orderId: string,
   excludePartIds: Set<string> = new Set()
 ): Promise<QuoteItemInput[]> {
-  const parts = await prisma.orderPart.findMany({
-    where: {
-      orderId,
-      id: excludePartIds.size > 0 ? { notIn: [...excludePartIds] } : undefined,
-      // Exclude misprint phase parts — those aren't real deliverables
-      OR: [
-        { partPhase: null },
-        { partPhase: { isMisprint: false } },
-      ],
-    },
-    include: { filament: { select: { name: true, material: true, color: true, pricePerKg: true } } },
-    orderBy: { createdAt: "asc" },
-  });
+  const [parts, filaments] = await Promise.all([
+    prisma.orderPart.findMany({
+      where: {
+        orderId,
+        id: excludePartIds.size > 0 ? { notIn: [...excludePartIds] } : undefined,
+        // Exclude misprint phase parts — those aren't real deliverables
+        OR: [
+          { partPhase: null },
+          { partPhase: { isMisprint: false } },
+        ],
+      },
+      orderBy: { createdAt: "asc" },
+    }),
+    prisma.filament.findMany({
+      select: { material: true, color: true, isActive: true, remainingGrams: true, pricePerKg: true },
+    }),
+  ]);
 
   return parts.map((part) => {
     const grams = part.gramsEstimated ?? 0;
-    const pricePerKg = part.filament?.pricePerKg ? Number(part.filament.pricePerKg) : 0;
+    // Resolve to a concrete spool (material+color) for its price.
+    const resolved = resolveFilamentForPart(part, filaments);
+    const pricePerKg = resolved?.pricePerKg ? Number(resolved.pricePerKg) : 0;
     // pricePerKg is in EUR/kg, gramsEstimated in g → cents = round(grams * pricePerKg / 10)
     const unitPriceCents = grams > 0 && pricePerKg > 0 ? Math.round((grams * pricePerKg) / 10) : 0;
 
-    const materialNote = part.filament
-      ? ` (${part.filament.material}${part.filament.color ? ", " + part.filament.color : ""}${grams > 0 ? `, ${grams} g` : ""})`
+    const materialNote = part.material
+      ? ` (${part.material}${part.color ? ", " + part.color : ""}${grams > 0 ? `, ${grams} g` : ""})`
       : "";
 
     return {

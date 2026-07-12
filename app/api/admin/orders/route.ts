@@ -62,9 +62,12 @@ export async function GET(req: NextRequest) {
               select: {
                 id: true,
                 name: true,
-                filamentId: true,
                 gramsEstimated: true,
-                filament: { select: { id: true, name: true, material: true, color: true, colorHex: true } },
+                material: true,
+                materialAny: true,
+                color: true,
+                colorAny: true,
+                colorHex: true,
               },
             },
           }

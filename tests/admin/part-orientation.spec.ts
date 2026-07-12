@@ -160,7 +160,7 @@ test("orientation: auto-planner skips part when user-set orientation exceeds mac
     where: { id: part.id },
     data: {
       bboxXmm: 80, bboxYmm: 80, bboxZmm: 150,
-      filamentId: filament.id,
+      material: filament.material, color: filament.color, colorHex: filament.colorHex,
       ...(printReadyPhase ? { partPhaseId: printReadyPhase.id } : {}),
     },
   });

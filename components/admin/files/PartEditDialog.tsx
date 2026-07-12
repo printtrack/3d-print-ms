@@ -7,26 +7,22 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import type { OrderPartData, FilamentOption } from "./PartFileSection";
-
-const NONE = "__none__";
+import type { OrderPartData, FilamentInventory } from "./PartFileSection";
+import { FILAMENT_ANY } from "./PartFileSection";
+import { FilamentBadges } from "./FilamentBadges";
 
 interface PartEditDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   orderId: string;
   part: OrderPartData;
-  availableFilaments: FilamentOption[];
+  availableFilaments: FilamentInventory;
   onPartUpdated: (part: OrderPartData) => void;
+}
+
+// Wire value per axis: null (unset) | FILAMENT_ANY (egal) | concrete name
+function axisFromPart(concrete: string | null, any: boolean): string | null {
+  return any ? FILAMENT_ANY : concrete;
 }
 
 export function PartEditDialog({
@@ -39,7 +35,8 @@ export function PartEditDialog({
 }: PartEditDialogProps) {
   const [name, setName] = useState(part.name);
   const [description, setDescription] = useState(part.description ?? "");
-  const [filamentId, setFilamentId] = useState(part.filamentId ?? NONE);
+  const [materialValue, setMaterialValue] = useState<string | null>(axisFromPart(part.material, part.materialAny));
+  const [colorValue, setColorValue] = useState<string | null>(axisFromPart(part.color, part.colorAny));
   const [quantity, setQuantity] = useState(String(part.quantity ?? 1));
   const [saving, setSaving] = useState(false);
 
@@ -48,12 +45,28 @@ export function PartEditDialog({
     if (open) {
       setName(part.name);
       setDescription(part.description ?? "");
-      setFilamentId(part.filamentId ?? NONE);
+      setMaterialValue(axisFromPart(part.material, part.materialAny));
+      setColorValue(axisFromPart(part.color, part.colorAny));
       setQuantity(String(part.quantity ?? 1));
     }
   }, [open, part]);
 
-  const materials = Array.from(new Set(availableFilaments.map((f) => f.material))).sort();
+  const materialConcrete = materialValue && materialValue !== FILAMENT_ANY ? materialValue : null;
+  const colorConcrete = colorValue && colorValue !== FILAMENT_ANY ? colorValue : null;
+  const colorHex = colorConcrete
+    ? availableFilaments.colors.find(
+        (c) => (!materialConcrete || c.material === materialConcrete) && c.color === colorConcrete
+      )?.colorHex ?? null
+    : null;
+
+  function handleMaterialChange(value: string | null) {
+    setMaterialValue(value);
+    // Reset an incompatible concrete color when switching to a concrete material.
+    if (value && value !== FILAMENT_ANY && colorConcrete) {
+      const stillValid = availableFilaments.colors.some((c) => c.material === value && c.color === colorConcrete);
+      if (!stillValid) setColorValue(null);
+    }
+  }
 
   async function handleSave() {
     if (!name.trim()) return;
@@ -65,7 +78,8 @@ export function PartEditDialog({
         body: JSON.stringify({
           name: name.trim(),
           description: description.trim() || null,
-          filamentId: filamentId === NONE ? null : filamentId,
+          material: materialValue,
+          color: colorValue,
           quantity: parseInt(quantity, 10) || 1,
         }),
       });
@@ -123,34 +137,17 @@ export function PartEditDialog({
 
           <div className="space-y-1.5">
             <Label>Filament</Label>
-            <Select value={filamentId} onValueChange={setFilamentId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Kein Filament" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={NONE}>Kein Filament</SelectItem>
-                {materials.map((mat) => (
-                  <SelectGroup key={mat}>
-                    <SelectLabel>{mat}</SelectLabel>
-                    {availableFilaments
-                      .filter((f) => f.material === mat)
-                      .map((f) => (
-                        <SelectItem key={f.id} value={f.id}>
-                          <span className="flex items-center gap-2">
-                            {f.colorHex && (
-                              <span
-                                className="w-2.5 h-2.5 rounded-full inline-block shrink-0 border border-border"
-                                style={{ backgroundColor: f.colorHex }}
-                              />
-                            )}
-                            {f.name} ({f.availableGrams} g)
-                          </span>
-                        </SelectItem>
-                      ))}
-                  </SelectGroup>
-                ))}
-              </SelectContent>
-            </Select>
+            <FilamentBadges
+              material={materialConcrete}
+              materialAny={materialValue === FILAMENT_ANY}
+              color={colorConcrete}
+              colorAny={colorValue === FILAMENT_ANY}
+              colorHex={colorHex}
+              inventory={availableFilaments}
+              estGrams={part.gramsEstimated}
+              onMaterialChange={handleMaterialChange}
+              onColorChange={setColorValue}
+            />
           </div>
         </div>
 

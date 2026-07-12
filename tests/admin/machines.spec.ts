@@ -33,8 +33,7 @@ test("edits an existing machine", async ({ seed, page }) => {
   await page
     .locator('[data-testid="machine-row"]')
     .filter({ hasText: "Test Drucker A" })
-    .getByRole("button")
-    .nth(0)
+    .getByTestId("machine-edit")
     .click();
 
   await page.getByLabel("Name *").fill("Test Drucker B");
@@ -53,8 +52,7 @@ test("deletes a machine without active jobs", async ({ seed, page }) => {
   await page
     .locator('[data-testid="machine-row"]')
     .filter({ hasText: "Löschen Drucker" })
-    .getByRole("button")
-    .nth(1)
+    .getByTestId("machine-delete")
     .click();
 
   await expect(page.getByText("Löschen Drucker")).not.toBeVisible();

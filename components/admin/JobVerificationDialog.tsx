@@ -40,7 +40,8 @@ interface PartWithFiles {
     name: string;
     quantity: number;
     gramsEstimated: number | null;
-    filament: { id: string; name: string; pricePerKg: string | null } | null;
+    // Resolved spool price (material+color) for the cost preview; null if unresolvable.
+    pricePerKg: string | null;
     order: { id: string; customerName: string; isPrototype: boolean };
     files: PartFile[];
   };
@@ -218,7 +219,7 @@ export function JobVerificationDialog({
               const previewUrl = previewFile
                 ? `/api/files/${previewFile.orderId}/${previewFile.filename}`
                 : null;
-              const hasPrice = part.filament?.pricePerKg != null;
+              const hasPrice = part.pricePerKg != null;
               const allPartSuccess = slots.every((s) => s.result === "success");
               const anyPartDecided = slots.some((s) => s.result !== undefined);
 
@@ -279,8 +280,8 @@ export function JobVerificationDialog({
                   {/* Per-piece rows */}
                   <div className="space-y-2">
                     {slots.map((slot, idx) => {
-                      const costCents = hasPrice && part.filament?.pricePerKg
-                        ? computeCost(part.filament.pricePerKg, slot.gramsActual, slot.result)
+                      const costCents = hasPrice && part.pricePerKg
+                        ? computeCost(part.pricePerKg, slot.gramsActual, slot.result)
                         : null;
 
                       return (

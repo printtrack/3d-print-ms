@@ -45,6 +45,8 @@ interface FileListItemProps {
   onPreview: (url: string) => void;
   /** Called when the user clicks the thumbnail or filename to open the 3D viewer */
   onOpenViewer?: (file: OrderFileData) => void;
+  /** Tints the 3D thumbnail with the part's selected filament color. */
+  filamentColorHex?: string | null;
 }
 
 export function FileListItem({
@@ -60,6 +62,7 @@ export function FileListItem({
   currentPartId,
   onPreview,
   onOpenViewer,
+  filamentColorHex,
 }: FileListItemProps) {
   const tc = useTranslations("common");
   const fileUrl = `/api/files/${orderId}/${file.filename}`;
@@ -188,6 +191,7 @@ export function FileListItem({
             noteCount={(file.notes ?? []).length}
             onClick={() => onOpenViewer(file)}
             className="h-20"
+            colorHex={filamentColorHex}
           />
         </div>
       )}

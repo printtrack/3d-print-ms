@@ -20,6 +20,7 @@ interface FileVersionGroupProps {
   currentPartId: string | null;
   onPreview: (url: string) => void;
   onOpenViewer?: (file: OrderFileData) => void;
+  filamentColorHex?: string | null;
 }
 
 export function FileVersionGroup({
@@ -37,6 +38,7 @@ export function FileVersionGroup({
   currentPartId,
   onPreview,
   onOpenViewer,
+  filamentColorHex,
 }: FileVersionGroupProps) {
   const current = files[0];
   const older = files.slice(1);
@@ -63,6 +65,7 @@ export function FileVersionGroup({
         currentPartId={currentPartId}
         onPreview={onPreview}
         onOpenViewer={onOpenViewer}
+        filamentColorHex={filamentColorHex}
       />
       {older.length > 0 && (
         <>
@@ -95,6 +98,7 @@ export function FileVersionGroup({
                   currentPartId={currentPartId}
                   onPreview={onPreview}
                   onOpenViewer={onOpenViewer}
+                  filamentColorHex={filamentColorHex}
                 />
               ))}
             </div>

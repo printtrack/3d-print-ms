@@ -28,12 +28,20 @@ interface DragPreview {
   isOverlapping?: boolean;
 }
 
+interface Downtime {
+  id: string;
+  reason: "MAINTENANCE" | "DEFECT";
+  startedAt: string;
+  endedAt: string | null;
+}
+
 interface Machine {
   id: string;
   name: string;
   buildVolumeX: number;
   buildVolumeY: number;
   buildVolumeZ: number;
+  downtimes?: Downtime[];
 }
 
 interface JobTimelineProps {
@@ -72,6 +80,11 @@ const STATUS_LABELS: Record<PrintJob["status"], string> = {
   AWAITING_VERIFICATION: "Verifikation",
   DONE: "Fertig",
   CANCELLED: "Storniert",
+};
+
+const STATUS_LABELS_DOWNTIME = {
+  defect: "Maschine defekt",
+  maintenance: "Wartung",
 };
 
 import {
@@ -463,8 +476,9 @@ export function JobTimeline({ machines, jobs, onJobCreated, onJobUpdated, onJobD
         body: JSON.stringify(body),
       })
         .then(async (r) => {
-          if (r.status === 409) {
-            toast.error("Überschneidung mit einem anderen Druckauftrag");
+          if (!r.ok) {
+            const d = await r.json().catch(() => ({}));
+            toast.error(d.error ?? "Verschieben fehlgeschlagen");
             return;
           }
           const { job }: { job: PrintJob } = await r.json();
@@ -1047,6 +1061,32 @@ export function JobTimeline({ machines, jobs, onJobCreated, onJobUpdated, onJobD
                   {renderGridLines()}
                   {renderTodayHighlight()}
 
+                  {/* Downtime blocks (maintenance / defect) */}
+                  {(machine.downtimes ?? []).map((d) => {
+                    const left = jobLeft(d.startedAt);
+                    const rawRight = d.endedAt ? jobLeft(d.endedAt) : contentWidth;
+                    const width = Math.max(2, rawRight - left);
+                    if (left + width < 0 || left > contentWidth) return null;
+                    const isDefect = d.reason === "DEFECT";
+                    const base = isDefect ? "220, 38, 38" : "217, 119, 6"; // red-600 / amber-600
+                    return (
+                      <div
+                        key={d.id}
+                        data-testid="timeline-downtime-block"
+                        className="absolute top-0 bottom-0 pointer-events-none z-[5]"
+                        style={{
+                          left,
+                          width,
+                          backgroundColor: `rgba(${base}, 0.12)`,
+                          borderLeft: `2px solid rgba(${base}, 0.7)`,
+                          borderRight: d.endedAt ? `2px solid rgba(${base}, 0.7)` : undefined,
+                          backgroundImage: `repeating-linear-gradient(45deg, transparent, transparent 6px, rgba(${base}, 0.10) 6px, rgba(${base}, 0.10) 12px)`,
+                        }}
+                        title={isDefect ? STATUS_LABELS_DOWNTIME.defect : STATUS_LABELS_DOWNTIME.maintenance}
+                      />
+                    );
+                  })}
+
                   {/* Today line */}
                   {showTodayLine && (
                     <div
@@ -1061,6 +1101,14 @@ export function JobTimeline({ machines, jobs, onJobCreated, onJobUpdated, onJobD
                     const left = jobLeft(job.plannedAt!);
                     const width = jobBarWidth(job.printTimeMinutes);
                     if (left + width < 0 || left > contentWidth) return null;
+                    // Flag jobs whose print window overlaps a downtime on this machine.
+                    const jobStartMs = new Date(job.plannedAt!).getTime();
+                    const jobEndMs = jobStartMs + (job.printTimeMinutes ?? 0) * 60_000;
+                    const hitsDowntime = (machine.downtimes ?? []).some((d) => {
+                      const dStart = new Date(d.startedAt).getTime();
+                      const dEnd = d.endedAt ? new Date(d.endedAt).getTime() : Infinity;
+                      return jobStartMs < dEnd && jobEndMs >= dStart;
+                    });
                     const customerName = job.parts[0]?.orderPart.order.customerName ?? STATUS_LABELS[job.status];
                     const durationLabel = job.printTimeMinutes
                       ? ` (${(job.printTimeMinutes / 60).toFixed(1)}h)`
@@ -1072,10 +1120,12 @@ export function JobTimeline({ machines, jobs, onJobCreated, onJobUpdated, onJobD
                       <div
                         key={job.id}
                         data-tutorial={job.status === "AWAITING_VERIFICATION" ? "awaiting-job" : undefined}
+                        data-testid={hitsDowntime ? "job-downtime-warning" : undefined}
                         className={cn(
                           "absolute top-1.5 bottom-1.5 rounded-md shadow-sm px-2 text-xs font-medium truncate hover:z-20 select-none transition-transform",
                           isBeingDragged ? "opacity-30" : "hover:brightness-95",
-                          isLongPressActive ? "ring-2 ring-primary scale-105" : ""
+                          isLongPressActive ? "ring-2 ring-primary scale-105" : "",
+                          hitsDowntime ? "ring-2 ring-red-500" : ""
                         )}
                         style={{
                           left,
@@ -1097,6 +1147,7 @@ export function JobTimeline({ machines, jobs, onJobCreated, onJobUpdated, onJobD
                           hasDraggedRef.current = false;
                         }}
                       >
+                        {hitsDowntime && <span className="mr-0.5" title="Maschine im Ausfall">⚠</span>}
                         {width > 60 && customerName}
                         {width > 80 && durationLabel}
                         {/* Resize handle */}

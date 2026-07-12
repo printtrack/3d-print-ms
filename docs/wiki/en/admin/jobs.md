@@ -68,9 +68,14 @@ In the job detail you record filaments used with gram amounts. The entered usage
 **Suggest print jobs** (wand icon) lets the system automatically calculate which parts fit on which machines:
 
 1. The system reads all print-ready parts (part phase: Print Ready) from open orders.
-2. It calculates the footprint of each part from its bounding box.
-3. It tries to distribute parts optimally across available machines (bin-packing algorithm).
-4. You are presented with a suggestion that you can accept, adjust, or reject.
+2. It resolves each part's **material/color requirement** to a concrete spool and groups parts that share a spool.
+3. It calculates the footprint of each part from its bounding box.
+4. It tries to distribute parts optimally across available machines (bin-packing algorithm).
+5. You are presented with a suggestion that you can accept, adjust, or reject.
+
+**Using material/color "any":** parts whose color (or material) is set to **any** in the [[part management|orders-detail]] can be assigned flexibly to a matching concrete job — so parts get combined and the printer is used better.
+
+**Printer compatibility:** if a filament in [[Inventory]] is compatible only with certain printers, the planner proposes only those printers for the affected material.
 
 If a print orientation has been set for a part in the [[3D Viewer & Print Orientation|orders-3dviewer]], the planner uses the footprint of the rotated bounding box — leading to more realistic packing.
 

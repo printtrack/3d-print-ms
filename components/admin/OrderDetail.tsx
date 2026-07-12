@@ -16,7 +16,7 @@ import { toast } from "sonner";
 import { useTranslations, useLocale } from "next-intl";
 import { formatDate, localeToDateLocale } from "@/lib/utils";
 import { FileManager } from "@/components/admin/files/FileManager";
-import { type OrderPartData } from "@/components/admin/files/PartFileSection";
+import { type OrderPartData, type FilamentInventory } from "@/components/admin/files/PartFileSection";
 import type { OrderFileData } from "@/components/admin/files/types";
 import { QuoteEditor } from "@/components/admin/QuoteEditor";
 import { InvoiceCard, type InvoiceUI } from "@/components/admin/InvoiceCard";
@@ -35,19 +35,6 @@ import {
 } from "lucide-react";
 import { RoadmapStrip, type SprintUI } from "@/components/admin/RoadmapStrip";
 import Link from "next/link";
-
-
-interface FilamentOption {
-  id: string;
-  name: string;
-  material: string;
-  color: string;
-  colorHex: string | null;
-  brand: string | null;
-  remainingGrams: number;
-  reservedGrams: number;
-  availableGrams: number;
-}
 
 
 interface OrderDetailProps {
@@ -122,7 +109,7 @@ interface OrderDetailProps {
   currentUserId: string;
   isAdmin: boolean;
   parts: OrderPartData[];
-  availableFilaments: FilamentOption[];
+  availableFilaments: FilamentInventory;
   customerCredit: { id: string; balanceCents: number } | null;
   partPhases: Array<{ id: string; name: string; color: string; isPrintReady: boolean; isReview: boolean; isPrinted: boolean; isMisprint: boolean }>;
   machines: Array<{ id: string; name: string }>;
@@ -263,6 +250,11 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
     setParts(initialParts);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialParts]);
+
+  useEffect(() => {
+    setFiles(order.files);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [order.files]);
 
   type ActivityItem =
     | { kind: "comment"; data: (typeof comments)[0] }

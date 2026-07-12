@@ -22,7 +22,7 @@ export async function resetDb() {
     "PaymentReminder", "Payment", "InvoiceItem", "Invoice", "InvoiceNumberCounter",
     "QuoteItem", "Quote",
     "PrintJobAssignee", "PrintJobFilament", "PrintJobPart", "PrintJobFile", "PrintJob",
-    "OrderPartAssignee", "OrderPart", "OrderAssignee", "Machine",
+    "OrderPartAssignee", "OrderPart", "OrderAssignee", "MachineDowntime", "_FilamentMachineCompat", "Machine",
     "MilestoneTaskAssignee", "MilestoneTask", "Milestone", "Sprint", "Order",
     "OrderPhase", "PartPhase", "Filament",
     "ProjectComment", "ProjectFile", "ProjectAuditLog", "ProjectAssignee", "Project", "ProjectFilePhase", "ProjectPhase",
@@ -113,6 +113,7 @@ export async function createTestFilament(
     remainingGrams: number;
     pricePerKg: number | null;
     isActive: boolean;
+    compatibleMachineIds: string[];
   }> = {}
 ) {
   return prismaTest.filament.create({
@@ -126,6 +127,9 @@ export async function createTestFilament(
       remainingGrams: overrides.remainingGrams ?? 800,
       pricePerKg: overrides.pricePerKg !== undefined ? overrides.pricePerKg : null,
       isActive: overrides.isActive ?? true,
+      ...(overrides.compatibleMachineIds && overrides.compatibleMachineIds.length > 0
+        ? { compatibleMachines: { connect: overrides.compatibleMachineIds.map((id) => ({ id })) } }
+        : {}),
     },
   });
 }
@@ -214,6 +218,26 @@ export async function createTestMachine(
       buildVolumeY: overrides.buildVolumeY ?? 220,
       buildVolumeZ: overrides.buildVolumeZ ?? 250,
       isActive: overrides.isActive ?? true,
+    },
+  });
+}
+
+export async function createTestMachineDowntime(
+  machineId: string,
+  overrides: Partial<{
+    reason: "MAINTENANCE" | "DEFECT";
+    note: string | null;
+    startedAt: Date;
+    endedAt: Date | null;
+  }> = {}
+) {
+  return prismaTest.machineDowntime.create({
+    data: {
+      machineId,
+      reason: overrides.reason ?? "DEFECT",
+      note: overrides.note ?? null,
+      startedAt: overrides.startedAt ?? new Date(),
+      endedAt: overrides.endedAt ?? null,
     },
   });
 }
@@ -396,19 +420,42 @@ export async function createTestOrderPart(
   overrides: Partial<{
     name: string;
     description: string;
+    /** Convenience: resolve material/color from an existing spool. */
     filamentId: string;
+    material: string;
+    materialAny: boolean;
+    color: string;
+    colorHex: string;
+    colorAny: boolean;
     gramsEstimated: number;
+    quantity: number;
     partPhaseId: string;
     iterationCount: number;
   }> = {}
 ) {
+  let material = overrides.material ?? null;
+  let color = overrides.color ?? null;
+  let colorHex = overrides.colorHex ?? null;
+  if (overrides.filamentId) {
+    const f = await prismaTest.filament.findUnique({ where: { id: overrides.filamentId } });
+    if (f) {
+      material = overrides.material ?? f.material;
+      color = overrides.color ?? f.color;
+      colorHex = overrides.colorHex ?? f.colorHex;
+    }
+  }
   return prismaTest.orderPart.create({
     data: {
       orderId,
       name: overrides.name ?? "Test Teil",
       description: overrides.description,
-      filamentId: overrides.filamentId,
+      material,
+      materialAny: overrides.materialAny ?? false,
+      color,
+      colorHex,
+      colorAny: overrides.colorAny ?? false,
       gramsEstimated: overrides.gramsEstimated,
+      quantity: overrides.quantity ?? 1,
       partPhaseId: overrides.partPhaseId,
       iterationCount: overrides.iterationCount ?? 1,
     },
@@ -693,7 +740,13 @@ export function makeStlBuffer(bboxX: number, bboxY: number, bboxZ: number): Buff
  * Requires seedDb() to have been called (for partPhases and orderPhases).
  */
 export async function createTestPrintReadyPart(options: {
-  filamentId: string;
+  /** Convenience: resolve material/color from an existing spool. */
+  filamentId?: string;
+  material?: string;
+  materialAny?: boolean;
+  color?: string;
+  colorHex?: string;
+  colorAny?: boolean;
   gramsEstimated?: number;
   quantity?: number;
   bboxX?: number;
@@ -706,6 +759,19 @@ export async function createTestPrintReadyPart(options: {
 
   const printReadyPhase = await prismaTest.partPhase.findFirst({ where: { isPrintReady: true } });
   if (!printReadyPhase) throw new Error("No print-ready part phase. Run seedDb() first.");
+
+  // Parts carry a material+color requirement; derive it from the spool when given.
+  let material = options.material ?? null;
+  let color = options.color ?? null;
+  let colorHex = options.colorHex ?? null;
+  if (options.filamentId) {
+    const f = await prismaTest.filament.findUnique({ where: { id: options.filamentId } });
+    if (f) {
+      material = options.material ?? f.material;
+      color = options.color ?? f.color;
+      colorHex = options.colorHex ?? f.colorHex;
+    }
+  }
 
   const order = await prismaTest.order.create({
     data: {
@@ -720,7 +786,11 @@ export async function createTestPrintReadyPart(options: {
     data: {
       orderId: order.id,
       name: options.name ?? "Test Teil",
-      filamentId: options.filamentId,
+      material,
+      materialAny: options.materialAny ?? false,
+      color,
+      colorHex,
+      colorAny: options.colorAny ?? false,
       gramsEstimated: options.gramsEstimated,
       quantity: options.quantity ?? 1,
       partPhaseId: printReadyPhase.id,
