@@ -24,6 +24,7 @@ import {
   CalendarRange,
   FolderKanban,
   LifeBuoy,
+  MessageSquarePlus,
   GraduationCap,
 } from "lucide-react";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
@@ -37,6 +38,8 @@ interface NavItem {
   exact?: boolean;
   adminOnly?: boolean;
   feature?: FeatureKey;
+  /** Only shown while the beta tools are enabled. */
+  beta?: boolean;
 }
 
 interface NavSection {
@@ -49,9 +52,10 @@ interface AdminNavProps {
   companyName?: string;
   logoUrl?: string | null;
   enabledFeatures?: Partial<Record<FeatureKey, boolean>>;
+  betaEnabled?: boolean;
 }
 
-export function AdminNav({ userRole, companyName = "3D Print CMS", logoUrl = null, enabledFeatures = {} }: AdminNavProps) {
+export function AdminNav({ userRole, companyName = "3D Print CMS", logoUrl = null, enabledFeatures = {}, betaEnabled = false }: AdminNavProps) {
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -85,6 +89,7 @@ export function AdminNav({ userRole, companyName = "3D Print CMS", logoUrl = nul
       items: [
         { href: "/admin/knowledge", label: t("knowledge"), icon: BookOpen, feature: "knowledge" },
         { href: "/admin/customers", label: t("customers"), icon: Users2, adminOnly: true },
+        { href: "/admin/feedback", label: t("feedback"), icon: MessageSquarePlus, adminOnly: true, beta: true },
         { href: "/admin/settings", label: t("settings"), icon: SlidersHorizontal, adminOnly: true },
       ],
     },
@@ -129,7 +134,8 @@ export function AdminNav({ userRole, companyName = "3D Print CMS", logoUrl = nul
           const visibleItems = section.items.filter(
             (item) =>
               (!item.adminOnly || userRole === "ADMIN") &&
-              (!item.feature || enabledFeatures[item.feature] !== false),
+              (!item.feature || enabledFeatures[item.feature] !== false) &&
+              (!item.beta || betaEnabled),
           );
           if (visibleItems.length === 0) return null;
 

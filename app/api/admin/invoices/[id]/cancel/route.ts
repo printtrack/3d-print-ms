@@ -1,16 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
+import { assertOrderAccess, getActor } from "@/lib/authz";
+import { orderIdOfInvoice } from "@/lib/authz-resolve";
 import { cancelInvoice } from "@/lib/invoices";
 
 export async function POST(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
   const { id } = await params;
-  const userId = session.user?.id ?? null;
+
+  const scopeId = await orderIdOfInvoice(id);
+  if (!scopeId) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const guard = await assertOrderAccess(scopeId, "billing.invoices.manage");
+  if (guard) return guard;
+  const userId = (await getActor())?.id ?? null;
 
   try {
     const result = await cancelInvoice(id, userId);

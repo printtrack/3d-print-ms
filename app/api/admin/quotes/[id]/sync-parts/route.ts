@@ -1,17 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { orderIdOfQuote } from "@/lib/authz-resolve";
+import { assertOrderAccess, getActor } from "@/lib/authz";
 import { syncQuoteWithPartsTx, syncOrderPriceEstimateTx } from "@/lib/quotes";
 
 export async function POST(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
   const { id } = await params;
-  const userId = session.user?.id ?? null;
+
+  const scopeId = await orderIdOfQuote(id);
+  if (!scopeId) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const guard = await assertOrderAccess(scopeId, "billing.quotes.manage");
+  if (guard) return guard;
+  const userId = (await getActor())?.id ?? null;
 
   try {
     const result = await prisma.$transaction(async (tx) => {

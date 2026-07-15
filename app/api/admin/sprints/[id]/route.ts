@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { assertOrderOrProjectAccess } from "@/lib/authz";
+import { scopeOfSprint } from "@/lib/authz-resolve";
 import { z } from "zod";
 
 const patchSchema = z.object({
@@ -12,10 +13,12 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
   const { id } = await params;
+
+  const scope = await scopeOfSprint(id);
+  if (!scope) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const guard = await assertOrderOrProjectAccess(scope, { order: "orders.edit", project: "projects.edit" });
+  if (guard) return guard;
 
   try {
     const body = await req.json();
@@ -53,10 +56,12 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
   const { id } = await params;
+
+  const scope = await scopeOfSprint(id);
+  if (!scope) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const guard = await assertOrderOrProjectAccess(scope, { order: "orders.edit", project: "projects.edit" });
+  if (guard) return guard;
 
   await prisma.sprint.delete({ where: { id } });
 

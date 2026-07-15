@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { assertProjectAccess, getActor } from "@/lib/authz";
 import { unlink } from "fs/promises";
 import path from "path";
 import { getUploadDir } from "@/lib/uploads";
@@ -16,10 +16,10 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string; fileId: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
   const { id: projectId, fileId } = await params;
+
+  const guard = await assertProjectAccess(projectId, "projects.edit");
+  if (guard) return guard;
 
   try {
     const body = await req.json();
@@ -39,7 +39,7 @@ export async function PATCH(
     await prisma.projectAuditLog.create({
       data: {
         projectId,
-        userId: session.user.id as string,
+        userId: ((await getActor())?.id as string),
         action: "FILE_PHASE_CHANGED",
         details: `${file.originalName} → ${updated.phase?.name ?? "ohne Phase"}`,
       },
@@ -59,10 +59,10 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string; fileId: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
   const { id: projectId, fileId } = await params;
+
+  const guard = await assertProjectAccess(projectId, "projects.edit");
+  if (guard) return guard;
 
   const file = await prisma.projectFile.findFirst({
     where: { id: fileId, projectId },
@@ -81,7 +81,7 @@ export async function DELETE(
   await prisma.projectAuditLog.create({
     data: {
       projectId,
-      userId: session.user.id as string,
+      userId: ((await getActor())?.id as string),
       action: "FILE_DELETED",
       details: `Datei gelöscht: ${file.originalName}`,
     },

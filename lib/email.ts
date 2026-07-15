@@ -398,6 +398,50 @@ export async function sendCustomerVerificationEmail({
   });
 }
 
+export async function sendCustomerInviteEmail({
+  email,
+  inviteUrl,
+  expiresInDays,
+}: {
+  email: string;
+  inviteUrl: string;
+  expiresInDays: number;
+}) {
+  const [settings, locale] = await Promise.all([
+    getSettings(),
+    getRecipientLocale(email),
+  ]);
+  const companyName = settings.company_name ?? "3D Print CMS";
+  const signature = settings.company_signature ?? (locale === "en" ? "Your 3D Print Team" : "Ihr 3D-Druck-Team");
+  const contactEmail = settings.contact_email ?? "noreply@3dprinting.local";
+  const wrap = getEmailWrappers(locale);
+  const suffix = localeSuffix(locale);
+
+  const vars = { companyName, inviteUrl, expiresInDays: String(expiresInDays) };
+  const subject = renderTemplate(
+    settings[`email_customer_invite_subject${suffix}`] ?? "{{companyName}}: Ihre Einladung zum Kundenportal",
+    vars
+  );
+  const bodyText = renderTemplate(
+    settings[`email_customer_invite_body${suffix}`] ??
+      "Sie wurden eingeladen, ein Konto im Kundenportal von {{companyName}} anzulegen.\n\nÜber den folgenden Link können Sie Ihr Konto erstellen. Die Einladung ist {{expiresInDays}} Tage gültig und kann nur einmal verwendet werden.",
+    vars
+  );
+
+  // No name: an invite is addressed to an email we know nothing else about.
+  const bodyHtml = `
+    ${bodyText.split("\n").map((line) => `<p>${escapeHtml(line)}</p>`).join("")}
+    <p><a href="${inviteUrl}" style="color:#6366f1;font-weight:bold">${wrap.inviteLink}</a></p>`;
+
+  await sendMail({
+    from: `${companyName} <${contactEmail}>`,
+    to: email,
+    subject,
+    text: [bodyText, "", `${wrap.inviteLink}: ${inviteUrl}`, "", wrap.closing, signature].join("\n"),
+    html: buildHtml(companyName, bodyHtml, signature),
+  });
+}
+
 export async function sendCustomerMessageEmail({
   customerEmail,
   customerName,

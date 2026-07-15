@@ -1,9 +1,33 @@
 import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
+import {
+  DEFAULT_ROLE_PERMISSIONS,
+  SYSTEM_ROLE_ID,
+  SYSTEM_ROLE_NAME,
+} from "../lib/permissions";
 
 const prisma = new PrismaClient();
 
 async function main() {
+  // Default team role. Every non-admin falls back to it, so it must exist before
+  // any member does.
+  await prisma.teamRole.upsert({
+    where: { id: SYSTEM_ROLE_ID },
+    update: {},
+    create: {
+      id: SYSTEM_ROLE_ID,
+      name: SYSTEM_ROLE_NAME,
+      description: "Standardrolle für alle Teammitglieder.",
+      isSystem: true,
+      isDefault: true,
+      restricted: false,
+      position: 0,
+      permissions: {
+        create: DEFAULT_ROLE_PERMISSIONS.map((key) => ({ key })),
+      },
+    },
+  });
+
   // Create default admin user
   const hashedPassword = await bcrypt.hash("admin123", 12);
 
@@ -323,6 +347,24 @@ async function main() {
       key: "email_customer_verify_body_en",
       value:
         "Hello {{name}},\n\nplease verify your email address to activate your account.\nThis link is valid for 24 hours.",
+    },
+    {
+      key: "email_customer_invite_subject_de",
+      value: "{{companyName}}: Ihre Einladung zum Kundenportal",
+    },
+    {
+      key: "email_customer_invite_body_de",
+      value:
+        "Sie wurden eingeladen, ein Konto im Kundenportal von {{companyName}} anzulegen.\n\nÜber den folgenden Link können Sie Ihr Konto erstellen. Die Einladung ist {{expiresInDays}} Tage gültig und kann nur einmal verwendet werden.",
+    },
+    {
+      key: "email_customer_invite_subject_en",
+      value: "{{companyName}}: Your invitation to the customer portal",
+    },
+    {
+      key: "email_customer_invite_body_en",
+      value:
+        "You have been invited to create an account in the {{companyName}} customer portal.\n\nUse the link below to create your account. The invitation is valid for {{expiresInDays}} days and can only be used once.",
     },
     {
       key: "email_customer_message_subject_de",

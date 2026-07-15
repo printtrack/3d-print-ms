@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { assertJobAccess, getActor } from "@/lib/authz";
 import { z } from "zod";
 
 const createSchema = z.object({
@@ -11,10 +11,10 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
   const { id: printJobId } = await params;
+
+  const guard = await assertJobAccess(printJobId, "jobs.manage");
+  if (guard) return guard;
 
   try {
     const body = await req.json();
@@ -48,7 +48,7 @@ export async function POST(
     await prisma.auditLog.create({
       data: {
         orderId: part.orderId,
-        userId: (session.user as { id?: string })?.id ?? null,
+        userId: (await getActor())?.id ?? null,
         action: "JOB_ASSIGNED",
         details: `Teil "${part.name}" zum Druckjob ${printJobId} hinzugefügt`,
       },

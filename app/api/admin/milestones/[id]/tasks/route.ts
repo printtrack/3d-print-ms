@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { assertOrderOrProjectAccess } from "@/lib/authz";
+import { scopeOfMilestone } from "@/lib/authz-resolve";
 import { z } from "zod";
 import { syncMilestoneCompletion } from "@/lib/milestone-completion";
 
@@ -13,10 +14,12 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
   const { id: milestoneId } = await params;
+
+  const scope = await scopeOfMilestone(milestoneId);
+  if (!scope) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const guard = await assertOrderOrProjectAccess(scope, { order: "orders.edit", project: "projects.edit" });
+  if (guard) return guard;
 
   try {
     const body = await req.json();

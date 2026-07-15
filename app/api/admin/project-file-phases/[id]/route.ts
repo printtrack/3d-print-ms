@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { assertAdmin } from "@/lib/authz";
 import { z } from "zod";
-import type { Session } from "next-auth";
 
 const patchSchema = z.object({
   name: z.string().min(1).max(50).optional(),
@@ -11,17 +10,13 @@ const patchSchema = z.object({
   isDefault: z.boolean().optional(),
 });
 
-function isAdmin(session: Session | null) {
-  return (session?.user as { role?: string } | undefined)?.role === "ADMIN";
-}
 
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!isAdmin(session)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const guard = await assertAdmin();
+  if (guard) return guard;
 
   const { id } = await params;
 
@@ -54,9 +49,8 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!isAdmin(session)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const guard = await assertAdmin();
+  if (guard) return guard;
 
   const { id } = await params;
 

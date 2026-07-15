@@ -10,7 +10,12 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 
-export function PortalSignInForm() {
+export function PortalSignInForm({
+  registrationOpen = true,
+}: {
+  /** False for invite-only / closed registration — then there is nothing to link to. */
+  registrationOpen?: boolean;
+} = {}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const callbackUrl = searchParams.get("callbackUrl") ?? "/portal";
@@ -81,12 +86,14 @@ export function PortalSignInForm() {
             <Link href="/portal/reset-password" className="text-primary hover:underline">
               {t("forgot_password")}
             </Link>
-            <span>
-              {t("no_account")}{" "}
-              <Link href="/portal/register" className="text-primary hover:underline">
-                {t("register_now")}
-              </Link>
-            </span>
+            {registrationOpen && (
+              <span>
+                {t("no_account")}{" "}
+                <Link href="/portal/register" className="text-primary hover:underline">
+                  {t("register_now")}
+                </Link>
+              </span>
+            )}
           </div>
         </form>
       </CardContent>

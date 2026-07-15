@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { assertPermission, assertSignedIn, getActor } from "@/lib/authz";
 import { z } from "zod";
 
 const createSchema = z.object({
@@ -11,8 +11,8 @@ const createSchema = z.object({
 });
 
 export async function GET(req: NextRequest) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const guard = await assertSignedIn();
+  if (guard) return guard;
 
   const search = req.nextUrl.searchParams.get("search")?.trim() ?? "";
 
@@ -34,8 +34,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const guard = await assertPermission("knowledge.create");
+  if (guard) return guard;
 
   try {
     const body = await req.json();
@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
     const entry = await prisma.knowledgeEntry.create({
       data: {
         ...data,
-        authorId: (session.user as { id?: string }).id ?? null,
+        authorId: (await getActor())?.id ?? null,
       },
       include: { author: { select: { id: true, name: true } }, files: true },
     });

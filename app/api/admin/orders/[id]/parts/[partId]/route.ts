@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { assertOrderAccess, getActor } from "@/lib/authz";
 import { z } from "zod";
 import { maybeAutoSendPartDesignVerification } from "@/lib/design-verification";
 import { evaluatePartEnterGate } from "@/lib/phase-conditions";
@@ -33,10 +33,10 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string; partId: string }> }
 ) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
   const { id, partId } = await params;
+
+  const guard = await assertOrderAccess(id, "orders.edit");
+  if (guard) return guard;
 
   try {
     const body = await req.json();
@@ -128,7 +128,7 @@ export async function PATCH(
       }
     }
 
-    const userId = (session.user as { id?: string })?.id ?? null;
+    const userId = (await getActor())?.id ?? null;
 
     if (data.assigneeIds !== undefined) {
       const oldIds = new Set(currentPart.assignees.map((a) => a.userId));
@@ -183,10 +183,10 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string; partId: string }> }
 ) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
   const { id, partId } = await params;
+
+  const guard = await assertOrderAccess(id, "orders.edit");
+  if (guard) return guard;
 
   const part = await prisma.orderPart.findUnique({ where: { id: partId, orderId: id } });
   if (!part) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
@@ -196,7 +196,7 @@ export async function DELETE(
   await prisma.auditLog.create({
     data: {
       orderId: id,
-      userId: (session.user as { id?: string })?.id ?? null,
+      userId: (await getActor())?.id ?? null,
       action: "PART_REMOVED",
       details: `Teil "${part.name}" entfernt`,
     },

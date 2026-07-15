@@ -1,14 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { assertAdmin } from "@/lib/authz";
 import { assertFeature } from "@/lib/features";
 import { testSubscriptionUrl } from "@/lib/web-calendar";
 import { z } from "zod";
-import type { Session } from "next-auth";
 
-function isAdmin(session: Session | null) {
-  return (session?.user as { role?: string } | undefined)?.role === "ADMIN";
-}
 
 const urlSchema = z
   .string()
@@ -25,22 +21,20 @@ const createSchema = z.object({
 });
 
 export async function GET() {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!isAdmin(session)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  const guard = await assertFeature("planning");
-  if (guard) return guard;
+  const authGuard = await assertAdmin();
+  if (authGuard) return authGuard;
+  const featureGuard = await assertFeature("planning");
+  if (featureGuard) return featureGuard;
 
   const subs = await prisma.calendarSubscription.findMany({ orderBy: { createdAt: "asc" } });
   return NextResponse.json(subs);
 }
 
 export async function POST(req: NextRequest) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!isAdmin(session)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  const guard = await assertFeature("planning");
-  if (guard) return guard;
+  const authGuard = await assertAdmin();
+  if (authGuard) return authGuard;
+  const featureGuard = await assertFeature("planning");
+  if (featureGuard) return featureGuard;
 
   try {
     const data = createSchema.parse(await req.json());

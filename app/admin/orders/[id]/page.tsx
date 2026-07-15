@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { auth } from "@/lib/auth";
+import { canEditOrder } from "@/lib/authz";
 import { prisma } from "@/lib/db";
 import { OrderDetail } from "@/components/admin/OrderDetail";
 import { runJobAutoTransition } from "@/lib/jobs-auto-transition";
@@ -419,6 +420,10 @@ export default async function OrderDetailPage({ params }: PageProps) {
 
   const isAdmin = (session?.user as { role?: string })?.role === "ADMIN";
 
+  // Computed server-side: "assigned" spans order, part and milestone-task
+  // assignees, which the client cannot see in full.
+  const canEdit = await canEditOrder(id);
+
   return (
     <OrderDetail
       order={order}
@@ -426,6 +431,7 @@ export default async function OrderDetailPage({ params }: PageProps) {
       teamMembers={teamMembers}
       currentUserId={session?.user?.id ?? ""}
       isAdmin={isAdmin}
+      readOnly={!canEdit}
       parts={parts}
       availableFilaments={availableFilaments}
       customerCredit={customerCredit}

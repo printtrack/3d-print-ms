@@ -63,9 +63,33 @@ Alternatively, the customer can request a new confirmation email by logging into
 
 The customer account is permanently deleted. Existing **orders** linked to that customer are preserved — only the link to the portal account is removed.
 
+## Invitations
+
+Below the customer list you manage **invitations** to the customer portal. The section appears as
+long as registration is not set to "Closed" — how new accounts come into existence at all is
+decided under [[Settings|settings]] → Order intake.
+
+Two kinds of invitation:
+
+- **With an email address** — the invitation is sent straight to that address and is valid for it
+  only. Since the recipient received the link at that address, the account is unlocked right away;
+  [email verification](#email-verification) is skipped. If an account already exists for that
+  address, the system refuses the invitation.
+- **Without an email address** — you get a link to pass on, redeemable by whoever holds it. The
+  link is copied to your clipboard automatically once created.
+
+A **note** (e.g. "trade fair contact") helps you match it up later; the customer never sees it.
+
+Every invitation is **valid for 14 days** and **redeemable once**. The list shows each invitation's
+state — Open, Redeemed or Expired. For open invitations you can re-copy the link via the copy icon,
+and the bin icon revokes an invitation at any time.
+
 ## The customer portal
 
-Customers register themselves at `/portal/register`. After successful email verification they can log in at `/portal/signin` and:
+Customers register themselves at `/portal/register` — provided registration is open. If it is set
+to "Invitation only", an invitation link is the only route to an account; with "Closed" no new
+accounts are created at all. After successful email verification they can log in at
+`/portal/signin` and:
 
 - View their own orders and track status
 - Submit new orders

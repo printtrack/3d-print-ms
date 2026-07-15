@@ -76,6 +76,8 @@ interface OrderHeaderMinimalProps {
   archiving: boolean;
   onToggleArchive: () => void | Promise<void>;
   isAdmin: boolean;
+  /** Assignment lock applies — offer nothing that would 403 anyway. */
+  readOnly?: boolean;
   deleting: boolean;
   onDelete: () => void | Promise<void>;
   savingPhase?: boolean;
@@ -116,10 +118,12 @@ function PhaseChip({
   phases,
   value,
   onChange,
+  disabled = false,
 }: {
   phases: Phase[];
   value: string;
   onChange: (id: string) => void | Promise<void>;
+  disabled?: boolean;
 }) {
   const t = useTranslations("admin");
   const [open, setOpen] = useState(false);
@@ -130,6 +134,7 @@ function PhaseChip({
       <PopoverTrigger asChild>
         <button
           type="button"
+          disabled={disabled}
           data-testid="phase-chip"
           className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-[12px] font-medium transition-[filter] hover:brightness-95"
           style={{
@@ -184,9 +189,11 @@ function PhaseChip({
 function OrderTypeChip({
   value,
   onChange,
+  disabled = false,
 }: {
   value: "PRINT_ONLY" | "DESIGN";
   onChange: (type: "PRINT_ONLY" | "DESIGN") => void | Promise<void>;
+  disabled?: boolean;
 }) {
   const t = useTranslations("admin");
   const [open, setOpen] = useState(false);
@@ -209,6 +216,7 @@ function OrderTypeChip({
       <PopoverTrigger asChild>
         <button
           type="button"
+          disabled={disabled}
           data-testid="order-type-chip"
           title={t("order_header_change_type")}
           className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-0.5 text-[12px] font-medium transition-[filter] hover:brightness-95"
@@ -255,9 +263,11 @@ function OrderTypeChip({
 function DeadlineChip({
   deadline,
   onChange,
+  disabled = false,
 }: {
   deadline: string | null;
   onChange: (iso: string | null) => void | Promise<void>;
+  disabled?: boolean;
 }) {
   const t = useTranslations("admin");
   const locale = localeToDateLocale(useLocale());
@@ -328,6 +338,7 @@ function DeadlineChip({
       <PopoverTrigger asChild>
         <button
           type="button"
+          disabled={disabled}
           title={
             deadline
               ? t("order_header_deadline_tooltip", { date: formatDate(deadline, locale) })
@@ -400,11 +411,13 @@ function AssigneeStack({
   assigneeIds,
   team,
   onChange,
+  disabled = false,
   max = 3,
 }: {
   assigneeIds: string[];
   team: TeamMember[];
   onChange: (ids: string[]) => void | Promise<void>;
+  disabled?: boolean;
   max?: number;
 }) {
   const t = useTranslations("admin");
@@ -434,6 +447,7 @@ function AssigneeStack({
       <PopoverTrigger asChild>
         <button
           type="button"
+          disabled={disabled}
           title={
             assignees.length
               ? t("order_header_assign_count", { count: assignees.length })
@@ -577,12 +591,14 @@ function PrototypeChip({
   isPrototype,
   iterationCount,
   onToggle,
+  disabled = false,
   toggling,
 }: {
   isPrototype: boolean;
   iterationCount: number;
   onToggle: () => void | Promise<void>;
   toggling: boolean;
+  disabled?: boolean;
 }) {
   const t = useTranslations("admin");
   const [open, setOpen] = useState(false);
@@ -593,7 +609,7 @@ function PrototypeChip({
         type="button"
         data-testid="prototype-chip"
         onClick={() => onToggle()}
-        disabled={toggling}
+        disabled={toggling || disabled}
         title={t("order_header_prototype_activate")}
         className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-full border border-dashed border-purple-300/60 bg-transparent px-2 py-0.5 text-[11.5px] font-medium text-purple-600/70 transition-colors hover:bg-purple-50 hover:text-purple-700 disabled:opacity-50"
       >
@@ -641,7 +657,7 @@ function PrototypeChip({
               setOpen(false);
               onToggle();
             }}
-            disabled={toggling}
+            disabled={toggling || disabled}
             className="flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-[13px] transition-colors hover:bg-accent disabled:opacity-50"
           >
             <span>{t("order_header_prototype_deactivate")}</span>
@@ -658,6 +674,7 @@ function HeaderOverflowMenu({
   archiving,
   onToggleArchive,
   isAdmin,
+  readOnly = false,
   deleting,
   onDelete,
   customerName,
@@ -666,6 +683,7 @@ function HeaderOverflowMenu({
   archiving: boolean;
   onToggleArchive: () => void | Promise<void>;
   isAdmin: boolean;
+  readOnly?: boolean;
   deleting: boolean;
   onDelete: () => void | Promise<void>;
   customerName: string;
@@ -687,7 +705,7 @@ function HeaderOverflowMenu({
             setOpen(false);
             onToggleArchive();
           }}
-          disabled={archiving}
+          disabled={archiving || readOnly}
           className="flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-[13px] hover:bg-accent disabled:opacity-50"
         >
           {isArchived ? (
@@ -702,7 +720,7 @@ function HeaderOverflowMenu({
             </>
           )}
         </button>
-        {isAdmin && (
+        {isAdmin && !readOnly && (
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <button
@@ -765,6 +783,7 @@ export function OrderHeaderMinimal({
   archiving,
   onToggleArchive,
   isAdmin,
+  readOnly = false,
   deleting,
   onDelete,
 }: OrderHeaderMinimalProps) {
@@ -868,14 +887,16 @@ export function OrderHeaderMinimal({
                   {customerName}
                 </h1>
                 <PhaseChip
+                  disabled={readOnly}
                   phases={phases}
                   value={selectedPhaseId}
                   onChange={onPhaseChange}
                 />
-                <OrderTypeChip value={orderType} onChange={onOrderTypeChange} />
-                <DeadlineChip deadline={deadline} onChange={onDeadlineChange} />
+                <OrderTypeChip value={orderType} onChange={onOrderTypeChange} disabled={readOnly} />
+                <DeadlineChip deadline={deadline} onChange={onDeadlineChange} disabled={readOnly} />
                 {currentPhaseIsPrototype && (
                   <PrototypeChip
+                    disabled={readOnly}
                     isPrototype={isPrototype}
                     iterationCount={iterationCount}
                     onToggle={onTogglePrototype}
@@ -897,6 +918,7 @@ export function OrderHeaderMinimal({
 
             <div className="flex shrink-0 items-center gap-1.5">
               <AssigneeStack
+                disabled={readOnly}
                 assigneeIds={assigneeIds}
                 team={teamMembers}
                 onChange={onAssigneesChange}
@@ -916,6 +938,7 @@ export function OrderHeaderMinimal({
                 isArchived={isArchived}
                 archiving={archiving}
                 onToggleArchive={onToggleArchive}
+        readOnly={readOnly}
                 isAdmin={isAdmin}
                 deleting={deleting}
                 onDelete={onDelete}

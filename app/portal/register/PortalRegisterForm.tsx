@@ -10,12 +10,24 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 
-export function PortalRegisterForm() {
+export function PortalRegisterForm({
+  inviteToken,
+  inviteEmail,
+}: {
+  inviteToken?: string;
+  /** Set for address-bound invites: the account must use this address. */
+  inviteEmail?: string;
+} = {}) {
   const router = useRouter();
   const t = useTranslations("portal");
   const tc = useTranslations("common");
   const [loading, setLoading] = useState(false);
-  const [form, setForm] = useState({ name: "", email: "", password: "", confirm: "" });
+  const [form, setForm] = useState({
+    name: "",
+    email: inviteEmail ?? "",
+    password: "",
+    confirm: "",
+  });
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -28,7 +40,12 @@ export function PortalRegisterForm() {
       const res = await fetch("/api/portal/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: form.name, email: form.email, password: form.password }),
+        body: JSON.stringify({
+          name: form.name,
+          email: form.email,
+          password: form.password,
+          ...(inviteToken ? { inviteToken } : {}),
+        }),
       });
       const json = await res.json();
       if (!res.ok) {
@@ -74,7 +91,12 @@ export function PortalRegisterForm() {
               onChange={(e) => setForm((p) => ({ ...p, email: e.target.value }))}
               required
               autoComplete="email"
+              readOnly={Boolean(inviteEmail)}
+              className={inviteEmail ? "bg-muted" : undefined}
             />
+            {inviteEmail && (
+              <p className="text-xs text-muted-foreground">{t("register_invite_email_locked")}</p>
+            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="password">{tc("password")}</Label>

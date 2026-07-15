@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { assertOrderAccess, getActor } from "@/lib/authz";
+import { orderIdOfInvoice } from "@/lib/authz-resolve";
 import { z } from "zod";
-import { auth } from "@/lib/auth";
 import { recordPayment, syncOrderPhaseFromInvoiceStatus } from "@/lib/invoices";
 import { triggerOrderAutoAdvance } from "@/lib/phase-auto-advance";
 
@@ -16,11 +17,13 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
   const { id } = await params;
-  const userId = session.user?.id ?? null;
+
+  const scopeId = await orderIdOfInvoice(id);
+  if (!scopeId) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const guard = await assertOrderAccess(scopeId, "billing.payments.record");
+  if (guard) return guard;
+  const userId = (await getActor())?.id ?? null;
 
   try {
     const body = await req.json();

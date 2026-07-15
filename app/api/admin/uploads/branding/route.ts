@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { writeFile, mkdir, readdir, unlink } from "fs/promises";
 import path from "path";
 import { getUploadDir } from "@/lib/uploads";
 import { validateFileContent } from "@/lib/file-validation";
 import { prisma } from "@/lib/db";
+import { assertAdmin } from "@/lib/authz";
 
 const MAX_LOGO_SIZE = 1024 * 1024; // 1 MB
 
@@ -21,15 +21,9 @@ function resolveKind(value: string | null): Kind {
   return value === "favicon" ? "favicon" : "logo";
 }
 
-function isAdmin(session: { user?: { role?: string } } | null) {
-  return session?.user?.role === "ADMIN";
-}
-
 export async function POST(req: NextRequest) {
-  const session = await auth();
-  if (!isAdmin(session as { user?: { role?: string } } | null)) {
-    return NextResponse.json({ error: "Keine Berechtigung" }, { status: 403 });
-  }
+  const guard = await assertAdmin();
+  if (guard) return guard;
 
   const formData = await req.formData();
   const file = formData.get("file") as File | null;
@@ -81,10 +75,8 @@ export async function POST(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const session = await auth();
-  if (!isAdmin(session as { user?: { role?: string } } | null)) {
-    return NextResponse.json({ error: "Keine Berechtigung" }, { status: 403 });
-  }
+  const guard = await assertAdmin();
+  if (guard) return guard;
 
   const kind = resolveKind(new URL(req.url).searchParams.get("kind"));
   const cfg = KINDS[kind];

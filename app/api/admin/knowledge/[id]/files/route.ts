@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { assertPermission } from "@/lib/authz";
 import { randomUUID } from "crypto";
 import fs from "fs/promises";
 import path from "path";
@@ -21,10 +21,10 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
   const { id: entryId } = await params;
+
+  const guard = await assertPermission("knowledge.edit");
+  if (guard) return guard;
 
   const entry = await prisma.knowledgeEntry.findUnique({ where: { id: entryId } });
   if (!entry) return NextResponse.json({ error: "Not found" }, { status: 404 });

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { assertProjectAccess, getActor } from "@/lib/authz";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import { randomUUID } from "crypto";
@@ -16,12 +16,10 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Nicht authentifiziert" }, { status: 401 });
-  }
-
   const { id: projectId } = await params;
+
+  const guard = await assertProjectAccess(projectId, "projects.edit");
+  if (guard) return guard;
 
   try {
     const project = await prisma.project.findUnique({
@@ -90,7 +88,7 @@ export async function POST(
     await prisma.projectAuditLog.create({
       data: {
         projectId,
-        userId: session.user.id as string,
+        userId: ((await getActor())?.id as string),
         action: "FILE_UPLOADED",
         details: `${savedFiles.length} Datei(en) hochgeladen`,
       },

@@ -9,6 +9,11 @@
 // both the client form and the server routes (/api/orders, /api/uploads).
 
 import { getSettings } from "@/lib/settings";
+import {
+  buildOrderIntakeConfig,
+  type IntakeChannel,
+  type OrderTypeKey,
+} from "@/lib/order-intake";
 
 // The file types the pipeline actually supports (magic-byte validated on upload).
 // Admins may narrow the accepted set to a subset of these — never beyond.
@@ -18,7 +23,8 @@ export const DEFAULT_MAX_FILE_MB = 50;
 export interface OrderFormConfig {
   deadlineVisible: boolean;
   deadlineRequired: boolean;
-  orderTypeVisible: boolean;
+  /** Order types this channel accepts (see lib/order-intake.ts). Picker shows only with >1. */
+  allowedOrderTypes: OrderTypeKey[];
   acceptedFormats: string[]; // subset of SUPPORTED_FORMATS
   maxFileMb: number;
   maxFiles: number; // 0 = unlimited
@@ -45,12 +51,13 @@ function parseIntPositive(raw: string | undefined, fallback: number): number {
 export function buildOrderFormConfig(
   settings: Record<string, string>,
   locale: "de" | "en",
+  channel: IntakeChannel = "public",
 ): OrderFormConfig {
   const suffix = locale === "en" ? "en" : "de";
   return {
     deadlineVisible: settings.orderform_field_deadline_visible !== "false",
     deadlineRequired: settings.orderform_field_deadline_required === "true",
-    orderTypeVisible: settings.orderform_field_ordertype_visible !== "false",
+    allowedOrderTypes: buildOrderIntakeConfig(settings, channel).allowedTypes,
     acceptedFormats: parseFormats(settings.orderform_accepted_formats),
     maxFileMb: parseIntPositive(settings.orderform_max_file_mb, DEFAULT_MAX_FILE_MB) || DEFAULT_MAX_FILE_MB,
     maxFiles: parseIntPositive(settings.orderform_max_files, 0),
@@ -60,6 +67,9 @@ export function buildOrderFormConfig(
   };
 }
 
-export async function getOrderFormConfig(locale: "de" | "en"): Promise<OrderFormConfig> {
-  return buildOrderFormConfig(await getSettings(), locale);
+export async function getOrderFormConfig(
+  locale: "de" | "en",
+  channel: IntakeChannel = "public",
+): Promise<OrderFormConfig> {
+  return buildOrderFormConfig(await getSettings(), locale, channel);
 }

@@ -20,6 +20,7 @@ const EMAIL_WRAPPERS = {
     surveyLink: "Jetzt Feedback geben",
     approvalLink: "Jetzt Freigabe erteilen",
     verifyLink: "E-Mail-Adresse bestätigen",
+    inviteLink: "Konto jetzt anlegen",
   },
   en: {
     greeting: (name: string) => `Hello ${name},`,
@@ -29,6 +30,7 @@ const EMAIL_WRAPPERS = {
     surveyLink: "Give feedback now",
     approvalLink: "Grant approval now",
     verifyLink: "Confirm email address",
+    inviteLink: "Create account now",
   },
 } as const;
 

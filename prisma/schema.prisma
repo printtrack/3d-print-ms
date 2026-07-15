@@ -105,30 +105,81 @@ enum PasswordResetKind {
   CUSTOMER
 }
 
+enum FeedbackType {
+  BUG
+  IMPROVEMENT
+}
+
+enum FeedbackStatus {
+  NEW
+  IN_PROGRESS
+  RESOLVED
+  DISMISSED
+}
+
+/// Free-form role an admin defines in Einstellungen → Rollen & Rechte.
+/// Only applies to non-admins: Role.ADMIN bypasses every permission check.
+model TeamRole {
+  id          String               @id @default(cuid())
+  name        String               @unique
+  description String?
+  color       String               @default("#6366f1")
+  /// Seeded default role — cannot be deleted, and new members fall back to it.
+  isSystem    Boolean              @default(false)
+  isDefault   Boolean              @default(false)
+  /// Default for members of this role: may only edit objects they are assigned
+  /// to. User.restrictedToAssigned overrides this per member.
+  restricted  Boolean              @default(false)
+  position    Int                  @default(0)
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+  permissions TeamRolePermission[]
+  users       User[]
+}
+
+/// One granted permission key. Keys are validated against PERMISSIONS in
+/// lib/permissions.ts — a row whose key is not in the registry is ignored.
+model TeamRolePermission {
+  roleId String
+  key    String
+  role   TeamRole @relation(fields: [roleId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, key])
+  @@index([key])
+}
 
 model User {
-  id               String                  @id @default(cuid())
-  name             String
-  email            String                  @unique
-  password         String
-  role             Role                    @default(TEAM_MEMBER)
-  locale           String                  @default("de")
-  createdAt        DateTime                @default(now())
-  onboardedAt      DateTime?
-  assignedOrders   OrderAssignee[]
-  comments         OrderComment[]
-  auditLogs        AuditLog[]
-  accounts         Account[]
-  sessions         Session[]
-  knowledgeEntries KnowledgeEntry[]
-  projectAssignees ProjectAssignee[]
-  projectAuditLogs ProjectAuditLog[]
-  partAssignees    OrderPartAssignee[]
-  taskAssignees    MilestoneTaskAssignee[]
-  jobAssignees     PrintJobAssignee[]
-  fileNotes        OrderFileNote[]
-  projectComments  ProjectComment[]
-  calendarEvents   CalendarEvent[]
+  id                   String                  @id @default(cuid())
+  name                 String
+  email                String                  @unique
+  password             String
+  role                 Role                    @default(TEAM_MEMBER)
+  /// Permissions for non-admins. Null falls back to the default TeamRole.
+  teamRoleId           String?
+  teamRole             TeamRole?               @relation(fields: [teamRoleId], references: [id], onDelete: SetNull)
+  /// Per-member override of TeamRole.restricted. Null = inherit from the role.
+  restrictedToAssigned Boolean?
+  locale               String                  @default("de")
+  createdAt            DateTime                @default(now())
+  onboardedAt          DateTime?
+  assignedOrders       OrderAssignee[]
+  comments             OrderComment[]
+  auditLogs            AuditLog[]
+  accounts             Account[]
+  sessions             Session[]
+  knowledgeEntries     KnowledgeEntry[]
+  projectAssignees     ProjectAssignee[]
+  projectAuditLogs     ProjectAuditLog[]
+  partAssignees        OrderPartAssignee[]
+  taskAssignees        MilestoneTaskAssignee[]
+  jobAssignees         PrintJobAssignee[]
+  fileNotes            OrderFileNote[]
+  projectComments      ProjectComment[]
+  calendarEvents       CalendarEvent[]
+  feedback             Feedback[]
+  customerInvites      CustomerInvite[]
+
+  @@index([teamRoleId])
 }
 
 model ProjectPhase {
@@ -170,34 +221,34 @@ model PartPhase {
 }
 
 model Order {
-  id             String           @id @default(cuid())
-  trackingToken  String           @unique @default(cuid())
-  customerName   String
-  customerEmail  String
-  customerId     String?
-  customer       Customer?        @relation(fields: [customerId], references: [id], onDelete: SetNull)
-  description    String           @db.Text
-  phase          OrderPhase       @relation(fields: [phaseId], references: [id])
-  phaseId        String
-  createdAt      DateTime         @default(now())
-  updatedAt      DateTime         @updatedAt
-  archivedAt     DateTime?
-  deadline       DateTime?
-  phaseOrder     Int?
-  priceEstimate  Decimal?         @db.Decimal(10, 2)
-  orderType      OrderType        @default(PRINT_ONLY)
-  isPrototype    Boolean          @default(false)
-  iterationCount Int              @default(1)
-  isInternal     Boolean          @default(false)
-  generalProject Boolean          @default(false)
+  id                    String                @id @default(cuid())
+  trackingToken         String                @unique @default(cuid())
+  customerName          String
+  customerEmail         String
+  customerId            String?
+  customer              Customer?             @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  description           String                @db.Text
+  phase                 OrderPhase            @relation(fields: [phaseId], references: [id])
+  phaseId               String
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+  archivedAt            DateTime?
+  deadline              DateTime?
+  phaseOrder            Int?
+  priceEstimate         Decimal?              @db.Decimal(10, 2)
+  orderType             OrderType             @default(PRINT_ONLY)
+  isPrototype           Boolean               @default(false)
+  iterationCount        Int                   @default(1)
+  isInternal            Boolean               @default(false)
+  generalProject        Boolean               @default(false)
   estimatedCompletionAt DateTime?
-  projectId      String?
-  project        Project?         @relation(fields: [projectId], references: [id], onDelete: SetNull)
-  assignees      OrderAssignee[]
-  files          OrderFile[]
-  sourceLinks    OrderSourceLink[]
-  comments       OrderComment[]
-  auditLogs      AuditLog[]
+  projectId             String?
+  project               Project?              @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  assignees             OrderAssignee[]
+  files                 OrderFile[]
+  sourceLinks           OrderSourceLink[]
+  comments              OrderComment[]
+  auditLogs             AuditLog[]
   parts                 OrderPart[]
   surveyResponse        SurveyResponse?
   verificationRequests  VerificationRequest[]
@@ -210,40 +261,40 @@ model Order {
 }
 
 model Filament {
-  id               String             @id @default(cuid())
-  name             String
-  material         String
-  color            String
-  colorHex         String?
-  brand            String?
-  spoolWeightGrams Int
-  remainingGrams   Int
-  pricePerKg       Decimal?           @db.Decimal(10, 2)
-  notes            String?            @db.Text
-  isActive         Boolean            @default(true)
-  createdAt        DateTime           @default(now())
-  updatedAt        DateTime           @updatedAt
-  printJobFilaments PrintJobFilament[]
+  id                 String             @id @default(cuid())
+  name               String
+  material           String
+  color              String
+  colorHex           String?
+  brand              String?
+  spoolWeightGrams   Int
+  remainingGrams     Int
+  pricePerKg         Decimal?           @db.Decimal(10, 2)
+  notes              String?            @db.Text
+  isActive           Boolean            @default(true)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  printJobFilaments  PrintJobFilament[]
   // Machines this spool can be printed on. Empty = compatible with all machines.
-  compatibleMachines Machine[]        @relation("FilamentMachineCompat")
+  compatibleMachines Machine[]          @relation("FilamentMachineCompat")
 }
 
 model Machine {
-  id           String     @id @default(cuid())
-  name         String
-  buildVolumeX Int
-  buildVolumeY Int
-  buildVolumeZ Int
-  hourlyRate   Decimal?   @db.Decimal(10, 2)
-  notes        String?    @db.Text
-  isActive     Boolean    @default(true)
-  createdAt    DateTime   @default(now())
-  updatedAt    DateTime   @updatedAt
-  printJobs    PrintJob[]
-  downtimes    MachineDowntime[]
+  id                  String            @id @default(cuid())
+  name                String
+  buildVolumeX        Int
+  buildVolumeY        Int
+  buildVolumeZ        Int
+  hourlyRate          Decimal?          @db.Decimal(10, 2)
+  notes               String?           @db.Text
+  isActive            Boolean           @default(true)
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+  printJobs           PrintJob[]
+  downtimes           MachineDowntime[]
   // Filament spools that are compatible with this machine. Empty on the filament
   // side = that spool works everywhere.
-  compatibleFilaments Filament[]      @relation("FilamentMachineCompat")
+  compatibleFilaments Filament[]        @relation("FilamentMachineCompat")
 }
 
 model MachineDowntime {
@@ -252,8 +303,8 @@ model MachineDowntime {
   machine   Machine               @relation(fields: [machineId], references: [id], onDelete: Cascade)
   reason    MachineDowntimeReason
   note      String?               @db.Text
-  startedAt DateTime              // may lie in the future = planned maintenance
-  endedAt   DateTime?             // null = open / ongoing
+  startedAt DateTime // may lie in the future = planned maintenance
+  endedAt   DateTime? // null = open / ongoing
   createdBy String?
   createdAt DateTime              @default(now())
 
@@ -261,24 +312,24 @@ model MachineDowntime {
 }
 
 model PrintJob {
-  id               String             @id @default(cuid())
-  machineId        String
-  machine          Machine            @relation(fields: [machineId], references: [id])
-  status           PrintJobStatus     @default(PLANNED)
-  shortCode        String?            @unique
-  queuePosition    Int                @default(0)
-  plannedAt        DateTime?
-  startedAt        DateTime?
-  completedAt      DateTime?
-  printTimeMinutes    Int?
-  printTimeFromGcode  Boolean            @default(false)
-  notes               String?            @db.Text
-  createdAt        DateTime           @default(now())
-  updatedAt        DateTime           @updatedAt
-  parts            PrintJobPart[]
-  filamentUsages   PrintJobFilament[]
-  files            PrintJobFile[]
-  assignees        PrintJobAssignee[]
+  id                 String             @id @default(cuid())
+  machineId          String
+  machine            Machine            @relation(fields: [machineId], references: [id])
+  status             PrintJobStatus     @default(PLANNED)
+  shortCode          String?            @unique
+  queuePosition      Int                @default(0)
+  plannedAt          DateTime?
+  startedAt          DateTime?
+  completedAt        DateTime?
+  printTimeMinutes   Int?
+  printTimeFromGcode Boolean            @default(false)
+  notes              String?            @db.Text
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+  parts              PrintJobPart[]
+  filamentUsages     PrintJobFilament[]
+  files              PrintJobFile[]
+  assignees          PrintJobAssignee[]
 }
 
 model PrintJobFile {
@@ -313,44 +364,44 @@ model PrintJobFilament {
 }
 
 model OrderPart {
-  id             String              @id @default(cuid())
-  order          Order               @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  orderId        String
-  name           String
-  description    String?             @db.Text
+  id                   String                @id @default(cuid())
+  order                Order                 @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId              String
+  name                 String
+  description          String?               @db.Text
   // Filament requirement: material + color are chosen separately. Each axis can be
   // unset (null + *Any=false), concrete (string), or "egal"/any (null + *Any=true).
   // colorHex is a snapshot of the chosen color for the 3D preview.
-  material       String?
-  materialAny    Boolean             @default(false)
-  color          String?
-  colorHex       String?
-  colorAny       Boolean             @default(false)
+  material             String?
+  materialAny          Boolean               @default(false)
+  color                String?
+  colorHex             String?
+  colorAny             Boolean               @default(false)
   // Color variants of the same object share one design via variantGroupId.
   // The design (DESIGN files) is shared across the group; a part can be
   // "detached" (variantGroupId set to null) to get its own independent copy.
-  variantGroupId String?
-  gramsEstimated   Int?
-  gramsActualTotal Int?
-  chargedCentsTotal Int?
-  bboxXmm          Int?
-  bboxYmm        Int?
-  bboxZmm        Int?
-  orientQx       Float               @default(0)
-  orientQy       Float               @default(0)
-  orientQz       Float               @default(0)
-  orientQw       Float               @default(1)
-  quantity       Int                 @default(1)
-  iterationCount Int                 @default(1)
-  partPhase      PartPhase?          @relation(fields: [partPhaseId], references: [id], onDelete: SetNull)
-  partPhaseId    String?
-  createdAt      DateTime            @default(now())
-  updatedAt      DateTime            @updatedAt
-  files                 OrderFile[]
-  printJobParts         PrintJobPart[]
-  assignees             OrderPartAssignee[]
-  verificationRequests  VerificationRequest[]
-  iterations            OrderPartIteration[]
+  variantGroupId       String?
+  gramsEstimated       Int?
+  gramsActualTotal     Int?
+  chargedCentsTotal    Int?
+  bboxXmm              Int?
+  bboxYmm              Int?
+  bboxZmm              Int?
+  orientQx             Float                 @default(0)
+  orientQy             Float                 @default(0)
+  orientQz             Float                 @default(0)
+  orientQw             Float                 @default(1)
+  quantity             Int                   @default(1)
+  iterationCount       Int                   @default(1)
+  partPhase            PartPhase?            @relation(fields: [partPhaseId], references: [id], onDelete: SetNull)
+  partPhaseId          String?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  files                OrderFile[]
+  printJobParts        PrintJobPart[]
+  assignees            OrderPartAssignee[]
+  verificationRequests VerificationRequest[]
+  iterations           OrderPartIteration[]
 
   @@index([variantGroupId])
 }
@@ -379,6 +430,7 @@ model OrderAssignee {
   user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([orderId, userId])
+  @@index([userId])
 }
 
 model OrderPartAssignee {
@@ -388,6 +440,7 @@ model OrderPartAssignee {
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([orderPartId, userId])
+  @@index([userId])
 }
 
 model MilestoneTaskAssignee {
@@ -397,6 +450,7 @@ model MilestoneTaskAssignee {
   user   User          @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([taskId, userId])
+  @@index([userId])
 }
 
 model PrintJobAssignee {
@@ -406,21 +460,22 @@ model PrintJobAssignee {
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([printJobId, userId])
+  @@index([userId])
 }
 
 model OrderFile {
-  id           String     @id @default(cuid())
-  order        Order      @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  id           String          @id @default(cuid())
+  order        Order           @relation(fields: [orderId], references: [id], onDelete: Cascade)
   orderId      String
-  orderPart    OrderPart? @relation(fields: [orderPartId], references: [id], onDelete: SetNull)
+  orderPart    OrderPart?      @relation(fields: [orderPartId], references: [id], onDelete: SetNull)
   orderPartId  String?
   filename     String
   originalName String
   mimeType     String
   size         Int
-  source       FileSource   @default(CUSTOMER)
-  category     FileCategory @default(DESIGN)
-  createdAt    DateTime     @default(now())
+  source       FileSource      @default(CUSTOMER)
+  category     FileCategory    @default(DESIGN)
+  createdAt    DateTime        @default(now())
   notes        OrderFileNote[]
 }
 
@@ -483,7 +538,7 @@ model KnowledgeEntry {
   title     String
   problem   String          @db.Text
   solution  String          @db.Text
-  tags      Json     @default("[]")
+  tags      Json            @default("[]")
   files     KnowledgeFile[]
   authorId  String?
   author    User?           @relation(fields: [authorId], references: [id], onDelete: SetNull)
@@ -514,16 +569,16 @@ model SurveyResponse {
 }
 
 model VerificationRequest {
-  id          String             @id @default(cuid())
-  order       Order              @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  orderId     String
-  orderPart   OrderPart?         @relation(fields: [orderPartId], references: [id], onDelete: Cascade)
-  orderPartId String?
-  quote       Quote?             @relation(fields: [quoteId], references: [id], onDelete: SetNull)
-  quoteId     String?
-  type        VerificationType   @default(DESIGN_REVIEW)
-  token       String             @unique @default(cuid())
-  status      VerificationStatus @default(PENDING)
+  id              String             @id @default(cuid())
+  order           Order              @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId         String
+  orderPart       OrderPart?         @relation(fields: [orderPartId], references: [id], onDelete: Cascade)
+  orderPartId     String?
+  quote           Quote?             @relation(fields: [quoteId], references: [id], onDelete: SetNull)
+  quoteId         String?
+  type            VerificationType   @default(DESIGN_REVIEW)
+  token           String             @unique @default(cuid())
+  status          VerificationStatus @default(PENDING)
   sentAt          DateTime           @default(now())
   resolvedAt      DateTime?
   resolvedBy      String?
@@ -533,45 +588,45 @@ model VerificationRequest {
 }
 
 model Quote {
-  id           String      @id @default(cuid())
-  order        Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  orderId      String
-  number       String?     @unique
-  version      Int         @default(1)
-  status       QuoteStatus @default(DRAFT)
-  totalCents   Int         @default(0)
-  taxCents     Int         @default(0)
-  validUntil   DateTime?
-  sentAt       DateTime?
-  approvedAt   DateTime?
-  rejectedAt   DateTime?
-  rejectionReason String?  @db.Text
-  notes        String?     @db.Text
-  createdById  String?
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
-  items        QuoteItem[]
+  id                   String                @id @default(cuid())
+  order                Order                 @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  orderId              String
+  number               String?               @unique
+  version              Int                   @default(1)
+  status               QuoteStatus           @default(DRAFT)
+  totalCents           Int                   @default(0)
+  taxCents             Int                   @default(0)
+  validUntil           DateTime?
+  sentAt               DateTime?
+  approvedAt           DateTime?
+  rejectedAt           DateTime?
+  rejectionReason      String?               @db.Text
+  notes                String?               @db.Text
+  createdById          String?
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+  items                QuoteItem[]
   verificationRequests VerificationRequest[]
-  invoices     Invoice[]
+  invoices             Invoice[]
 
   @@unique([orderId, version])
   @@index([orderId])
 }
 
 model QuoteItem {
-  id              String            @id @default(cuid())
-  quote           Quote             @relation(fields: [quoteId], references: [id], onDelete: Cascade)
-  quoteId         String
-  position        Int               @default(0)
-  description     String            @db.Text
-  quantity        Decimal           @default(1) @db.Decimal(10, 3)
-  unitPriceCents  Int               @default(0)
-  taxRatePercent  Decimal           @default(19) @db.Decimal(5, 2)
-  category        QuoteItemCategory @default(OTHER)
-  source          QuoteItemSource   @default(FIXED)
-  orderPartId     String?
-  createdAt       DateTime          @default(now())
-  updatedAt       DateTime          @updatedAt
+  id             String            @id @default(cuid())
+  quote          Quote             @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  quoteId        String
+  position       Int               @default(0)
+  description    String            @db.Text
+  quantity       Decimal           @default(1) @db.Decimal(10, 3)
+  unitPriceCents Int               @default(0)
+  taxRatePercent Decimal           @default(19) @db.Decimal(5, 2)
+  category       QuoteItemCategory @default(OTHER)
+  source         QuoteItemSource   @default(FIXED)
+  orderPartId    String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
 
   @@index([quoteId])
 }
@@ -609,39 +664,39 @@ model Invoice {
 }
 
 model InvoiceItem {
-  id              String            @id @default(cuid())
-  invoice         Invoice           @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-  invoiceId       String
-  position        Int               @default(0)
-  description     String            @db.Text
-  quantity        Decimal           @default(1) @db.Decimal(10, 3)
-  unitPriceCents  Int               @default(0)
-  taxRatePercent  Decimal           @default(19) @db.Decimal(5, 2)
-  category        QuoteItemCategory @default(OTHER)
-  orderPartId     String?
-  createdAt       DateTime          @default(now())
+  id             String            @id @default(cuid())
+  invoice        Invoice           @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  invoiceId      String
+  position       Int               @default(0)
+  description    String            @db.Text
+  quantity       Decimal           @default(1) @db.Decimal(10, 3)
+  unitPriceCents Int               @default(0)
+  taxRatePercent Decimal           @default(19) @db.Decimal(5, 2)
+  category       QuoteItemCategory @default(OTHER)
+  orderPartId    String?
+  createdAt      DateTime          @default(now())
 
   @@index([invoiceId])
 }
 
 model InvoiceNumberCounter {
-  id        String  @id @default(cuid())
-  prefix    String  @unique
-  nextValue Int     @default(1)
+  id        String   @id @default(cuid())
+  prefix    String   @unique
+  nextValue Int      @default(1)
   updatedAt DateTime @updatedAt
 }
 
 model Payment {
-  id           String        @id @default(cuid())
-  invoice      Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-  invoiceId    String
-  amountCents  Int
-  paidAt       DateTime
-  method       PaymentMethod
-  reference    String?
-  notes        String?       @db.Text
-  recordedBy   String?
-  createdAt    DateTime      @default(now())
+  id          String        @id @default(cuid())
+  invoice     Invoice       @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  invoiceId   String
+  amountCents Int
+  paidAt      DateTime
+  method      PaymentMethod
+  reference   String?
+  notes       String?       @db.Text
+  recordedBy  String?
+  createdAt   DateTime      @default(now())
 
   @@index([invoiceId])
 }
@@ -708,23 +763,23 @@ model MilestoneTask {
 }
 
 model Project {
-  id               String            @id @default(cuid())
-  name             String
-  description      String?           @db.Text
-  projectPhaseId   String
-  projectPhase     ProjectPhase      @relation(fields: [projectPhaseId], references: [id])
-  phaseOrder       Int               @default(0)
-  deadline         DateTime?
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
-  archivedAt       DateTime?
-  orders           Order[]
-  milestones       Milestone[]
-  sprints          Sprint[]
-  assignees        ProjectAssignee[]
-  auditLogs        ProjectAuditLog[]
-  files            ProjectFile[]
-  comments         ProjectComment[]
+  id             String            @id @default(cuid())
+  name           String
+  description    String?           @db.Text
+  projectPhaseId String
+  projectPhase   ProjectPhase      @relation(fields: [projectPhaseId], references: [id])
+  phaseOrder     Int               @default(0)
+  deadline       DateTime?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  archivedAt     DateTime?
+  orders         Order[]
+  milestones     Milestone[]
+  sprints        Sprint[]
+  assignees      ProjectAssignee[]
+  auditLogs      ProjectAuditLog[]
+  files          ProjectFile[]
+  comments       ProjectComment[]
 }
 
 model ProjectFilePhase {
@@ -771,6 +826,7 @@ model ProjectAssignee {
   user      User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@id([projectId, userId])
+  @@index([userId])
 }
 
 model ProjectAuditLog {
@@ -788,6 +844,28 @@ model Setting {
   key       String   @id
   value     String   @db.Text
   updatedAt DateTime @updatedAt
+}
+
+// Beta-Feedback / Bug-Reports, die Team-Mitglieder direkt aus der Admin-UI
+// melden. Optional an ein GitHub-Issue gekoppelt (siehe lib/feedback-github.ts).
+model Feedback {
+  id                String         @id @default(cuid())
+  type              FeedbackType   @default(BUG)
+  title             String
+  description       String         @db.Text
+  screenshotPath    String?
+  pageUrl           String?
+  userAgent         String?        @db.Text
+  status            FeedbackStatus @default(NEW)
+  githubIssueUrl    String?
+  githubIssueNumber Int?
+  createdById       String?
+  createdBy         User?          @relation(fields: [createdById], references: [id], onDelete: SetNull)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
 }
 
 // Allgemeiner Termin ohne Auftragsbezug (z. B. Wartung, Messe, Urlaub).
@@ -834,18 +912,40 @@ model PasswordResetToken {
 }
 
 model Customer {
-  id                 String                          @id @default(cuid())
-  email              String                          @unique
+  id                 String                           @id @default(cuid())
+  email              String                           @unique
   name               String
   password           String
-  creditBalanceCents Int                             @default(0)
-  locale             String                          @default("de")
+  creditBalanceCents Int                              @default(0)
+  locale             String                           @default("de")
   emailVerifiedAt    DateTime?
-  createdAt          DateTime                        @default(now())
-  updatedAt          DateTime                        @updatedAt
+  createdAt          DateTime                         @default(now())
+  updatedAt          DateTime                         @updatedAt
   credits            CustomerCredit[]
   orders             Order[]
   verificationTokens CustomerEmailVerificationToken[]
+}
+
+// Invitation to create a customer account. Used when
+// `portal_registration_mode` = "invite" (see lib/order-intake.ts), where an
+// account can only be created by redeeming one of these.
+//
+// `email` is optional: bound invites are mailed to that address and only that
+// address may redeem them; unbound invites are a copyable link for anyone.
+// Either way an invite is single-use (`usedAt`) and expires.
+model CustomerInvite {
+  token       String    @id @default(cuid())
+  email       String?
+  note        String?   @db.Text
+  expiresAt   DateTime
+  usedAt      DateTime?
+  usedById    String?
+  createdById String?
+  createdAt   DateTime  @default(now())
+  createdBy   User?     @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([email])
+  @@index([createdById])
 }
 
 model CustomerEmailVerificationToken {

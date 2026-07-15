@@ -13,14 +13,29 @@ order: 9.3
 
 The **Team** tab manages all user accounts in the admin backend. Customer accounts are managed separately under [[Customers]].
 
-## Roles in the system
+## Access level and role
 
-| Role | Permissions |
-|------|------------|
-| **ADMIN** | Full access: all areas including Settings, Team, Customers, Phases and Machines |
-| **TEAM_MEMBER** | Orders, Print Jobs, Planning, Inventory, Knowledge Base — no Settings access |
+Every account has two independent settings:
 
-At least one admin account must always exist in the system.
+| Field | Meaning |
+|-------|---------|
+| **Access level** | `Admin` — full access to everything incl. settings, team, customers and machines. `Team member` — whatever the role allows. |
+| **Role & permissions** | Team members only: decides the permissions. Create and edit them under [[Settings → Roles & permissions]]. |
+| **Assignment lock** | Overrides per member whether only assigned orders may be edited. |
+
+Admins deliberately get no role — they bypass every check anyway.
+
+The **last administrator** can be neither demoted nor deleted; there must always be at least one admin account.
+
+### Assignment lock per member
+
+| Setting | Effect |
+|---------|--------|
+| **Inherit from role** | Default — whatever the role says. |
+| **Restricted** | This person may only edit assigned orders. |
+| **Not restricted** | Exception despite a locking role. |
+
+A lock icon in the member list shows who the lock ends up applying to. Details under [[Settings → Roles & permissions]].
 
 ## Inviting a team member
 

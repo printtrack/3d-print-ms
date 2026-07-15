@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { assertPermission } from "@/lib/authz";
 import fs from "fs/promises";
 import path from "path";
 import { getUploadDir } from "@/lib/uploads";
@@ -9,10 +9,10 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string; fileId: string }> }
 ) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
   const { id: entryId, fileId } = await params;
+
+  const guard = await assertPermission("knowledge.edit");
+  if (guard) return guard;
 
   const file = await prisma.knowledgeFile.findUnique({ where: { id: fileId } });
   if (!file || file.entryId !== entryId) {

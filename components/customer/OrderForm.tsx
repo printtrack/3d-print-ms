@@ -19,7 +19,7 @@ import { SUPPORTED_FORMATS, DEFAULT_MAX_FILE_MB, type OrderFormConfig } from "@/
 const DEFAULT_CONFIG: OrderFormConfig = {
   deadlineVisible: true,
   deadlineRequired: false,
-  orderTypeVisible: true,
+  allowedOrderTypes: ["PRINT_ONLY", "DESIGN"],
   acceptedFormats: [...SUPPORTED_FORMATS],
   maxFileMb: DEFAULT_MAX_FILE_MB,
   maxFiles: 0,
@@ -40,7 +40,7 @@ export function OrderForm({
   const tc = useTranslations("common");
   const [loading, setLoading] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
-  const [orderType, setOrderType] = useState<OrderType>("PRINT_ONLY");
+  const [orderType, setOrderType] = useState<OrderType>(config.allowedOrderTypes[0] ?? "PRINT_ONLY");
   const [sourceLinks, setSourceLinks] = useState<SourceLink[]>([]);
   const [consent, setConsent] = useState(false);
   const [formData, setFormData] = useState({
@@ -101,7 +101,9 @@ export function OrderForm({
       return;
     }
 
-    const effectiveOrderType: OrderType = config.orderTypeVisible ? orderType : "PRINT_ONLY";
+    const effectiveOrderType: OrderType = config.allowedOrderTypes.includes(orderType)
+      ? orderType
+      : config.allowedOrderTypes[0] ?? "PRINT_ONLY";
 
     setLoading(true);
 
@@ -269,11 +271,12 @@ export function OrderForm({
             </div>
           </div>
 
-          {config.orderTypeVisible && (
+          {/* With a single accepted type there is nothing to pick — that type is implied. */}
+          {config.allowedOrderTypes.length > 1 && (
             <OrderTypeField value={orderType} onChange={setOrderType} />
           )}
 
-          {config.orderTypeVisible && orderType === "PRINT_ONLY" && (
+          {orderType === "PRINT_ONLY" && (
             <SourceLinksField value={sourceLinks} onChange={setSourceLinks} />
           )}
 

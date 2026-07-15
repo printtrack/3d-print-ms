@@ -18,6 +18,7 @@ Der Einstellungsbereich ist **ausschließlich für Admins**. Hier konfigurierst 
 | Tab | Inhalt |
 |-----|--------|
 | **Unternehmen** | Firmenname, Kontakt-E-Mail, Zugangscode und Kunden-Verifizierung |
+| **Auftragsannahme** | Wer welche Auftragstypen einreichen darf und wie Kundenkonten entstehen (Einladungen → [[Kunden\|customers]]) |
 | **Abrechnung** | Angebotsfreigabe, Zahlungsziel und Mahnwesen → [[Einstellungen → Abrechnung & Belege|settings-billing]] |
 | **Belege** | Aussehen und Stammdaten der Angebots-/Rechnungs-PDFs → [[Einstellungen → Abrechnung & Belege|settings-billing]] |
 | **Rechtliches** | Impressum und Datenschutzerklärung |
@@ -76,13 +77,62 @@ Im Reiter **Marke** individualisierst du das Erscheinungsbild der gesamten Anwen
 - Der **Anwendungstitel** (Browser-Tab) entspricht dem Unternehmensnamen aus dem Reiter
   „Unternehmen“.
 
+## Auftragsannahme (Tab: Auftragsannahme)
+
+Hier legst du fest, **auf welchen Wegen Aufträge hereinkommen** — getrennt nach Kanal, damit du
+z. B. Designaufträge nur von bekannten Kunden annimmst.
+
+### Auftragstypen je Kanal
+
+Zwei Kanäle mit je zwei Schaltern (Druckaufträge / Designaufträge):
+
+- **Ohne Konto (öffentliches Formular)** — was Besucher über die Startseite einreichen können,
+  ohne sich anzumelden.
+- **Mit Kundenkonto (Portal)** — was angemeldete Kunden im Portal einreichen können.
+
+Daraus ergeben sich die üblichen Konstellationen:
+
+| Ziel | Einstellung |
+|------|-------------|
+| Alles für alle offen (Standard) | alle vier Schalter an |
+| **Design nur mit Konto** | öffentlich: nur Druck · Portal: Druck & Design |
+| Öffentlich nur Design (z. B. reines Designbüro) | öffentlich: nur Design |
+| **Aufträge nur mit Konto** | beide öffentlichen Schalter aus |
+
+Bleibt für einen Kanal kein Typ übrig, ist der Kanal geschlossen: Auf der Startseite erscheint
+statt des Formulars ein Hinweis mit Link zum Kundenportal, im Portal verschwindet der Button
+„Neuer Auftrag“. Sind **alle vier** Schalter aus, warnt die Seite — dann kann niemand mehr
+Aufträge einreichen.
+
+Die Regeln gelten nicht nur für die Anzeige: Die API prüft bei jedem Auftrag nach, welcher Kanal
+genutzt wird (angemeldet = Portal, sonst öffentlich), und weist nicht zugelassene Auftragstypen ab.
+Ein umgangenes Formular bringt also nichts.
+
+> Der frühere Schalter „Auftragstyp anzeigen“ im Auftragsformular ist hierin aufgegangen. Bestehende
+> Installationen, die ihn ausgeschaltet hatten, verhalten sich unverändert (öffentlich nur Druck),
+> bis du die Schalter hier anfasst.
+
+### Kundenkonten & Einladungen
+
+**Registrierung** steuert, wie neue Kundenkonten entstehen:
+
+- **Offen** — jeder kann sich selbst ein Konto anlegen.
+- **Nur mit Einladung** — ein Konto entsteht ausschließlich über einen Einladungslink. Die
+  Registrierungsseite zeigt ohne gültige Einladung nur einen Hinweis, und der Link „Jetzt
+  registrieren“ auf der Anmeldeseite verschwindet.
+- **Geschlossen** — keine neuen Konten. Bestehende Kunden können sich weiter anmelden.
+
+Hier steht nur, **wie** Konten entstehen. Einzelne Kunden lädst du dort ein, wo du sie auch sonst
+verwaltest: [[Kunden|customers]] → Einladungen.
+
 ## Auftragsformular (Tab: Auftragsformular)
 
 Hier kannst du das **Auftragsformular anpassen**, mit dem Kunden auf der Startseite einen
-Druckauftrag einreichen — passend zum Intake deines Betriebs.
+Druckauftrag einreichen — passend zum Intake deines Betriebs. Welche Auftragstypen zur Wahl
+stehen, legst du unter [Auftragsannahme](#auftragsannahme-tab-auftragsannahme) fest.
 
-- **Felder** — Auftragstyp und Liefertermin lassen sich ein-/ausblenden; der Liefertermin kann
-  zum Pflichtfeld gemacht werden. Name, E-Mail und Beschreibung sind immer Pflicht.
+- **Felder** — der Liefertermin lässt sich ein-/ausblenden und zum Pflichtfeld machen. Name,
+  E-Mail und Beschreibung sind immer Pflicht.
 - **Dateien** — erlaubte Formate (Auswahl aus JPG, PNG, GIF, WEBP, STL, OBJ, 3MF), maximale
   Dateigröße (MB) und maximale Anzahl Dateien (0 = unbegrenzt). Die Grenzen werden auch
   serverseitig erzwungen.

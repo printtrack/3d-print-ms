@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { assertOrderAccess, getActor } from "@/lib/authz";
 import { z } from "zod";
 import { publish } from "@/lib/event-bus";
 import { sendCustomerMessageEmail } from "@/lib/email";
@@ -12,19 +12,21 @@ const createSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const actor = await getActor();
+  if (!actor) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   try {
     const body = await req.json();
     const data = createSchema.parse(body);
 
+    // Commenting is part of working on an order, so it rides on orders.edit.
+    const guard = await assertOrderAccess(data.orderId, "orders.edit");
+    if (guard) return guard;
+
     const comment = await prisma.orderComment.create({
       data: {
         orderId: data.orderId,
-        authorId: session.user.id,
+        authorId: actor.id,
         content: data.content,
         sentToCustomer: data.sentToCustomer,
       },
@@ -51,7 +53,7 @@ export async function POST(req: NextRequest) {
       await prisma.auditLog.create({
         data: {
           orderId: data.orderId,
-          userId: session.user.id,
+          userId: actor.id,
           action: "CUSTOMER_MESSAGE_SENT",
           details: data.content.length > 80 ? data.content.slice(0, 80) + "…" : data.content,
         },
@@ -60,9 +62,9 @@ export async function POST(req: NextRequest) {
       await prisma.auditLog.create({
         data: {
           orderId: data.orderId,
-          userId: session.user.id,
+          userId: actor.id,
           action: "COMMENT_ADDED",
-          details: `Kommentar von ${session.user.name}`,
+          details: `Kommentar von ${actor.name}`,
         },
       });
     }

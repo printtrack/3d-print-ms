@@ -24,6 +24,13 @@ type FeatureCheck = {
 };
 
 const FEATURE_CHECKS: FeatureCheck[] = [
+  { feature: "Custom team roles", de: ["Rollen & Rechte"], en: ["Roles & permissions"] },
+  { feature: "Role permission matrix", de: ["Berechtigungen im Überblick"], en: ["Permissions at a glance"] },
+  { feature: "Assignment lock", de: ["Zuweisungs-Sperre"], en: ["assignment lock"] },
+  { feature: "Read-only orders", de: ["Schreibgeschützt"], en: ["Read-only"] },
+  { feature: "Per-member restriction override", de: ["Von Rolle übernehmen"], en: ["Inherit from role"] },
+  { feature: "Default team role", de: ["Standardrolle"], en: ["default role"] },
+  { feature: "Last admin protection", de: ["letzte Administrator"], en: ["last administrator"] },
   { feature: "Quotes", de: ["Angebot erstellen"], en: ["Create a quote", "Create quote"] },
   { feature: "Quote sending / approval", de: ["Freigabe durch den Kunden"], en: ["Customer approval"] },
   { feature: "Quote versions", de: ["Neue Version"], en: ["New version"] },
@@ -60,6 +67,15 @@ const FEATURE_CHECKS: FeatureCheck[] = [
   { feature: "Variant detach design", de: ["Design abkoppeln"], en: ["Detach design"] },
   { feature: "Filament-machine compatibility", de: ["Kompatible Drucker"], en: ["Compatible printers"] },
   { feature: "Colored 3D preview", de: ["farbige 3D-Vorschau"], en: ["colored 3D preview"] },
+  { feature: "Beta feedback / bug reports", de: ["Feedback-Button"], en: ["feedback button"] },
+  { feature: "Beta feedback GitHub integration", de: ["GitHub-Issue"], en: ["GitHub issue"] },
+  { feature: "Beta mode toggle", de: ["Beta-Modus"], en: ["beta mode"] },
+  { feature: "Order intake per channel", de: ["Auftragstypen je Kanal"], en: ["Order types per channel"] },
+  { feature: "Design orders only with account", de: ["Design nur mit Konto"], en: ["Design only with an account"] },
+  { feature: "Public intake disabled", de: ["Aufträge nur mit Konto"], en: ["Orders only with an account"] },
+  { feature: "Registration modes", de: ["Nur mit Einladung", "Geschlossen"], en: ["Invitation only", "Closed"] },
+  { feature: "Customer invitations", de: ["Einladungen"], en: ["Invitations"] },
+  { feature: "Invitation link expiry / single use", de: ["nur einmal einlösbar"], en: ["redeemable once"] },
 ];
 
 function readWikiText(locale: "de" | "en"): string {

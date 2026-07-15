@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { assertOrderAccess, getActor } from "@/lib/authz";
 import { unlink } from "fs/promises";
 import path from "path";
 import { getUploadDir } from "@/lib/uploads";
@@ -17,10 +17,10 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string; fileId: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
   const { id: orderId, fileId } = await params;
+
+  const guard = await assertOrderAccess(orderId, "orders.edit");
+  if (guard) return guard;
 
   try {
     const body = await req.json();
@@ -53,10 +53,10 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string; fileId: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
   const { id: orderId, fileId } = await params;
+
+  const guard = await assertOrderAccess(orderId, "orders.edit");
+  if (guard) return guard;
 
   const file = await prisma.orderFile.findFirst({
     where: { id: fileId, orderId },
@@ -75,7 +75,7 @@ export async function DELETE(
   await prisma.auditLog.create({
     data: {
       orderId,
-      userId: session.user.id as string,
+      userId: (await getActor())?.id ?? null,
       action: "FILE_DELETED",
       details: `Datei gelöscht: ${file.originalName}`,
     },

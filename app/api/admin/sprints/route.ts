@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { assertOrderOrProjectAccess, assertSignedIn } from "@/lib/authz";
 import { z } from "zod";
 
 const createSchema = z
@@ -14,8 +14,8 @@ const createSchema = z
   });
 
 export async function GET(req: NextRequest) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const guard = await assertSignedIn();
+  if (guard) return guard;
 
   const { searchParams } = new URL(req.url);
   const orderId = searchParams.get("orderId");
@@ -41,12 +41,17 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
 
   try {
     const body = await req.json();
     const data = createSchema.parse(body);
+
+  const guard = await assertOrderOrProjectAccess(
+    { orderId: data.orderId ?? null, projectId: data.projectId ?? null },
+    { order: "orders.edit", project: "projects.edit" },
+  );
+  if (guard) return guard;
 
     const last = await prisma.sprint.findFirst({
       where: data.orderId ? { orderId: data.orderId } : { projectId: data.projectId },

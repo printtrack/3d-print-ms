@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { assertAdmin, assertSignedIn } from "@/lib/authz";
 import { getPoolAvailability, getPartCountByPool } from "@/lib/filament-reservations";
 import { poolKey } from "@/lib/filament-resolve";
 import { z } from "zod";
@@ -26,8 +26,8 @@ const filamentInclude = {
 } as const;
 
 export async function GET(req: NextRequest) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const guard = await assertSignedIn();
+  if (guard) return guard;
 
   const material = req.nextUrl.searchParams.get("material");
 
@@ -56,11 +56,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if ((session.user as { role?: string }).role !== "ADMIN") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const guard = await assertAdmin();
+  if (guard) return guard;
 
   try {
     const body = await req.json();

@@ -13,14 +13,29 @@ order: 9.3
 
 Unter dem Tab **Team** verwaltest du alle Benutzerkonten des Administrations-Backends. Kunden-Accounts werden separat unter [[Kunden]] verwaltet.
 
-## Rollen im System
+## Zugriffsebene und Rolle
 
-| Rolle | Berechtigungen |
-|-------|---------------|
-| **ADMIN** | Vollzugriff: alle Bereiche inkl. Einstellungen, Team, Kunden, Phasen und Maschinen |
-| **TEAM_MEMBER** | Aufträge, Druckjobs, Planung, Inventar, Wissensdatenbank — keine Einstellungen |
+Jedes Konto hat zwei voneinander unabhängige Einstellungen:
 
-Es muss immer mindestens ein Admin-Account im System vorhanden sein.
+| Feld | Bedeutung |
+|------|-----------|
+| **Zugriffsebene** | `Admin` — Vollzugriff auf alles inkl. Einstellungen, Team, Kunden und Maschinen. `Team-Mitglied` — was die Rolle erlaubt. |
+| **Rolle & Rechte** | Nur für Team-Mitglieder: bestimmt die Berechtigungen. Anlegen und bearbeiten unter [[Einstellungen → Rollen & Rechte]]. |
+| **Zuweisungs-Sperre** | Übersteuert je Mitglied, ob nur zugewiesene Aufträge bearbeitet werden dürfen. |
+
+Admins bekommen bewusst keine Rolle zugewiesen — sie umgehen ohnehin jede Prüfung.
+
+Der **letzte Administrator** lässt sich weder herabstufen noch löschen; es muss immer mindestens ein Admin-Konto vorhanden sein.
+
+### Zuweisungs-Sperre je Mitglied
+
+| Einstellung | Wirkung |
+|-------------|---------|
+| **Von Rolle übernehmen** | Standard — es gilt, was an der Rolle eingestellt ist. |
+| **Eingeschränkt** | Diese Person darf nur zugewiesene Aufträge bearbeiten. |
+| **Nicht eingeschränkt** | Ausnahme trotz gesperrter Rolle. |
+
+Ein Schloss-Symbol in der Mitgliederliste zeigt, für wen die Sperre am Ende greift. Details unter [[Einstellungen → Rollen & Rechte]].
 
 ## Teammitglied einladen
 

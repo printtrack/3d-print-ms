@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { assertProjectAccess, assertSignedIn, getActor } from "@/lib/authz";
 import { z } from "zod";
 
 const updateSchema = z.object({
@@ -43,8 +43,8 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const guard = await assertSignedIn();
+  if (guard) return guard;
 
   const { id } = await params;
 
@@ -62,8 +62,8 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const guard = await assertProjectAccess((await params).id, "projects.edit");
+  if (guard) return guard;
 
   const { id } = await params;
 
@@ -86,7 +86,7 @@ export async function PATCH(
         select: { name: true },
       });
       auditEntries.push({
-        userId: session.user?.id ?? null,
+        userId: (await getActor())?.id ?? null,
         action: "PHASE_CHANGED",
         details: `${current.projectPhase.name} → ${newPhase?.name ?? data.projectPhaseId}`,
       });
@@ -131,8 +131,8 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const guard = await assertProjectAccess((await params).id, "projects.delete");
+  if (guard) return guard;
 
   const { id } = await params;
 

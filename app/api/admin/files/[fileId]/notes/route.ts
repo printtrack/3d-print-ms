@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { assertOrderAccess, assertSignedIn, getActor } from "@/lib/authz";
+import { orderIdOfFile } from "@/lib/authz-resolve";
 import { is3DModel } from "@/lib/utils";
 
 const CreateNoteSchema = z.object({
@@ -18,8 +19,8 @@ const CreateNoteSchema = z.object({
 type Params = { params: Promise<{ fileId: string }> };
 
 export async function GET(_req: NextRequest, { params }: Params) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const guard = await assertSignedIn();
+  if (guard) return guard;
 
   const { fileId } = await params;
   const file = await prisma.orderFile.findUnique({
@@ -45,8 +46,10 @@ export async function GET(_req: NextRequest, { params }: Params) {
 }
 
 export async function POST(req: NextRequest, { params }: Params) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const noteOrderId = await orderIdOfFile((await params).fileId);
+  if (!noteOrderId) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const guard = await assertOrderAccess(noteOrderId, "orders.edit");
+  if (guard) return guard;
 
   const { fileId } = await params;
   const file = await prisma.orderFile.findUnique({
@@ -67,7 +70,7 @@ export async function POST(req: NextRequest, { params }: Params) {
 
   const { isCustomerVisible: _ignored, ...rest } = parsed.data;
 
-  const userId = (session.user as { id?: string }).id ?? null;
+  const userId = (await getActor())?.id ?? null;
   const note = await prisma.orderFileNote.create({
     data: {
       orderFileId: fileId,

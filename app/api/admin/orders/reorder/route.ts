@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { assertPermission } from "@/lib/authz";
 import { z } from "zod";
 
 const ReorderSchema = z.object({
@@ -9,10 +9,12 @@ const ReorderSchema = z.object({
 });
 
 export async function POST(req: NextRequest) {
-  const session = await auth();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  // Permission only, deliberately no assignment check: the payload is the whole
+  // column, so every reorder touches other people's cards — scoping it would make
+  // sorting impossible for restricted members. Only `phaseOrder` (a view sort
+  // index) changes here, never content.
+  const guard = await assertPermission("orders.edit");
+  if (guard) return guard;
 
   const body = await req.json().catch(() => null);
   const parsed = ReorderSchema.safeParse(body);

@@ -10,13 +10,23 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, Building2, Scale, Mail, MessageSquare, Layers, LayoutList, FolderKanban, Files, Users, Printer, FileText, Upload, History, ToggleRight, Palette, ClipboardList, CalendarRange } from "lucide-react";
+import { Plus, Trash2, Building2, Scale, Mail, MessageSquare, Layers, LayoutList, FolderKanban, Files, Users, Printer, FileText, Upload, History, ToggleRight, Palette, ClipboardList, CalendarRange, Inbox, AlertTriangle, PencilRuler, ShieldCheck } from "lucide-react";
 import { TIMELINE_EVENTS, TIMELINE_GROUP_ORDER, settingKey, MASTER_SETTING_KEY, isEventVisible, type TimelineGroup } from "@/lib/tracking-timeline";
 import { FEATURES, type FeatureKey } from "@/lib/features";
 import { SUPPORTED_FORMATS } from "@/lib/order-form-config";
+import {
+  INTAKE_SETTING_KEYS,
+  REGISTRATION_MODE_KEY,
+  buildOrderIntakeConfig,
+  buildRegistrationMode,
+  type IntakeChannel,
+  type OrderTypeKey,
+} from "@/lib/order-intake";
+import Link from "next/link";
 import Image from "next/image";
 import { PhaseManager } from "@/components/admin/PhaseManager";
-import { TeamManager } from "@/components/admin/TeamManager";
+import { TeamManager, type TeamRoleOption, type TeamMember } from "@/components/admin/TeamManager";
+import { RoleManager, type RoleListItem } from "@/components/admin/RoleManager";
 import { MachineManager } from "@/components/admin/MachineManager";
 import { CalendarSubscriptionManager, type CalendarSubscription } from "@/components/admin/CalendarSubscriptionManager";
 import { PartPhaseManager } from "@/components/admin/PartPhaseManager";
@@ -37,15 +47,6 @@ interface Phase {
   enterGate?: unknown;
   autoAdvance?: unknown;
   _count: { orders: number };
-}
-
-interface TeamMember {
-  id: string;
-  name: string;
-  email: string;
-  role: "ADMIN" | "TEAM_MEMBER";
-  createdAt: string;
-  _count: { assignedOrders: number };
 }
 
 interface Machine {
@@ -88,6 +89,9 @@ interface SettingsFormProps {
   initialProjectPhases: ProjectPhaseData[];
   initialProjectFilePhases: ProjectFilePhaseData[];
   initialSubscriptions: CalendarSubscription[];
+  initialRoles: RoleListItem[];
+  roleOptions: TeamRoleOption[];
+  enabledFeatures: Record<FeatureKey, boolean>;
 }
 
 function parseSurveyQuestions(raw: string | undefined): string[] {
@@ -107,6 +111,7 @@ const NAV_GROUPS = [
     items: [
       { key: "general", label: "Unternehmen", icon: Building2 },
       { key: "marke", label: "Marke", icon: Palette },
+      { key: "auftragsannahme", label: "Auftragsannahme", icon: Inbox },
       { key: "auftragsformular", label: "Auftragsformular", icon: ClipboardList },
       { key: "abrechnung", label: "Abrechnung", icon: Scale },
       { key: "belege", label: "Belege", icon: FileText },
@@ -133,6 +138,7 @@ const NAV_GROUPS = [
   {
     label: "Ressourcen",
     items: [
+      { key: "rollen", label: "Rollen & Rechte", icon: ShieldCheck },
       { key: "team", label: "Team", icon: Users },
       { key: "maschinen", label: "Maschinen", icon: Printer },
       { key: "webkalender", label: "Web-Kalender", icon: CalendarRange },
@@ -140,7 +146,7 @@ const NAV_GROUPS = [
   },
 ];
 
-const SETTINGS_SECTIONS = new Set(["module", "general", "marke", "auftragsformular", "abrechnung", "belege", "emails", "survey", "legal", "verlauf"]);
+const SETTINGS_SECTIONS = new Set(["module", "general", "marke", "auftragsannahme", "auftragsformular", "abrechnung", "belege", "emails", "survey", "legal", "verlauf"]);
 
 // Admin-only UI → German labels, matching the rest of this form.
 const FEATURE_LABELS: Record<FeatureKey, { label: string; description: string }> = {
@@ -196,6 +202,9 @@ export function SettingsForm({
   initialProjectPhases,
   initialProjectFilePhases,
   initialSubscriptions,
+  initialRoles,
+  roleOptions,
+  enabledFeatures,
 }: SettingsFormProps) {
   const [settings, setSettings] = useState<Record<string, string>>(initialSettings);
   const [surveyQuestions, setSurveyQuestions] = useState<string[]>(
@@ -347,6 +356,36 @@ export function SettingsForm({
                   </div>
                 );
               })}
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Beta-Werkzeuge */}
+        {activeSection === "module" && (
+          <Card className="mt-4">
+            <CardHeader>
+              <CardTitle className="text-base">Beta</CardTitle>
+              <p className="text-sm text-muted-foreground">
+                Blendet den schwebenden Feedback-Button in der gesamten Admin-Oberfläche ein.
+                Team-Mitglieder können damit Bugs & Verbesserungsvorschläge melden (optional mit
+                Screenshot), aus denen automatisch ein GitHub-Issue entsteht. Nach der Betaphase
+                hier abschalten.
+              </p>
+            </CardHeader>
+            <CardContent>
+              <div className="flex items-center justify-between gap-4 py-2">
+                <div className="space-y-0.5">
+                  <Label htmlFor="beta_mode">Feedback-Button anzeigen (Beta-Modus)</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Steuert außerdem die Triage-Ansicht unter „Feedback&quot; in der Navigation.
+                  </p>
+                </div>
+                <Switch
+                  id="beta_mode"
+                  checked={settings.beta_mode === undefined ? true : settings.beta_mode === "true"}
+                  onCheckedChange={(checked) => set("beta_mode", checked ? "true" : "false")}
+                />
+              </div>
             </CardContent>
           </Card>
         )}
@@ -1004,6 +1043,11 @@ export function SettingsForm({
           />
         )}
 
+        {/* Auftragsannahme */}
+        {activeSection === "auftragsannahme" && (
+          <AuftragsannahmeSection settings={settings} set={set} />
+        )}
+
         {/* Auftragsformular */}
         {activeSection === "auftragsformular" && (
           <AuftragsformularSection settings={settings} set={set} />
@@ -1080,9 +1124,14 @@ export function SettingsForm({
           </Card>
         )}
 
+        {/* Rollen & Rechte */}
+        {activeSection === "rollen" && (
+          <RoleManager initialRoles={initialRoles} enabledFeatures={enabledFeatures} />
+        )}
+
         {/* Team */}
         {activeSection === "team" && (
-          <TeamManager initialMembers={initialMembers} currentUserId={currentUserId} />
+          <TeamManager initialMembers={initialMembers} currentUserId={currentUserId} roles={roleOptions} />
         )}
 
         {/* Phasen */}
@@ -1126,6 +1175,164 @@ interface AuftragsformularSectionProps {
   set: (key: string, value: string) => void;
 }
 
+const CHANNEL_LABELS: Record<IntakeChannel, { title: string; description: string }> = {
+  public: {
+    title: "Ohne Konto (öffentliches Formular)",
+    description: "Was Besucher über die Startseite einreichen können, ohne sich anzumelden.",
+  },
+  portal: {
+    title: "Mit Kundenkonto (Portal)",
+    description: "Was angemeldete Kunden im Portal einreichen können.",
+  },
+};
+
+const ORDER_TYPE_LABELS: Record<OrderTypeKey, { label: string; icon: typeof Printer }> = {
+  PRINT_ONLY: { label: "Druckaufträge", icon: Printer },
+  DESIGN: { label: "Designaufträge", icon: PencilRuler },
+};
+
+const REGISTRATION_MODE_LABELS: { value: string; label: string; description: string }[] = [
+  { value: "open", label: "Offen", description: "Jeder kann sich selbst ein Konto anlegen." },
+  {
+    value: "invite",
+    label: "Nur mit Einladung",
+    description: "Ein Konto entsteht nur über einen Einladungslink.",
+  },
+  {
+    value: "closed",
+    label: "Geschlossen",
+    description: "Keine neuen Konten. Bestehende Kunden können sich weiter anmelden.",
+  },
+];
+
+function IntakeChannelCard({
+  channel,
+  settings,
+  set,
+}: {
+  channel: IntakeChannel;
+  settings: Record<string, string>;
+  set: (key: string, value: string) => void;
+}) {
+  const intake = buildOrderIntakeConfig(settings, channel);
+  const labels = CHANNEL_LABELS[channel];
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">{labels.title}</CardTitle>
+        <p className="text-sm text-muted-foreground">{labels.description}</p>
+      </CardHeader>
+      <CardContent className="space-y-1">
+        {(Object.keys(ORDER_TYPE_LABELS) as OrderTypeKey[]).map((type, i) => {
+          const { label, icon: Icon } = ORDER_TYPE_LABELS[type];
+          const key = INTAKE_SETTING_KEYS[channel][type];
+          return (
+            <div key={type}>
+              {i > 0 && <Separator className="my-1" />}
+              <div className="flex items-center justify-between py-2">
+                <Label htmlFor={key} className="flex items-center gap-2 font-normal">
+                  <Icon className="h-4 w-4 text-muted-foreground" />
+                  {label}
+                </Label>
+                <Switch
+                  id={key}
+                  checked={intake.allowedTypes.includes(type)}
+                  onCheckedChange={(c) => set(key, c ? "true" : "false")}
+                />
+              </div>
+            </div>
+          );
+        })}
+        {!intake.enabled && (
+          <p className="pt-2 text-xs text-amber-600">
+            {channel === "public"
+              ? "Auf der Startseite erscheint statt des Formulars ein Hinweis auf das Kundenkonto."
+              : "Angemeldete Kunden können derzeit keine Aufträge einreichen."}
+          </p>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function AuftragsannahmeSection({ settings, set }: AuftragsformularSectionProps) {
+  const publicIntake = buildOrderIntakeConfig(settings, "public");
+  const portalIntake = buildOrderIntakeConfig(settings, "portal");
+  const registrationMode = buildRegistrationMode(settings);
+  const nothingAccepted = !publicIntake.enabled && !portalIntake.enabled;
+  // Nobody can reach the portal channel if it takes orders but no account exists
+  // and none can be created without an admin acting first.
+  const portalUnreachable =
+    !publicIntake.enabled && portalIntake.enabled && registrationMode !== "open";
+
+  return (
+    <div className="space-y-6">
+      {nothingAccepted && (
+        <div
+          role="alert"
+          className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4"
+        >
+          <AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600" />
+          <p className="text-sm text-amber-800">
+            <strong>Es können keine Aufträge mehr eingereicht werden.</strong> Weder über das
+            öffentliche Formular noch über das Kundenportal ist ein Auftragstyp zugelassen.
+          </p>
+        </div>
+      )}
+
+      <IntakeChannelCard channel="public" settings={settings} set={set} />
+      <IntakeChannelCard channel="portal" settings={settings} set={set} />
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Kundenkonten</CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Wie neue Kunden ein Konto im Portal bekommen.
+          </p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor={REGISTRATION_MODE_KEY}>Registrierung</Label>
+            <Select
+              value={registrationMode}
+              onValueChange={(v) => set(REGISTRATION_MODE_KEY, v)}
+            >
+              <SelectTrigger id={REGISTRATION_MODE_KEY}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {REGISTRATION_MODE_LABELS.map((m) => (
+                  <SelectItem key={m.value} value={m.value}>
+                    {m.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              {REGISTRATION_MODE_LABELS.find((m) => m.value === registrationMode)?.description}
+            </p>
+          </div>
+          {portalUnreachable && (
+            <p className="text-xs text-amber-600">
+              Ohne Konto sind keine Aufträge möglich und neue Konten entstehen nur auf Ihre
+              Initiative — laden Sie Kunden gezielt ein.
+            </p>
+          )}
+          {registrationMode !== "closed" && (
+            <p className="text-xs text-muted-foreground">
+              Einzelne Kunden einladen:{" "}
+              <Link href="/admin/customers" className="underline underline-offset-2 hover:text-foreground">
+                Kunden
+              </Link>
+            </p>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
 function AuftragsformularSection({ settings, set }: AuftragsformularSectionProps) {
   const selectedFormats = (() => {
     const raw = settings.orderform_accepted_formats;
@@ -1156,19 +1363,11 @@ function AuftragsformularSection({ settings, set }: AuftragsformularSectionProps
           <CardTitle className="text-base">Felder</CardTitle>
           <p className="text-sm text-muted-foreground">
             Welche optionalen Felder im öffentlichen Auftragsformular erscheinen. Name, E-Mail und
-            Beschreibung sind immer Pflicht.
+            Beschreibung sind immer Pflicht. Welche Auftragstypen zur Wahl stehen, legt{" "}
+            <strong>Auftragsannahme</strong> fest.
           </p>
         </CardHeader>
         <CardContent className="space-y-1">
-          <div className="flex items-center justify-between py-2">
-            <Label htmlFor="orderform_field_ordertype_visible">Auftragstyp anzeigen</Label>
-            <Switch
-              id="orderform_field_ordertype_visible"
-              checked={settings.orderform_field_ordertype_visible !== "false"}
-              onCheckedChange={(c) => set("orderform_field_ordertype_visible", c ? "true" : "false")}
-            />
-          </div>
-          <Separator className="my-1" />
           <div className="flex items-center justify-between py-2">
             <Label htmlFor="orderform_field_deadline_visible">Liefertermin anzeigen</Label>
             <Switch

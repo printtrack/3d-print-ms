@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { assertJobAccess } from "@/lib/authz";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import { randomUUID } from "crypto";
@@ -27,10 +27,10 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
   const { id } = await params;
+
+  const guard = await assertJobAccess(id, "jobs.manage");
+  if (guard) return guard;
 
   const job = await prisma.printJob.findUnique({ where: { id } });
   if (!job) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });

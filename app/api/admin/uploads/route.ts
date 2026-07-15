@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { assertOrderAccess, getActor } from "@/lib/authz";
 import { writeFile, mkdir } from "fs/promises";
 import path from "path";
 import { randomUUID } from "crypto";
@@ -11,8 +11,8 @@ const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 const ALLOWED_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".stl", ".obj", ".3mf"]);
 
 export async function POST(req: NextRequest) {
-  const session = await auth();
-  if (!session?.user) {
+  const actor = await getActor();
+  if (!actor) {
     return NextResponse.json({ error: "Nicht authentifiziert" }, { status: 401 });
   }
 
@@ -28,6 +28,9 @@ export async function POST(req: NextRequest) {
     if (!orderId) {
       return NextResponse.json({ error: "orderId fehlt" }, { status: 400 });
     }
+
+    const guard = await assertOrderAccess(orderId, "orders.edit");
+    if (guard) return guard;
 
     const order = await prisma.order.findUnique({
       where: { id: orderId },
@@ -86,7 +89,7 @@ export async function POST(req: NextRequest) {
         await prisma.auditLog.create({
           data: {
             orderId,
-            userId: session.user.id as string,
+            userId: actor.id,
             action: "PART_ITERATION_INCREMENTED",
             details: `Teil "${updatedPart.name}" – Iteration #${updatedPart.iterationCount}`,
           },
@@ -96,7 +99,7 @@ export async function POST(req: NextRequest) {
       await prisma.auditLog.create({
         data: {
           orderId,
-          userId: session.user.id as string,
+          userId: actor.id,
           action: "TEAM_FILE_UPLOADED",
           details: `${savedFiles.length} Designdatei(en) vom Team hochgeladen`,
         },

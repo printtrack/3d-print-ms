@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { orderIdOfQuote } from "@/lib/authz-resolve";
+import { assertOrderAccess, getActor } from "@/lib/authz";
 import { sendQuoteEmail } from "@/lib/email";
 import { formatQuoteNumber } from "@/lib/billing-pdf";
 import { assertFeature } from "@/lib/features";
@@ -9,14 +10,16 @@ export async function POST(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
   const guard = await assertFeature("quotes");
   if (guard) return guard;
 
   const { id } = await params;
-  const userId = session.user?.id;
+
+  const scopeId = await orderIdOfQuote(id);
+  if (!scopeId) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const authGuard = await assertOrderAccess(scopeId, "billing.quotes.manage");
+  if (authGuard) return authGuard;
+  const userId = (await getActor())?.id;
 
   const quote = await prisma.quote.findUnique({
     where: { id },

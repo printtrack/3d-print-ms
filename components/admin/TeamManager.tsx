@@ -23,58 +23,178 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
 import { formatDate } from "@/lib/utils";
-import { Plus, Trash2, Pencil, Shield, User } from "lucide-react";
+import { Plus, Trash2, Pencil, Shield, User, Lock } from "lucide-react";
 import { useTranslations } from "next-intl";
 
-interface TeamMember {
+export interface TeamMember {
   id: string;
   name: string;
   email: string;
   role: "ADMIN" | "TEAM_MEMBER";
   createdAt: string;
+  teamRoleId: string | null;
+  restrictedToAssigned: boolean | null;
+  teamRole: { id: string; name: string; color: string; restricted: boolean } | null;
   _count: { assignedOrders: number };
+}
+
+export interface TeamRoleOption {
+  id: string;
+  name: string;
+  restricted: boolean;
+  isDefault: boolean;
+}
+
+/** null = inherit from the role, true/false = override for this member. */
+type RestrictionChoice = "inherit" | "yes" | "no";
+
+function toChoice(v: boolean | null): RestrictionChoice {
+  return v === null ? "inherit" : v ? "yes" : "no";
+}
+
+function fromChoice(c: RestrictionChoice): boolean | null {
+  return c === "inherit" ? null : c === "yes";
+}
+
+/** Whether the lock actually applies once the role default and override are combined. */
+function isEffectivelyRestricted(member: TeamMember): boolean {
+  if (member.role === "ADMIN") return false;
+  return member.restrictedToAssigned ?? member.teamRole?.restricted ?? false;
 }
 
 function getInitials(name: string) {
   return name.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2);
 }
 
+/**
+ * Team role + restriction. Only rendered for non-admins: an admin bypasses every
+ * permission, so offering them a role would suggest a limit that does not exist.
+ */
+function RoleFields({
+  roles,
+  roleId,
+  restriction,
+  memberRole,
+  onRoleId,
+  onRestriction,
+}: {
+  roles: TeamRoleOption[];
+  roleId: string;
+  restriction: RestrictionChoice;
+  memberRole: "ADMIN" | "TEAM_MEMBER";
+  onRoleId: (v: string) => void;
+  onRestriction: (v: RestrictionChoice) => void;
+}) {
+  const t = useTranslations("admin");
+  const selected = roles.find((r) => r.id === roleId);
+
+  if (memberRole === "ADMIN") {
+    return (
+      <p className="text-xs text-muted-foreground rounded-md border p-3">
+        {t("team_role_none")}
+      </p>
+    );
+  }
+
+  return (
+    <>
+      <div className="space-y-2">
+        <Label>{t("team_teamrole_label")}</Label>
+        <Select value={roleId} onValueChange={onRoleId}>
+          <SelectTrigger data-testid="team-role-select">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {roles.map((r) => (
+              <SelectItem key={r.id} value={r.id}>
+                {r.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="space-y-2">
+        <Label>{t("team_restricted_label")}</Label>
+        <Select value={restriction} onValueChange={(v) => onRestriction(v as RestrictionChoice)}>
+          <SelectTrigger data-testid="team-restriction-select">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {/* Tri-state, not a switch: "inherit" is a third value a switch cannot express. */}
+            <SelectItem value="inherit">
+              {t("team_restricted_inherit")}
+              {selected ? ` (${selected.restricted ? t("team_restricted_yes") : t("team_restricted_no")})` : ""}
+            </SelectItem>
+            <SelectItem value="yes">{t("team_restricted_yes")}</SelectItem>
+            <SelectItem value="no">{t("team_restricted_no")}</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+    </>
+  );
+}
+
 export function TeamManager({
   initialMembers,
   currentUserId,
+  roles,
 }: {
   initialMembers: TeamMember[];
   currentUserId: string;
+  roles: TeamRoleOption[];
 }) {
   const t = useTranslations("admin");
   const tc = useTranslations("common");
   const [members, setMembers] = useState(initialMembers);
   const [isCreating, setIsCreating] = useState(false);
   const [saving, setSaving] = useState(false);
+  const defaultRoleId = roles.find((r) => r.isDefault)?.id ?? roles[0]?.id ?? "";
   const [form, setForm] = useState({
     name: "",
     email: "",
     password: "",
     role: "TEAM_MEMBER" as "ADMIN" | "TEAM_MEMBER",
+    teamRoleId: defaultRoleId,
+    restriction: "inherit" as RestrictionChoice,
   });
 
   const [editingMember, setEditingMember] = useState<TeamMember | null>(null);
-  const [editForm, setEditForm] = useState({ name: "", email: "", role: "TEAM_MEMBER" as "ADMIN" | "TEAM_MEMBER", password: "" });
+  const [editForm, setEditForm] = useState({
+    name: "",
+    email: "",
+    role: "TEAM_MEMBER" as "ADMIN" | "TEAM_MEMBER",
+    password: "",
+    teamRoleId: "",
+    restriction: "inherit" as RestrictionChoice,
+  });
   const [editLoading, setEditLoading] = useState(false);
 
   function openEdit(member: TeamMember) {
     setEditingMember(member);
-    setEditForm({ name: member.name, email: member.email, role: member.role, password: "" });
+    setEditForm({
+      name: member.name,
+      email: member.email,
+      role: member.role,
+      password: "",
+      teamRoleId: member.teamRoleId ?? defaultRoleId,
+      restriction: toChoice(member.restrictedToAssigned),
+    });
   }
 
   async function handleEdit() {
     if (!editingMember) return;
     setEditLoading(true);
     try {
-      const body: Record<string, string> = {
+      const body: Record<string, unknown> = {
         name: editForm.name,
         email: editForm.email,
         role: editForm.role,
+        // Admins bypass every permission, so a team role on them would only be
+        // misleading in the list.
+        teamRoleId: editForm.role === "ADMIN" ? null : editForm.teamRoleId,
+        restrictedToAssigned:
+          editForm.role === "ADMIN" ? null : fromChoice(editForm.restriction),
       };
       if (editForm.password) body.password = editForm.password;
 
@@ -92,11 +212,7 @@ export function TeamManager({
 
       const updated = await res.json();
       setMembers((prev) =>
-        prev.map((m) =>
-          m.id === editingMember.id
-            ? { ...m, name: updated.name, email: updated.email, role: updated.role }
-            : m
-        )
+        prev.map((m) => (m.id === editingMember.id ? { ...m, ...updated } : m))
       );
       setEditingMember(null);
       toast.success(t("team_saved"));
@@ -108,7 +224,14 @@ export function TeamManager({
   }
 
   function openCreate() {
-    setForm({ name: "", email: "", password: "", role: "TEAM_MEMBER" });
+    setForm({
+      name: "",
+      email: "",
+      password: "",
+      role: "TEAM_MEMBER",
+      teamRoleId: defaultRoleId,
+      restriction: "inherit",
+    });
     setIsCreating(true);
   }
 
@@ -123,7 +246,15 @@ export function TeamManager({
       const res = await fetch("/api/admin/team", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          name: form.name,
+          email: form.email,
+          password: form.password,
+          role: form.role,
+          teamRoleId: form.role === "ADMIN" ? null : form.teamRoleId,
+          restrictedToAssigned:
+            form.role === "ADMIN" ? null : fromChoice(form.restriction),
+        }),
       });
 
       if (!res.ok) {
@@ -212,6 +343,27 @@ export function TeamManager({
                   {member.role === "ADMIN" ? t("team_role_admin") : t("team_role_member")}
                 </Badge>
 
+                {member.role !== "ADMIN" && member.teamRole && (
+                  <Badge
+                    variant="outline"
+                    className="gap-1 hidden md:inline-flex"
+                    data-testid="member-role-badge"
+                    style={{ borderColor: `${member.teamRole.color}66`, color: member.teamRole.color }}
+                  >
+                    {member.teamRole.name}
+                  </Badge>
+                )}
+
+                {isEffectivelyRestricted(member) && (
+                  <span
+                    className="text-muted-foreground"
+                    title={t("team_restricted_badge")}
+                    data-testid="member-restricted-icon"
+                  >
+                    <Lock className="h-3.5 w-3.5" />
+                  </span>
+                )}
+
                 <span className="text-xs text-muted-foreground hidden sm:block">
                   {member._count.assignedOrders} {t("team_orders")}
                 </span>
@@ -278,7 +430,7 @@ export function TeamManager({
                 value={editForm.role}
                 onValueChange={(v) => setEditForm((p) => ({ ...p, role: v as "ADMIN" | "TEAM_MEMBER" }))}
               >
-                <SelectTrigger>
+                <SelectTrigger data-testid="team-systemrole-select">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -287,6 +439,14 @@ export function TeamManager({
                 </SelectContent>
               </Select>
             </div>
+            <RoleFields
+              roles={roles}
+              roleId={editForm.teamRoleId}
+              restriction={editForm.restriction}
+              memberRole={editForm.role}
+              onRoleId={(v) => setEditForm((p) => ({ ...p, teamRoleId: v }))}
+              onRestriction={(v) => setEditForm((p) => ({ ...p, restriction: v }))}
+            />
             <div className="space-y-2">
               <Label>{t("team_password_new")}</Label>
               <Input
@@ -348,7 +508,7 @@ export function TeamManager({
                 value={form.role}
                 onValueChange={(v) => setForm((p) => ({ ...p, role: v as "ADMIN" | "TEAM_MEMBER" }))}
               >
-                <SelectTrigger>
+                <SelectTrigger data-testid="team-systemrole-select">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -357,6 +517,14 @@ export function TeamManager({
                 </SelectContent>
               </Select>
             </div>
+            <RoleFields
+              roles={roles}
+              roleId={form.teamRoleId}
+              restriction={form.restriction}
+              memberRole={form.role}
+              onRoleId={(v) => setForm((p) => ({ ...p, teamRoleId: v }))}
+              onRestriction={(v) => setForm((p) => ({ ...p, restriction: v }))}
+            />
           </div>
 
           <DialogFooter>

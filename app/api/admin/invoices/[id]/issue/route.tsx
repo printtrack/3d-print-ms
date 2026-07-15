@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { orderIdOfInvoice } from "@/lib/authz-resolve";
+import { assertOrderAccess, getActor } from "@/lib/authz";
 import { issueInvoiceWithPdf } from "@/lib/invoices";
 import { renderInvoicePdf } from "@/lib/billing-render";
 import { archiveInvoicePdf } from "@/lib/billing-archive";
@@ -14,14 +15,16 @@ export async function POST(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
   const guard = await assertFeature("invoices");
   if (guard) return guard;
 
   const { id } = await params;
-  const userId = session.user?.id ?? null;
+
+  const scopeId = await orderIdOfInvoice(id);
+  if (!scopeId) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const authGuard = await assertOrderAccess(scopeId, "billing.invoices.manage");
+  if (authGuard) return authGuard;
+  const userId = (await getActor())?.id ?? null;
 
   try {
     const settings = await getSettings();

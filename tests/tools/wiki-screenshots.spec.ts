@@ -35,6 +35,41 @@ function getPagedRoutes(): { slug: string; route: string }[] {
 
 const routes = getPagedRoutes();
 
+// Seed sample feedback so the /admin/feedback route screenshot shows a real,
+// populated triage list instead of an empty state.
+test.beforeAll(async () => {
+  await prismaTest.feedback.deleteMany({});
+  await prismaTest.feedback.createMany({
+    data: [
+      {
+        type: "BUG",
+        title: "Kanban-Spalte lässt sich nicht scrollen",
+        description: "Wenn eine Phase viele Aufträge hat, kann ich in der Spalte nicht nach unten scrollen.",
+        status: "NEW",
+        pageUrl: "http://localhost:3000/admin",
+        createdById: "test-admin-user-fixed-id",
+      },
+      {
+        type: "IMPROVEMENT",
+        title: "Statusfilter in der Auftragsliste",
+        description: "Ein Filter nach Phase in der Auftragsliste würde die Suche stark beschleunigen.",
+        status: "IN_PROGRESS",
+        pageUrl: "http://localhost:3000/admin/orders",
+        createdById: "test-admin-user-fixed-id",
+      },
+      {
+        type: "BUG",
+        title: "Rechnungs-PDF bricht beim Download ab",
+        description: "Bei großen Aufträgen bricht der PDF-Download mit einer Zeitüberschreitung ab.",
+        status: "RESOLVED",
+        githubIssueUrl: "https://github.com/example/repo/issues/42",
+        githubIssueNumber: 42,
+        createdById: "test-admin-user-fixed-id",
+      },
+    ],
+  });
+});
+
 for (const { slug, route } of routes) {
   test(`screenshot: ${slug} (${route})`, async ({ page }) => {
     await page.emulateMedia({ reducedMotion: "reduce" });

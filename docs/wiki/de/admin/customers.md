@@ -63,9 +63,33 @@ Alternativ kann der Kunde selbst eine neue Bestätigungs-E-Mail anfordern, indem
 
 Das Kunden-Konto wird dauerhaft gelöscht. Bestehende **Aufträge**, die diesem Kunden zugeordnet sind, bleiben erhalten — nur die Verknüpfung zum Portal-Account wird aufgehoben.
 
+## Einladungen
+
+Unterhalb der Kundenliste verwaltest du **Einladungen** ins Kundenportal. Der Abschnitt erscheint,
+sobald die Registrierung nicht auf „Geschlossen“ steht — wie neue Konten grundsätzlich entstehen,
+legst du unter [[Einstellungen|settings]] → Auftragsannahme fest.
+
+Zwei Arten von Einladung:
+
+- **Mit E-Mail-Adresse** — die Einladung wird direkt an diese Adresse verschickt und gilt nur für
+  sie. Weil der Empfänger den Link an dieser Adresse erhalten hat, ist das Konto sofort
+  freigeschaltet; die [E-Mail-Verifizierung](#e-mail-verifizierung) entfällt. Existiert zu der
+  Adresse schon ein Konto, lehnt das System die Einladung ab.
+- **Ohne E-Mail-Adresse** — es entsteht ein Link zum Weitergeben, den der Link-Inhaber einlösen
+  kann. Der Link wird nach dem Anlegen automatisch in die Zwischenablage kopiert.
+
+Eine **Notiz** (z. B. „Messekontakt“) hilft dir später beim Zuordnen; der Kunde sieht sie nicht.
+
+Jede Einladung ist **14 Tage gültig** und **nur einmal einlösbar**. Die Liste zeigt je Einladung den
+Zustand — Offen, Eingelöst oder Abgelaufen. Bei offenen Einladungen kannst du den Link über das
+Kopier-Symbol erneut kopieren; über das Papierkorb-Symbol widerrufst du eine Einladung jederzeit.
+
 ## Kunden-Portal
 
-Kunden registrieren sich selbst unter `/portal/register`. Nach erfolgreicher E-Mail-Verifizierung können sie sich unter `/portal/signin` einloggen und:
+Kunden registrieren sich selbst unter `/portal/register` — sofern die Registrierung offen ist.
+Steht sie auf „Nur mit Einladung“, führt nur ein Einladungslink zu einem Konto; bei „Geschlossen“
+entstehen gar keine neuen Konten mehr. Nach erfolgreicher E-Mail-Verifizierung können Kunden sich
+unter `/portal/signin` einloggen und:
 
 - Ihre eigenen Aufträge einsehen und den Status verfolgen
 - Neue Aufträge einreichen

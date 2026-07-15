@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { assertSignedIn, assertOrderAccess, getActor } from "@/lib/authz";
+import type { PermissionKey } from "@/lib/permissions";
 import { z } from "zod";
 import { rm } from "fs/promises";
 import path from "path";
@@ -32,8 +33,8 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const guard = await assertSignedIn();
+  if (guard) return guard;
 
   const { id } = await params;
 
@@ -63,18 +64,44 @@ export async function GET(
   return NextResponse.json(order);
 }
 
+/**
+ * Which permissions a PATCH body actually needs.
+ *
+ * This endpoint takes 15 different fields, so one blanket `orders.edit` check
+ * would be a hole, not a guard: `assigneeIds` lets the caller pick who is
+ * assigned, so anyone allowed to edit could assign themselves and walk straight
+ * out of the assignment restriction. Each field maps to the permission it really
+ * requires, and every one of them must pass.
+ */
+function requiredPermissions(
+  data: z.infer<typeof patchSchema>,
+): PermissionKey[] {
+  const keys = new Set<PermissionKey>();
+  if (data.assigneeIds !== undefined) keys.add("orders.assign");
+  if (data.archive !== undefined) keys.add("orders.archive");
+
+  const { assigneeIds: _a, archive: _b, ...rest } = data;
+  if (Object.values(rest).some((v) => v !== undefined)) keys.add("orders.edit");
+
+  // A body with nothing in it still has to be someone who may edit.
+  if (keys.size === 0) keys.add("orders.edit");
+  return [...keys];
+}
+
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
   const { id } = await params;
 
   try {
     const body = await req.json();
     const data = patchSchema.parse(body);
+
+    for (const key of requiredPermissions(data)) {
+      const guard = await assertOrderAccess(id, key);
+      if (guard) return guard;
+    }
 
     const current = await prisma.order.findUnique({
       where: { id },
@@ -130,16 +157,21 @@ export async function PATCH(
       }
     }
 
-    const userId = session.user?.id;
+    const userId = (await getActor())?.id;
 
-    // Sync assignees if provided
+    // Sync assignees if provided. In a transaction: a failed createMany after a
+    // successful deleteMany would strip the order of every assignee, and with the
+    // assignment lock on that locks restricted members out of their own work.
     if (data.assigneeIds !== undefined) {
-      await prisma.orderAssignee.deleteMany({ where: { orderId: id } });
-      if (data.assigneeIds.length > 0) {
-        await prisma.orderAssignee.createMany({
-          data: data.assigneeIds.map((userId) => ({ orderId: id, userId })),
-        });
-      }
+      const assigneeIds = data.assigneeIds;
+      await prisma.$transaction(async (tx) => {
+        await tx.orderAssignee.deleteMany({ where: { orderId: id } });
+        if (assigneeIds.length > 0) {
+          await tx.orderAssignee.createMany({
+            data: assigneeIds.map((userId) => ({ orderId: id, userId })),
+          });
+        }
+      });
     }
 
     // If the new phase is an archive phase, set archivedAt automatically.
@@ -432,15 +464,12 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const role = (session.user as { role?: string }).role;
-  if (role !== "ADMIN") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
   const { id } = await params;
+
+  // Was ADMIN-only before roles existed, and the default role does not carry
+  // orders.delete — so team members still get a 403 unless an admin grants it.
+  const guard = await assertOrderAccess(id, "orders.delete");
+  if (guard) return guard;
 
   const order = await prisma.order.findUnique({ where: { id } });
   if (!order) return NextResponse.json({ error: "Not found" }, { status: 404 });

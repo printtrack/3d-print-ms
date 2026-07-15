@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { assertAdmin, getActor } from "@/lib/authz";
 
 const bodySchema = z.object({
   amountCents: z.number().int().refine((n) => n !== 0, { message: "Amount must be non-zero" }),
@@ -14,9 +14,8 @@ interface Ctx {
 }
 
 export async function GET(_req: NextRequest, { params }: Ctx) {
-  const session = await auth();
-  const role = (session?.user as { role?: string })?.role;
-  if (role !== "ADMIN") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const guard = await assertAdmin();
+  if (guard) return guard;
 
   const { id } = await params;
 
@@ -39,10 +38,9 @@ export async function GET(_req: NextRequest, { params }: Ctx) {
 }
 
 export async function POST(req: NextRequest, { params }: Ctx) {
-  const session = await auth();
-  const role = (session?.user as { role?: string })?.role;
-  const userId = session?.user?.id;
-  if (role !== "ADMIN") return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const guard = await assertAdmin();
+  if (guard) return guard;
+  const actor = await getActor();
 
   const { id } = await params;
 
@@ -58,7 +56,7 @@ export async function POST(req: NextRequest, { params }: Ctx) {
 
   const [credit] = await prisma.$transaction([
     prisma.customerCredit.create({
-      data: { customerId: id, amountCents, reason, orderId, performedBy: userId },
+      data: { customerId: id, amountCents, reason, orderId, performedBy: actor?.id },
     }),
     prisma.customer.update({
       where: { id },

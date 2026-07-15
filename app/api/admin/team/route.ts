@@ -1,25 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
-import type { Session } from "next-auth";
+import { assertAdmin } from "@/lib/authz";
 
 const createSchema = z.object({
   name: z.string().min(1).max(100),
   email: z.string().email(),
   password: z.string().min(6),
   role: z.enum(["ADMIN", "TEAM_MEMBER"]).default("TEAM_MEMBER"),
+  teamRoleId: z.string().nullable().optional(),
+  restrictedToAssigned: z.boolean().nullable().optional(),
 });
 
-function isAdmin(session: Session | null) {
-  return (session?.user as { role?: string } | undefined)?.role === "ADMIN";
-}
-
 export async function GET() {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!isAdmin(session)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const guard = await assertAdmin();
+  if (guard) return guard;
 
   const users = await prisma.user.findMany({
     select: {
@@ -28,6 +24,9 @@ export async function GET() {
       email: true,
       role: true,
       createdAt: true,
+      teamRoleId: true,
+      restrictedToAssigned: true,
+      teamRole: { select: { id: true, name: true, color: true, restricted: true } },
       _count: { select: { assignedOrders: true } },
     },
     orderBy: { createdAt: "asc" },
@@ -37,9 +36,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!isAdmin(session)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const guard = await assertAdmin();
+  if (guard) return guard;
 
   try {
     const body = await req.json();
@@ -50,6 +48,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "E-Mail bereits vorhanden" }, { status: 400 });
     }
 
+    if (data.teamRoleId) {
+      const exists = await prisma.teamRole.count({ where: { id: data.teamRoleId } });
+      if (exists === 0) {
+        return NextResponse.json({ error: "Rolle nicht gefunden" }, { status: 400 });
+      }
+    }
+
+    // Members without an explicit role are pinned to the default one rather than
+    // left dangling — getActor() would fall back anyway, but storing it keeps the
+    // team list honest about what someone actually has.
+    const defaultRole =
+      data.role === "ADMIN"
+        ? null
+        : await prisma.teamRole.findFirst({ where: { isDefault: true }, select: { id: true } });
+
     const hashedPassword = await bcrypt.hash(data.password, 12);
 
     const user = await prisma.user.create({
@@ -58,8 +71,20 @@ export async function POST(req: NextRequest) {
         email: data.email,
         password: hashedPassword,
         role: data.role,
+        teamRoleId:
+          data.role === "ADMIN" ? null : (data.teamRoleId ?? defaultRole?.id ?? null),
+        restrictedToAssigned: data.restrictedToAssigned ?? null,
       },
-      select: { id: true, name: true, email: true, role: true, createdAt: true },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        createdAt: true,
+        teamRoleId: true,
+        restrictedToAssigned: true,
+        teamRole: { select: { id: true, name: true, color: true, restricted: true } },
+      },
     });
 
     return NextResponse.json(user, { status: 201 });

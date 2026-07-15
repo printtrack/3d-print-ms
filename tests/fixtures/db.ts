@@ -3,6 +3,11 @@ import bcrypt from "bcryptjs";
 import { mkdir, writeFile } from "fs/promises";
 import path from "path";
 import { randomUUID } from "crypto";
+import {
+  DEFAULT_ROLE_PERMISSIONS,
+  SYSTEM_ROLE_ID,
+  SYSTEM_ROLE_NAME,
+} from "../../lib/permissions";
 
 const testDbUrl =
   process.env.DATABASE_URL_TEST ??
@@ -16,25 +21,38 @@ export const prismaTest = new PrismaClient({
 const ADMIN_HASH = "$2b$12$y2KSFIcuvvM4gjdMj9qAHuyZRS0XfB4KRW67T9Q5Pi9wP7ipk6HJG";
 
 export async function resetDb() {
-  await prismaTest.$executeRawUnsafe(`SET FOREIGN_KEY_CHECKS = 0`);
-  for (const table of [
-    "AuditLog", "OrderComment", "OrderFileNote", "OrderFile", "OrderSourceLink", "SurveyResponse", "VerificationRequest",
-    "PaymentReminder", "Payment", "InvoiceItem", "Invoice", "InvoiceNumberCounter",
-    "QuoteItem", "Quote",
-    "PrintJobAssignee", "PrintJobFilament", "PrintJobPart", "PrintJobFile", "PrintJob",
-    "OrderPartAssignee", "OrderPart", "OrderAssignee", "MachineDowntime", "_FilamentMachineCompat", "Machine",
-    "MilestoneTaskAssignee", "MilestoneTask", "Milestone", "Sprint", "Order",
-    "OrderPhase", "PartPhase", "Filament",
-    "ProjectComment", "ProjectFile", "ProjectAuditLog", "ProjectAssignee", "Project", "ProjectFilePhase", "ProjectPhase",
-    "KnowledgeEntry", "KnowledgeFile",
-    "Session", "Account", "PasswordResetToken",
-    "CalendarEvent", "CalendarSubscription",
-    "CustomerEmailVerificationToken", "OrderPartIteration", "CustomerCredit", "Customer", "User", "VerificationToken",
-  ]) {
-    await prismaTest.$executeRawUnsafe(`TRUNCATE TABLE \`${table}\``);
-  }
-  await prismaTest.$executeRawUnsafe(`SET FOREIGN_KEY_CHECKS = 1`);
+  // `SET FOREIGN_KEY_CHECKS = 0` is scoped to one connection, but plain
+  // $executeRawUnsafe calls are handed out across the pool — so the TRUNCATEs
+  // could land on a connection where checks were still on and fail with
+  // "Cannot truncate a table referenced in a foreign key constraint".
+  // An interactive transaction pins a single connection for the whole block.
+  // (TRUNCATE implicitly commits in MySQL; we rely on the pinning, not on
+  // atomicity.)
+  await prismaTest.$transaction(async (tx) => {
+    await tx.$executeRawUnsafe(`SET FOREIGN_KEY_CHECKS = 0`);
+    for (const table of TRUNCATE_ORDER) {
+      await tx.$executeRawUnsafe(`TRUNCATE TABLE \`${table}\``);
+    }
+    await tx.$executeRawUnsafe(`SET FOREIGN_KEY_CHECKS = 1`);
+  });
 }
+
+const TRUNCATE_ORDER = [
+  "Feedback",
+  "AuditLog", "OrderComment", "OrderFileNote", "OrderFile", "OrderSourceLink", "SurveyResponse", "VerificationRequest",
+  "PaymentReminder", "Payment", "InvoiceItem", "Invoice", "InvoiceNumberCounter",
+  "QuoteItem", "Quote",
+  "PrintJobAssignee", "PrintJobFilament", "PrintJobPart", "PrintJobFile", "PrintJob",
+  "OrderPartAssignee", "OrderPart", "OrderAssignee", "MachineDowntime", "_FilamentMachineCompat", "Machine",
+  "MilestoneTaskAssignee", "MilestoneTask", "Milestone", "Sprint", "Order",
+  "OrderPhase", "PartPhase", "Filament",
+  "ProjectComment", "ProjectFile", "ProjectAuditLog", "ProjectAssignee", "Project", "ProjectFilePhase", "ProjectPhase",
+  "KnowledgeEntry", "KnowledgeFile",
+  "Session", "Account", "PasswordResetToken",
+  "CalendarEvent", "CalendarSubscription",
+  "CustomerEmailVerificationToken", "CustomerInvite", "OrderPartIteration", "CustomerCredit", "Customer", "User",
+  "TeamRolePermission", "TeamRole", "VerificationToken",
+];
 
 export async function createTestCreditTransaction(
   customerId: string,
@@ -58,15 +76,50 @@ export async function createTestUser(
     name: string;
     email: string;
     role: "ADMIN" | "TEAM_MEMBER";
+    /** Omitted = the seeded default role. */
+    teamRoleId: string | null;
+    /** Omitted = inherit the role's `restricted` flag. */
+    restrictedToAssigned: boolean | null;
   }> = {}
 ) {
+  const role = overrides.role ?? "TEAM_MEMBER";
   return prismaTest.user.create({
     data: {
       name: overrides.name ?? "Team Mitglied",
-      email: overrides.email ?? `team-${Date.now()}@example.com`,
-      password: "$2b$12$y2KSFIcuvvM4gjdMj9qAHuyZRS0XfB4KRW67T9Q5Pi9wP7ipk6HJG",
-      role: overrides.role ?? "TEAM_MEMBER",
+      email: overrides.email ?? `team-${Date.now()}-${Math.random().toString(36).slice(2, 8)}@example.com`,
+      password: ADMIN_HASH,
+      role,
+      teamRoleId:
+        overrides.teamRoleId !== undefined
+          ? overrides.teamRoleId
+          : role === "ADMIN"
+            ? null
+            : SYSTEM_ROLE_ID,
+      restrictedToAssigned: overrides.restrictedToAssigned ?? null,
     },
+  });
+}
+
+/**
+ * A team role with exactly the given permissions — pass `permissions: []` for a
+ * role that may do nothing.
+ */
+export async function createTestTeamRole(
+  overrides: Partial<{
+    name: string;
+    permissions: string[];
+    restricted: boolean;
+  }> = {}
+) {
+  return prismaTest.teamRole.create({
+    data: {
+      name: overrides.name ?? `Rolle ${Math.random().toString(36).slice(2, 8)}`,
+      restricted: overrides.restricted ?? false,
+      permissions: {
+        create: (overrides.permissions ?? DEFAULT_ROLE_PERMISSIONS).map((key) => ({ key })),
+      },
+    },
+    include: { permissions: true },
   });
 }
 
@@ -88,6 +141,28 @@ export async function createTestCustomer(
       password: hashedPassword,
       creditBalanceCents: overrides.creditBalanceCents ?? 0,
       emailVerifiedAt: overrides.emailVerifiedAt === undefined ? new Date() : overrides.emailVerifiedAt,
+    },
+  });
+}
+
+export async function createTestCustomerInvite(
+  overrides: Partial<{
+    email: string | null;
+    note: string | null;
+    expiresAt: Date;
+    usedAt: Date | null;
+    usedById: string | null;
+    createdById: string | null;
+  }> = {}
+) {
+  return prismaTest.customerInvite.create({
+    data: {
+      email: overrides.email ?? null,
+      note: overrides.note ?? null,
+      expiresAt: overrides.expiresAt ?? new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+      usedAt: overrides.usedAt ?? null,
+      usedById: overrides.usedById ?? null,
+      createdById: overrides.createdById ?? null,
     },
   });
 }
@@ -135,6 +210,20 @@ export async function createTestFilament(
 }
 
 export async function seedDb() {
+  // Default role first: every non-admin falls back to it (see getActor).
+  await prismaTest.teamRole.create({
+    data: {
+      id: SYSTEM_ROLE_ID,
+      name: SYSTEM_ROLE_NAME,
+      description: "Standardrolle für alle Teammitglieder.",
+      isSystem: true,
+      isDefault: true,
+      restricted: false,
+      position: 0,
+      permissions: { create: DEFAULT_ROLE_PERMISSIONS.map((key) => ({ key })) },
+    },
+  });
+
   const admin = await prismaTest.user.create({
     data: {
       id: "test-admin-user-fixed-id",
@@ -189,7 +278,12 @@ export async function seedDb() {
   });
   const projectFilePhases = await prismaTest.projectFilePhase.findMany({ orderBy: { position: "asc" } });
 
-  return { admin, phases, partPhases, projectPhases, projectFilePhases };
+  const defaultRole = await prismaTest.teamRole.findUniqueOrThrow({
+    where: { id: SYSTEM_ROLE_ID },
+    include: { permissions: true },
+  });
+
+  return { admin, phases, partPhases, projectPhases, projectFilePhases, defaultRole };
 }
 
 export async function createTestVerification(

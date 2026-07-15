@@ -1,22 +1,18 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { assertAdmin, getActor } from "@/lib/authz";
 import { computeStatusForTotals, syncOrderPhaseFromInvoiceStatus } from "@/lib/invoices";
 
 export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string; paymentId: string }> }
 ) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const role = (session.user as { role?: string })?.role;
-  if (role !== "ADMIN") {
-    return NextResponse.json({ error: "Keine Berechtigung" }, { status: 403 });
-  }
+  const guard = await assertAdmin();
+  if (guard) return guard;
+  const actor = await getActor();
 
   const { id, paymentId } = await params;
-  const userId = session.user?.id ?? null;
+  const userId = actor?.id ?? null;
 
   const payment = await prisma.payment.findUnique({
     where: { id: paymentId },

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { assertOrderAccess, assertSignedIn, getActor } from "@/lib/authz";
 import { assertFeature } from "@/lib/features";
 import { z } from "zod";
 import {
@@ -40,10 +40,10 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
   const { id } = await params;
+
+  const authGuard = await assertSignedIn();
+  if (authGuard) return authGuard;
   const quotes = await prisma.quote.findMany({
     where: { orderId: id },
     include: { items: { orderBy: { position: "asc" } } },
@@ -56,14 +56,14 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
   const guard = await assertFeature("quotes");
   if (guard) return guard;
 
   const { id: orderId } = await params;
-  const userId = session.user?.id;
+
+  const authGuard = await assertOrderAccess(orderId, "billing.quotes.manage");
+  if (authGuard) return authGuard;
+  const userId = (await getActor())?.id;
 
   try {
     const body = await req.json();

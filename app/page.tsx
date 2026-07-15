@@ -6,8 +6,10 @@ import { getTranslations, getLocale } from "next-intl/server";
 
 import { OrderForm } from "@/components/customer/OrderForm";
 import { Button } from "@/components/ui/button";
-import { getSetting } from "@/lib/settings";
+import { getSetting, getSettings } from "@/lib/settings";
 import { getOrderFormConfig, type OrderFormConfig } from "@/lib/order-form-config";
+import { buildOrderIntakeConfig, buildRegistrationMode } from "@/lib/order-intake";
+import { isFeatureEnabled } from "@/lib/features";
 import { CONTENT } from "./content";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
@@ -41,6 +43,12 @@ export default async function Home() {
   const accessCodeEnabled = (await getSetting("access_code_enabled")) === "true";
   const locale = (await getLocale()) === "en" ? "en" : "de";
   const orderFormConfig = await getOrderFormConfig(locale);
+  const settings = await getSettings();
+  const publicIntake = buildOrderIntakeConfig(settings, "public");
+  // With public intake off the form gives way to a sign-in CTA — but only if the
+  // portal is actually there to point at.
+  const portalEnabled = isFeatureEnabled("portal", settings);
+  const registrationOpen = buildRegistrationMode(settings) === "open";
   const t = await getTranslations("landing");
   const tNav = await getTranslations("nav");
 
@@ -51,7 +59,14 @@ export default async function Home() {
         <HeroSection t={t} />
         <FeaturesSection t={t} />
         <HowItWorksSection t={t} />
-        <OrderFormSection accessCodeEnabled={accessCodeEnabled} orderFormConfig={orderFormConfig} t={t} />
+        <OrderFormSection
+          accessCodeEnabled={accessCodeEnabled}
+          orderFormConfig={orderFormConfig}
+          publicIntakeEnabled={publicIntake.enabled}
+          portalEnabled={portalEnabled}
+          registrationOpen={registrationOpen}
+          t={t}
+        />
       </main>
       <Footer companyName={companyName} contactEmail={contactEmail} t={t} tNav={tNav} />
     </div>
@@ -304,7 +319,22 @@ function HowItWorksSection({ t }: { t: LT }) {
 // Order Form
 // ---------------------------------------------------------------------------
 
-function OrderFormSection({ accessCodeEnabled, orderFormConfig, t }: { accessCodeEnabled: boolean; orderFormConfig: OrderFormConfig; t: LT }) {
+function OrderFormSection({
+  accessCodeEnabled,
+  orderFormConfig,
+  publicIntakeEnabled,
+  portalEnabled,
+  registrationOpen,
+  t,
+}: {
+  accessCodeEnabled: boolean;
+  orderFormConfig: OrderFormConfig;
+  publicIntakeEnabled: boolean;
+  portalEnabled: boolean;
+  registrationOpen: boolean;
+  t: LT;
+}) {
+  const accountOnly = !publicIntakeEnabled;
   return (
     <section id="order-form" className="py-24 bg-white scroll-mt-20">
       <div className="container mx-auto px-6">
@@ -319,15 +349,53 @@ function OrderFormSection({ accessCodeEnabled, orderFormConfig, t }: { accessCod
             className="text-4xl text-gray-900 mb-4"
             style={{ fontFamily: "var(--font-dm-serif)" }}
           >
-            {t("order_headline")}
+            {accountOnly ? t("order_account_only_headline") : t("order_headline")}
           </h2>
           <p className="text-gray-500 text-lg max-w-xl mx-auto">
-            {t("order_subheadline")}
+            {accountOnly ? t("order_account_only_subheadline") : t("order_subheadline")}
           </p>
         </div>
-        <OrderForm accessCodeEnabled={accessCodeEnabled} config={orderFormConfig} />
+        {accountOnly ? (
+          <AccountOnlyNotice portalEnabled={portalEnabled} registrationOpen={registrationOpen} t={t} />
+        ) : (
+          <OrderForm accessCodeEnabled={accessCodeEnabled} config={orderFormConfig} />
+        )}
       </div>
     </section>
+  );
+}
+
+// Shown instead of the form when a shop takes orders from account holders only.
+function AccountOnlyNotice({
+  portalEnabled,
+  registrationOpen,
+  t,
+}: {
+  portalEnabled: boolean;
+  registrationOpen: boolean;
+  t: LT;
+}) {
+  return (
+    <div className="mx-auto w-full max-w-md rounded-xl border border-gray-200 bg-white p-8 text-center shadow-sm">
+      <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-gray-100">
+        <Printer className="h-6 w-6" style={{ color: "var(--landing-accent)" }} />
+      </div>
+      <p className="text-gray-600">
+        {portalEnabled ? t("order_account_only_body") : t("order_account_only_contact")}
+      </p>
+      {portalEnabled && (
+        <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
+          <Button asChild>
+            <Link href="/portal/signin">{t("order_account_only_signin_cta")}</Link>
+          </Button>
+          {registrationOpen && (
+            <Button asChild variant="outline">
+              <Link href="/portal/register">{t("order_account_only_register_cta")}</Link>
+            </Button>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 

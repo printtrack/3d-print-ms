@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { assertProjectAccess, getActor } from "@/lib/authz";
 import { z } from "zod";
 
 const createSchema = z.object({
@@ -11,12 +11,10 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session?.user?.id) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   const { id: projectId } = await params;
+
+  const guard = await assertProjectAccess(projectId, "projects.edit");
+  if (guard) return guard;
 
   try {
     const body = await req.json();
@@ -33,7 +31,7 @@ export async function POST(
     const comment = await prisma.projectComment.create({
       data: {
         projectId,
-        authorId: session.user.id,
+        authorId: (await getActor())!.id,
         content: data.content,
       },
       include: {
@@ -44,7 +42,7 @@ export async function POST(
     await prisma.projectAuditLog.create({
       data: {
         projectId,
-        userId: session.user.id,
+        userId: (await getActor())!.id,
         action: "COMMENT_ADDED",
         details: data.content.length > 80 ? data.content.slice(0, 80) + "…" : data.content,
       },

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { assertJobAccess, getActor } from "@/lib/authz";
 import { z } from "zod";
 import { publish } from "@/lib/event-bus";
 import { computeCharges } from "@/lib/charging";
@@ -21,11 +21,11 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
   const { id } = await params;
-  const userId = (session.user as { id?: string })?.id ?? null;
+
+  const guard = await assertJobAccess(id, "jobs.verify");
+  if (guard) return guard;
+  const userId = (await getActor())?.id ?? null;
 
   try {
     const body = await req.json();

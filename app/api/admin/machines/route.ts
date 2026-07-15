@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { assertAdmin, assertSignedIn } from "@/lib/authz";
 import { z } from "zod";
-import type { Session } from "next-auth";
 
 const createSchema = z.object({
   name: z.string().min(1).max(100),
@@ -14,13 +13,10 @@ const createSchema = z.object({
   isActive: z.boolean().optional(),
 });
 
-function isAdmin(session: Session | null) {
-  return (session?.user as { role?: string } | undefined)?.role === "ADMIN";
-}
 
 export async function GET() {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const guard = await assertSignedIn();
+  if (guard) return guard;
 
   const machines = await prisma.machine.findMany({
     orderBy: { name: "asc" },
@@ -34,9 +30,8 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!isAdmin(session)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const guard = await assertAdmin();
+  if (guard) return guard;
 
   try {
     const body = await req.json();

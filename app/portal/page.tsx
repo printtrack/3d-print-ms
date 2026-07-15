@@ -6,12 +6,14 @@ import { prisma } from "@/lib/db";
 import { PortalOrderList } from "@/components/portal/PortalOrderList";
 import { CreditBalanceBanner } from "@/components/portal/CreditBalanceBanner";
 import { Button } from "@/components/ui/button";
+import { getOrderIntakeConfig } from "@/lib/order-intake";
 
 export default async function PortalPage() {
   const customer = await getCustomerSessionFromCookies();
   if (!customer) redirect("/portal/signin");
 
   const t = await getTranslations("portal");
+  const intake = await getOrderIntakeConfig("portal");
 
   const [orders, customerData] = await Promise.all([
     prisma.order.findMany({
@@ -55,9 +57,11 @@ export default async function PortalPage() {
             {t("my_orders_desc", { name: customer.name })}
           </p>
         </div>
-        <Link href="/portal/orders/new">
-          <Button>{t("new_order_cta")}</Button>
-        </Link>
+        {intake.enabled && (
+          <Link href="/portal/orders/new">
+            <Button>{t("new_order_cta")}</Button>
+          </Link>
+        )}
       </div>
       <CreditBalanceBanner
         balanceCents={customerData?.creditBalanceCents ?? 0}

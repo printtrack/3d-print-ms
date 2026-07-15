@@ -104,7 +104,7 @@ test.describe("Team management", () => {
     });
     await memberCard.getByRole("button").first().click();
 
-    await page.locator('[data-slot="dialog-content"]').getByRole("combobox").click();
+    await page.getByTestId("team-systemrole-select").click();
     await page.getByRole("option", { name: "Admin" }).click();
 
     await page.getByRole("button", { name: "Änderungen speichern" }).click();

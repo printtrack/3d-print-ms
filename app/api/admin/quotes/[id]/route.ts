@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { assertOrderAccess, assertSignedIn, getActor } from "@/lib/authz";
+import { orderIdOfQuote } from "@/lib/authz-resolve";
 import { z } from "zod";
 import { recalcQuoteTotalsTx, syncOrderPriceEstimateTx } from "@/lib/quotes";
 
@@ -32,8 +33,8 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const guard = await assertSignedIn();
+  if (guard) return guard;
 
   const { id } = await params;
   const quote = await prisma.quote.findUnique({
@@ -48,11 +49,13 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const quoteOrderId = await orderIdOfQuote((await params).id);
+  if (!quoteOrderId) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const guard = await assertOrderAccess(quoteOrderId, "billing.quotes.manage");
+  if (guard) return guard;
 
   const { id } = await params;
-  const userId = session.user?.id;
+  const userId = (await getActor())?.id;
 
   try {
     const body = await req.json();
@@ -133,11 +136,13 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const quoteOrderId = await orderIdOfQuote((await params).id);
+  if (!quoteOrderId) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const guard = await assertOrderAccess(quoteOrderId, "billing.quotes.manage");
+  if (guard) return guard;
 
   const { id } = await params;
-  const userId = session.user?.id;
+  const userId = (await getActor())?.id;
 
   const quote = await prisma.quote.findUnique({ where: { id } });
   if (!quote) return NextResponse.json({ error: "Not found" }, { status: 404 });

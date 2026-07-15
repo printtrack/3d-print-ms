@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { assertPermission, assertSignedIn, getActor } from "@/lib/authz";
 import { z } from "zod";
 import {
   evaluateOrderAutoAdvance,
@@ -18,10 +18,8 @@ const createInternalProjectSchema = z.object({
 });
 
 export async function GET(req: NextRequest) {
-  const session = await auth();
-  if (!session) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const guard = await assertSignedIn();
+  if (guard) return guard;
 
   const { searchParams } = new URL(req.url);
   const phaseId = searchParams.get("phaseId");
@@ -116,8 +114,8 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const guard = await assertPermission("orders.create");
+  if (guard) return guard;
 
   try {
     const body = await req.json();
@@ -154,7 +152,7 @@ export async function POST(req: NextRequest) {
       await prisma.auditLog.create({
         data: {
           orderId: order.id,
-          userId: session.user?.id ?? null,
+          userId: (await getActor())?.id ?? null,
           action: "ORDER_CREATED",
           details: `Internes Projekt "${data.name}" erstellt`,
         },

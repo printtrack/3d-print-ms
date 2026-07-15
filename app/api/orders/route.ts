@@ -5,6 +5,7 @@ import { sendOrderConfirmationEmail } from "@/lib/email";
 import { rateLimit, getClientIp } from "@/lib/rate-limit";
 import { getSetting } from "@/lib/settings";
 import { getOrderFormConfig } from "@/lib/order-form-config";
+import { getOrderIntakeConfig } from "@/lib/order-intake";
 import { getCustomerSession } from "@/lib/customer-auth";
 
 const orderSchema = z.object({
@@ -39,28 +40,8 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const data = orderSchema.parse(body);
 
-    // Order-form config gates (mirror the client-side checks, locale-independent)
-    const formConfig = await getOrderFormConfig("de");
-    if (formConfig.deadlineVisible && formConfig.deadlineRequired && !data.deadline) {
-      return NextResponse.json({ error: "Liefertermin ist erforderlich." }, { status: 400 });
-    }
-    if (formConfig.consentRequired && data.consentAccepted !== true) {
-      return NextResponse.json({ error: "Zustimmung erforderlich." }, { status: 400 });
-    }
-
-    // Access code gate
-    const accessCodeEnabled = (await getSetting("access_code_enabled")) === "true";
-    if (accessCodeEnabled) {
-      const expectedCode = (await getSetting("access_code")) ?? "";
-      if (!data.accessCode || data.accessCode.trim() !== expectedCode.trim()) {
-        return NextResponse.json(
-          { error: "Ungültiger Zugangscode" },
-          { status: 403 }
-        );
-      }
-    }
-
-    // Customer session: attach FK and check verification
+    // Customer session: attach FK and check verification. Resolved first because
+    // it decides which intake channel's rules apply.
     let customerId: string | undefined;
     const customerSession = await getCustomerSession(req);
     if (customerSession) {
@@ -77,6 +58,57 @@ export async function POST(req: NextRequest) {
           );
         }
         customerId = customer.id;
+      }
+    }
+
+    // Intake gate: a signed-in customer orders through the portal channel, everyone
+    // else through the public one. Enforced here and not just in the form, so a
+    // hand-crafted POST cannot slip past a disabled order type.
+    const channel = customerId ? "portal" : "public";
+    const intake = await getOrderIntakeConfig(channel);
+    if (!intake.enabled) {
+      return NextResponse.json(
+        {
+          error: customerId
+            ? "Über das Kundenportal können derzeit keine Aufträge aufgegeben werden."
+            : "Aufträge können derzeit nur mit einem Kundenkonto aufgegeben werden.",
+        },
+        { status: 403 }
+      );
+    }
+    if (!intake.allowedTypes.includes(data.orderType)) {
+      return NextResponse.json(
+        {
+          error:
+            data.orderType === "DESIGN"
+              ? "Designaufträge werden über diesen Weg derzeit nicht angenommen."
+              : "Druckaufträge werden über diesen Weg derzeit nicht angenommen.",
+        },
+        { status: 403 }
+      );
+    }
+
+    // Order-form config gates (mirror the client-side checks, locale-independent)
+    const formConfig = await getOrderFormConfig("de", channel);
+    if (formConfig.deadlineVisible && formConfig.deadlineRequired && !data.deadline) {
+      return NextResponse.json({ error: "Liefertermin ist erforderlich." }, { status: 400 });
+    }
+    if (formConfig.consentRequired && data.consentAccepted !== true) {
+      return NextResponse.json({ error: "Zustimmung erforderlich." }, { status: 400 });
+    }
+
+    // Access code gate. Public channel only: the code exists to keep anonymous
+    // submissions out, and the portal form never collects it — a signed-in,
+    // verified customer has already cleared a stronger bar.
+    const accessCodeEnabled =
+      channel === "public" && (await getSetting("access_code_enabled")) === "true";
+    if (accessCodeEnabled) {
+      const expectedCode = (await getSetting("access_code")) ?? "";
+      if (!data.accessCode || data.accessCode.trim() !== expectedCode.trim()) {
+        return NextResponse.json(
+          { error: "Ungültiger Zugangscode" },
+          { status: 403 }
+        );
       }
     }
 

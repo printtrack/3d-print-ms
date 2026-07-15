@@ -18,6 +18,7 @@ The Settings area is **admin-only**. This is where you configure the entire syst
 | Tab | Content |
 |-----|---------|
 | **Company** | Company name, contact email, access code and customer verification |
+| **Order intake** | Who may submit which order types, and how customer accounts are created (invitations → [[Customers\|customers]]) |
 | **Billing** | Quote approval, payment term and dunning → [[Settings → Billing & Documents|settings-billing]] |
 | **Documents** | Appearance and master data of quote/invoice PDFs → [[Settings → Billing & Documents|settings-billing]] |
 | **Legal** | Imprint and privacy policy |
@@ -75,13 +76,61 @@ and tracking all follow the same look.
 - **Favicon** — the browser tab icon (PNG, SVG or ICO).
 - The **app title** (browser tab) follows the company name from the "Company" tab.
 
+## Order intake (Tab: Auftragsannahme)
+
+This is where you decide **through which channels orders arrive** — per channel, so you can e.g.
+accept design orders from known customers only.
+
+### Order types per channel
+
+Two channels with two switches each (print orders / design orders):
+
+- **Without an account (public form)** — what visitors can submit through the landing page
+  without signing in.
+- **With a customer account (portal)** — what signed-in customers can submit in the portal.
+
+That covers the common setups:
+
+| Goal | Setting |
+|------|---------|
+| Everything open to everyone (default) | all four switches on |
+| **Design only with an account** | public: print only · portal: print & design |
+| Public design only (e.g. a pure design studio) | public: design only |
+| **Orders only with an account** | both public switches off |
+
+If no type is left for a channel, that channel is closed: the landing page replaces the form with
+a notice linking to the customer portal, and the portal hides its "New order" button. With **all
+four** switches off the page warns you — nobody can submit an order at all then.
+
+The rules are not just cosmetic: on every order the API resolves which channel is in use
+(signed in = portal, otherwise public) and rejects order types that channel does not accept.
+Bypassing the form gets you nowhere.
+
+> The former "Show order type" switch on the order form has been folded into this. Existing
+> installations that had switched it off behave exactly as before (public: print only) until you
+> touch the switches here.
+
+### Customer accounts & invitations
+
+**Registration** controls how new customer accounts come into existence:
+
+- **Open** — anyone can create an account themselves.
+- **Invitation only** — an account can only be created from an invitation link. Without a valid
+  invitation the registration page shows nothing but a notice, and the "Register now" link on the
+  sign-in page disappears.
+- **Closed** — no new accounts. Existing customers can still sign in.
+
+This only decides **how** accounts come about. You invite individual customers where you manage
+them anyway: [[Customers|customers]] → Invitations.
+
 ## Order form (Tab: Auftragsformular)
 
 Here you can **configure the order form** customers use on the landing page to submit a print
-job — tailored to your shop's intake.
+job — tailored to your shop's intake. Which order types are on offer is decided under
+[Order intake](#order-intake-tab-order-intake).
 
-- **Fields** — the order type and desired date can be shown/hidden; the desired date can be
-  made mandatory. Name, email and description are always required.
+- **Fields** — the desired date can be shown/hidden and made mandatory. Name, email and
+  description are always required.
 - **Files** — allowed formats (a subset of JPG, PNG, GIF, WEBP, STL, OBJ, 3MF), maximum file
   size (MB) and maximum number of files (0 = unlimited). The limits are enforced server-side too.
 - **Intro & consent** — an optional intro text above the form plus a mandatory consent checkbox

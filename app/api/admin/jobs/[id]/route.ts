@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { assertJobAccess, assertSignedIn, getActor } from "@/lib/authz";
 import { z } from "zod";
 import { checkJobOverlap } from "@/lib/overlap-check";
 import { publish } from "@/lib/event-bus";
@@ -60,8 +60,8 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const guard = await assertSignedIn();
+  if (guard) return guard;
 
   const { id } = await params;
 
@@ -78,8 +78,8 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const guard = await assertJobAccess((await params).id, "jobs.manage");
+  if (guard) return guard;
 
   const { id } = await params;
 
@@ -188,7 +188,7 @@ export async function PATCH(
     // Write audit logs for status transitions
     if (data.status && ["SLICED", "IN_PROGRESS", "AWAITING_VERIFICATION", "DONE"].includes(data.status)) {
       const action = data.status === "SLICED" ? "JOB_SLICED" : data.status === "IN_PROGRESS" ? "JOB_STARTED" : data.status === "AWAITING_VERIFICATION" ? "JOB_AWAITING_VERIFICATION" : "JOB_COMPLETED";
-      const userId = (session.user as { id?: string })?.id ?? null;
+      const userId = (await getActor())?.id ?? null;
 
       const orderIds = [...new Set(job.parts.map((p) => p.orderPart.orderId))];
       if (orderIds.length > 0) {
@@ -227,8 +227,8 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const guard = await assertJobAccess((await params).id, "jobs.delete");
+  if (guard) return guard;
 
   const { id } = await params;
 

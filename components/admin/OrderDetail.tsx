@@ -25,6 +25,7 @@ import {
   Clock,
   ExternalLink,
   Link2,
+  Lock,
   Mail,
   MessageSquare,
   Send,
@@ -108,6 +109,8 @@ interface OrderDetailProps {
   teamMembers: Array<{ id: string; name: string; email: string }>;
   currentUserId: string;
   isAdmin: boolean;
+  /** Assignment lock applies and this is not the actor's order. */
+  readOnly?: boolean;
   parts: OrderPartData[];
   availableFilaments: FilamentInventory;
   customerCredit: { id: string; balanceCents: number } | null;
@@ -124,7 +127,7 @@ function getInitials(name: string) {
 
 
 
-export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin, parts: initialParts, availableFilaments, customerCredit: initialCustomerCredit, partPhases, machines, buildVolume, initialSprints, billing = { quotes: true, invoices: true } }: OrderDetailProps) {
+export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin, readOnly = false, parts: initialParts, availableFilaments, customerCredit: initialCustomerCredit, partPhases, machines, buildVolume, initialSprints, billing = { quotes: true, invoices: true } }: OrderDetailProps) {
   const t = useTranslations("admin");
   const tc = useTranslations("common");
   const rawLocale = useLocale();
@@ -627,6 +630,15 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
 
   return (
     <div className="w-full">
+      {readOnly && (
+        <div
+          data-testid="order-readonly-banner"
+          className="mx-auto max-w-5xl mb-4 flex items-center gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 px-4 py-2.5 text-sm"
+        >
+          <Lock className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-500" />
+          <span>{t("order_readonly_banner")}</span>
+        </div>
+      )}
       <OrderHeaderMinimal
         orderId={order.id}
         trackingToken={order.trackingToken}
@@ -658,6 +670,7 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
         archiving={archiving}
         onToggleArchive={handleToggleArchive}
         isAdmin={isAdmin}
+        readOnly={readOnly}
         deleting={deleting}
         onDelete={handleDelete}
       />

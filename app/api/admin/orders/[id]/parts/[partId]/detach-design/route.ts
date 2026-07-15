@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { assertOrderAccess, getActor } from "@/lib/authz";
 import { copyFile, mkdir } from "fs/promises";
 import path from "path";
 import { randomUUID } from "crypto";
@@ -31,10 +31,10 @@ export async function POST(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string; partId: string }> }
 ) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
   const { id, partId } = await params;
+
+  const guard = await assertOrderAccess(id, "orders.edit");
+  if (guard) return guard;
 
   const part = await prisma.orderPart.findUnique({ where: { id: partId, orderId: id } });
   if (!part) return NextResponse.json({ error: "Nicht gefunden" }, { status: 404 });
@@ -84,7 +84,7 @@ export async function POST(
   await prisma.auditLog.create({
     data: {
       orderId: id,
-      userId: (session.user as { id?: string })?.id ?? null,
+      userId: (await getActor())?.id ?? null,
       action: "PART_UPDATED",
       details: `Design von Teil "${part.name}" abgekoppelt (eigene Kopie)`,
     },

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { assertPermission } from "@/lib/authz";
 import { z } from "zod";
 import fs from "fs/promises";
 import path from "path";
@@ -14,8 +14,8 @@ const updateSchema = z.object({
 });
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const guard = await assertPermission("knowledge.edit");
+  if (guard) return guard;
 
   const { id } = await params;
 
@@ -39,13 +39,8 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const sessionUser = session.user as { role?: string };
-  if (sessionUser?.role !== "ADMIN") {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
+  const guard = await assertPermission("knowledge.delete");
+  if (guard) return guard;
 
   const { id } = await params;
 

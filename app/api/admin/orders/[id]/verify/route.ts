@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { assertOrderAccess, getActor } from "@/lib/authz";
 import { z } from "zod";
 import { sendVerificationEmail } from "@/lib/email";
 import { triggerOrderAutoAdvance, triggerPartAutoAdvance } from "@/lib/phase-auto-advance";
@@ -19,11 +19,11 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
   const { id } = await params;
-  const userId = session.user?.id;
+
+  const guard = await assertOrderAccess(id, "orders.edit");
+  if (guard) return guard;
+  const userId = (await getActor())?.id;
 
   try {
     const body = await req.json();
@@ -110,11 +110,11 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
   const { id } = await params;
-  const userId = session.user?.id;
+
+  const guard = await assertOrderAccess(id, "orders.edit");
+  if (guard) return guard;
+  const userId = (await getActor())?.id;
 
   try {
     const body = await req.json();

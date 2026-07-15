@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { assertOrderAccess, assertSignedIn } from "@/lib/authz";
+import { orderIdOfInvoice } from "@/lib/authz-resolve";
 import { z } from "zod";
 
 const patchSchema = z.object({
@@ -12,8 +13,8 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const guard = await assertSignedIn();
+  if (guard) return guard;
 
   const { id } = await params;
   const invoice = await prisma.invoice.findUnique({
@@ -32,8 +33,10 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const invoiceOrderId = await orderIdOfInvoice((await params).id);
+  if (!invoiceOrderId) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const guard = await assertOrderAccess(invoiceOrderId, "billing.invoices.manage");
+  if (guard) return guard;
 
   const { id } = await params;
   const body = await req.json();
@@ -61,8 +64,10 @@ export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const invoiceOrderId = await orderIdOfInvoice((await params).id);
+  if (!invoiceOrderId) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const guard = await assertOrderAccess(invoiceOrderId, "billing.invoices.manage");
+  if (guard) return guard;
 
   const { id } = await params;
   const invoice = await prisma.invoice.findUnique({ where: { id } });

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { assertOrderAccess, assertSignedIn, getActor } from "@/lib/authz";
 import { z } from "zod";
 import { parseAxis, deriveColorHex } from "@/lib/filament-resolve";
 
@@ -35,10 +35,10 @@ export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
   const { id } = await params;
+
+  const guard = await assertSignedIn();
+  if (guard) return guard;
   const parts = await prisma.orderPart.findMany({
     where: { orderId: id },
     include: partInclude,
@@ -52,10 +52,10 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
   const { id } = await params;
+
+  const guard = await assertOrderAccess(id, "orders.edit");
+  if (guard) return guard;
 
   try {
     const body = await req.json();
@@ -100,7 +100,7 @@ export async function POST(
     await prisma.auditLog.create({
       data: {
         orderId: id,
-        userId: (session.user as { id?: string })?.id ?? null,
+        userId: (await getActor())?.id ?? null,
         action: "PART_ADDED",
         details: `Teil "${data.name}" hinzugefügt`,
       },

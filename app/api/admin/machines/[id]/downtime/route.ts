@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { assertAdmin, assertSignedIn, getActor } from "@/lib/authz";
 import { z } from "zod";
-import type { Session } from "next-auth";
 import { affectedJobsForDowntime } from "@/lib/machine-downtime";
 
 const createSchema = z.object({
@@ -13,16 +12,12 @@ const createSchema = z.object({
   endedAt: z.string().datetime().nullable().optional(),
 });
 
-function isAdmin(session: Session | null) {
-  return (session?.user as { role?: string } | undefined)?.role === "ADMIN";
-}
-
 export async function GET(
   _req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const guard = await assertSignedIn();
+  if (guard) return guard;
 
   const { id } = await params;
   const downtimes = await prisma.machineDowntime.findMany({
@@ -36,9 +31,9 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = await auth();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!isAdmin(session)) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  const guard = await assertAdmin();
+  if (guard) return guard;
+  const actor = await getActor();
 
   const { id } = await params;
 
@@ -62,7 +57,7 @@ export async function POST(
         note: data.note ?? null,
         startedAt,
         endedAt,
-        createdBy: (session.user as { id?: string })?.id ?? null,
+        createdBy: actor?.id ?? null,
       },
     });
 
