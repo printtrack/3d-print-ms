@@ -35,6 +35,12 @@ export async function resetDb() {
     }
     await tx.$executeRawUnsafe(`SET FOREIGN_KEY_CHECKS = 1`);
   });
+
+  // The Setting table is deliberately NOT truncated (it holds seeded config), so
+  // the landing page's published snapshot would leak from one test into the
+  // next. Clear just that key — a publish in one test must not make another
+  // test's public page show stale content.
+  await prismaTest.setting.deleteMany({ where: { key: "landing_published_blocks" } });
 }
 
 const TRUNCATE_ORDER = [
@@ -52,6 +58,7 @@ const TRUNCATE_ORDER = [
   "CalendarEvent", "CalendarSubscription",
   "CustomerEmailVerificationToken", "CustomerInvite", "OrderPartIteration", "CustomerCredit", "Customer", "User",
   "TeamRolePermission", "TeamRole", "VerificationToken",
+  "LandingBlock",
 ];
 
 export async function createTestCreditTransaction(
@@ -293,6 +300,34 @@ export async function createTestVerification(
 ) {
   return prismaTest.verificationRequest.create({
     data: { orderId, type, ...(orderPartId ? { orderPartId } : {}) },
+  });
+}
+
+/**
+ * A landing page block. Defaults to a richtext block, which is the cheapest
+ * valid shape — pass `type` + `data` together when a specific block matters,
+ * since `data` must satisfy that type's schema in lib/landing/blocks.ts.
+ */
+export async function createTestLandingBlock(
+  overrides: Partial<{
+    type: string;
+    position: number;
+    visible: boolean;
+    data: unknown;
+  }> = {}
+) {
+  return prismaTest.landingBlock.create({
+    data: {
+      type: overrides.type ?? "richtext",
+      position: overrides.position ?? 0,
+      visible: overrides.visible ?? true,
+      data: (overrides.data ?? {
+        background: "white",
+        label: { de: "", en: "" },
+        headline: { de: "Testblock", en: "Test block" },
+        body: { de: "Testinhalt", en: "Test content" },
+      }) as object,
+    },
   });
 }
 

@@ -47,7 +47,8 @@ export type PermissionKey =
   | "knowledge.edit"
   | "knowledge.delete"
   | "inventory.edit"
-  | "inventory.delete";
+  | "inventory.delete"
+  | "landing.edit";
 
 export type PermissionGroup =
   | "orders"
@@ -55,7 +56,8 @@ export type PermissionGroup =
   | "jobs"
   | "projects"
   | "knowledge"
-  | "inventory";
+  | "inventory"
+  | "landing";
 
 export interface PermissionDef {
   key: PermissionKey;
@@ -99,6 +101,11 @@ export const PERMISSIONS: PermissionDef[] = [
 
   { key: "inventory.edit", group: "inventory", scoped: false, feature: "inventory" },
   { key: "inventory.delete", group: "inventory", scoped: false, feature: "inventory", dangerous: true },
+
+  // The landing page has no assignees, and editing it is one capability: a block
+  // is not worth its own create/edit/delete triple. Everyone may look at the
+  // editor; only this bit lets them save.
+  { key: "landing.edit", group: "landing", scoped: false },
 ];
 
 export const PERMISSION_GROUPS: PermissionGroup[] = [
@@ -108,6 +115,7 @@ export const PERMISSION_GROUPS: PermissionGroup[] = [
   "projects",
   "knowledge",
   "inventory",
+  "landing",
 ];
 
 export const PERMISSION_KEYS = PERMISSIONS.map((p) => p.key) as [

@@ -1,15 +1,24 @@
 import { DM_Serif_Display } from "next/font/google";
-import { Printer, Zap, Shield, Eye, MessageCircle } from "lucide-react";
+import { Printer } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getTranslations, getLocale } from "next-intl/server";
 
-import { OrderForm } from "@/components/customer/OrderForm";
 import { Button } from "@/components/ui/button";
 import { getSetting, getSettings } from "@/lib/settings";
-import { getOrderFormConfig, type OrderFormConfig } from "@/lib/order-form-config";
+import { getOrderFormConfig } from "@/lib/order-form-config";
 import { buildOrderIntakeConfig, buildRegistrationMode } from "@/lib/order-intake";
 import { isFeatureEnabled } from "@/lib/features";
+import { getEditorLandingBlocks } from "@/lib/landing/page";
+import { getPublishedLandingBlocks } from "@/lib/landing/publish";
+import { BlockRenderer } from "@/components/landing/BlockRenderer";
+import { BrokenBlock } from "@/components/landing/blocks/BrokenBlock";
+import { LandingEditProvider } from "@/components/landing/edit/LandingEditProvider";
+import { InlineText } from "@/components/landing/edit/InlineText";
+import { AddBlockBar } from "@/components/landing/edit/AddBlockBar";
+import { editLabels } from "@/lib/landing/edit-labels";
+import { getActor, can } from "@/lib/authz";
+import { isValidLocale, type Locale } from "@/i18n/locale";
 import { CONTENT } from "./content";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 
@@ -20,8 +29,6 @@ const serif = DM_Serif_Display({
   subsets: ["latin"],
   variable: "--font-dm-serif",
 });
-
-const FEATURE_ICONS = { Zap, Shield, Eye, MessageCircle } as const;
 
 type LT = Awaited<ReturnType<typeof getTranslations<"landing">>>;
 type NT = Awaited<ReturnType<typeof getTranslations<"nav">>>;
@@ -36,12 +43,29 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default async function Home() {
+export default async function Home({
+  searchParams,
+}: {
+  searchParams: Promise<{ preview_locale?: string; edit?: string }>;
+}) {
   const companyName =
     (await getSetting("company_name")) ?? CONTENT.fallbackCompanyName;
   const contactEmail = (await getSetting("contact_email")) ?? "";
   const accessCodeEnabled = (await getSetting("access_code_enabled")) === "true";
-  const locale = (await getLocale()) === "en" ? "en" : "de";
+
+  // The admin editor previews this page in an iframe and needs to see the
+  // language it is currently editing, which is not the admin's own cookie
+  // locale. Harmless as a public param — the page carries a DE|EN switcher.
+  const { preview_locale, edit } = await searchParams;
+  const cookieLocale: Locale = (await getLocale()) === "en" ? "en" : "de";
+  const locale: Locale =
+    preview_locale && isValidLocale(preview_locale) ? preview_locale : cookieLocale;
+
+  // Inline editing. The query param is a request, not a grant: the permission
+  // decides. Checked lazily so a normal visitor never costs an auth() call on
+  // the busiest page in the app.
+  const editing = edit === "1" ? can(await getActor(), "landing.edit") : false;
+
   const orderFormConfig = await getOrderFormConfig(locale);
   const settings = await getSettings();
   const publicIntake = buildOrderIntakeConfig(settings, "public");
@@ -49,26 +73,63 @@ export default async function Home() {
   // portal is actually there to point at.
   const portalEnabled = isFeatureEnabled("portal", settings);
   const registrationOpen = buildRegistrationMode(settings) === "open";
+  // The editor shows the DRAFT (rows) — hidden blocks included, since you cannot
+  // bring back what you cannot see, and unparseable ones as BrokenBlock, since
+  // dropping them would leave an admin unable to delete a row that is broken.
+  // Visitors see the PUBLISHED snapshot instead: draft edits stay private until
+  // an admin publishes them.
+  const blocks = editing ? await getEditorLandingBlocks() : await getPublishedLandingBlocks();
   const t = await getTranslations("landing");
   const tNav = await getTranslations("nav");
+
+  const orderFormContext = {
+    accessCodeEnabled,
+    orderFormConfig,
+    publicIntakeEnabled: publicIntake.enabled,
+    portalEnabled,
+    registrationOpen,
+  };
+
+  const page = (
+    <>
+      <main id="main-content">
+        {blocks.map((block) => (
+          <div key={block.id} className={editing && !block.visible ? "opacity-40" : undefined}>
+            {"valid" in block && !block.valid ? (
+              <BrokenBlock blockId={block.id} type={block.type} />
+            ) : (
+              <BlockRenderer
+                block={block as never}
+                locale={locale}
+                editing={editing}
+                orderFormContext={orderFormContext}
+              />
+            )}
+          </div>
+        ))}
+        {editing && <AddBlockBar />}
+      </main>
+      <Footer companyName={companyName} contactEmail={contactEmail} t={t} tNav={tNav} />
+    </>
+  );
 
   return (
     <div className={`${serif.variable} min-h-screen`}>
       <Navbar companyName={companyName} t={t} tNav={tNav} />
-      <main id="main-content">
-        <HeroSection t={t} />
-        <FeaturesSection t={t} />
-        <HowItWorksSection t={t} />
-        <OrderFormSection
-          accessCodeEnabled={accessCodeEnabled}
-          orderFormConfig={orderFormConfig}
-          publicIntakeEnabled={publicIntake.enabled}
-          portalEnabled={portalEnabled}
-          registrationOpen={registrationOpen}
-          t={t}
-        />
-      </main>
-      <Footer companyName={companyName} contactEmail={contactEmail} t={t} tNav={tNav} />
+      {editing ? (
+        // The whole editing surface lives here, around the real page. The admin
+        // route is just a frame with a language switch — see LandingEditProvider.
+        <LandingEditProvider
+          initialBlocks={blocks}
+          locale={locale}
+          labels={await editLabels()}
+        >
+          {page}
+          <InlineText />
+        </LandingEditProvider>
+      ) : (
+        page
+      )}
     </div>
   );
 }
@@ -126,276 +187,6 @@ function Navbar({
         </div>
       </div>
     </nav>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Hero
-// ---------------------------------------------------------------------------
-
-function HeroSection({ t }: { t: LT }) {
-  return (
-    <section
-      className="relative min-h-screen flex items-center pt-20"
-      style={{ backgroundColor: "var(--landing-hero-bg)" }}
-    >
-      {/* Subtle grid overlay */}
-      <div
-        className="absolute inset-0 opacity-[0.035] pointer-events-none"
-        style={{
-          backgroundImage:
-            "linear-gradient(var(--landing-accent) 1px, transparent 1px), linear-gradient(90deg, var(--landing-accent) 1px, transparent 1px)",
-          backgroundSize: "64px 64px",
-        }}
-      />
-      {/* Glow orb */}
-      <div
-        className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[420px] rounded-full blur-[140px] pointer-events-none"
-        style={{ backgroundColor: "var(--landing-accent-glow)" }}
-      />
-
-      <div className="container mx-auto px-6 text-center relative z-10 animate-fade-in">
-        {/* Eyebrow */}
-        <p
-          className="text-sm font-medium tracking-widest uppercase mb-6"
-          style={{ color: "var(--landing-accent)" }}
-        >
-          {t("hero_eyebrow")}
-        </p>
-
-        {/* Headline */}
-        <h1
-          className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl leading-[1.1] text-white mb-8"
-          style={{ fontFamily: "var(--font-dm-serif)" }}
-        >
-          {t("hero_headline_1")}
-          <br />
-          <span style={{ color: "var(--landing-accent)" }}>{t("hero_headline_2")}</span>
-        </h1>
-
-        {/* Subheadline */}
-        <p className="text-lg sm:text-xl max-w-2xl mx-auto mb-10 leading-relaxed" style={{ color: "oklch(1 0 0 / 60%)" }}>
-          {t("hero_subheadline")}
-        </p>
-
-        {/* CTAs */}
-        <div className="flex items-center justify-center">
-          <Button
-            asChild
-            size="lg"
-            className="px-8 text-base font-semibold hover:opacity-90 transition-opacity"
-            style={{
-              backgroundColor: "var(--landing-accent)",
-              color: "var(--landing-hero-bg)",
-            }}
-          >
-            <a href="#order-form">{t("hero_cta")}</a>
-          </Button>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Features
-// ---------------------------------------------------------------------------
-
-function FeaturesSection({ t }: { t: LT }) {
-  const features = [
-    { icon: "Zap", title: t("feature_fast_title"), description: t("feature_fast_desc") },
-    { icon: "Shield", title: t("feature_quality_title"), description: t("feature_quality_desc") },
-    { icon: "Eye", title: t("feature_status_title"), description: t("feature_status_desc") },
-    { icon: "MessageCircle", title: t("feature_questions_title"), description: t("feature_questions_desc") },
-  ] as const;
-
-  return (
-    <section className="py-24 bg-white">
-      <div className="container mx-auto px-6">
-        <div className="text-center mb-16">
-          <p
-            className="text-sm font-medium tracking-widest uppercase mb-3"
-            style={{ color: "var(--landing-accent)" }}
-          >
-            {t("features_label")}
-          </p>
-          <h2
-            className="text-4xl text-gray-900"
-            style={{ fontFamily: "var(--font-dm-serif)" }}
-          >
-            {t("features_headline")}
-          </h2>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-          {features.map((item) => {
-            const Icon = FEATURE_ICONS[item.icon as keyof typeof FEATURE_ICONS];
-            return (
-              <div
-                key={item.title}
-                className="group p-8 rounded-2xl border border-gray-100 hover:-translate-y-1 transition-transform duration-200 hover:shadow-lg"
-              >
-                <div
-                  className="w-12 h-12 rounded-xl flex items-center justify-center mb-5"
-                  style={{ backgroundColor: "var(--landing-accent-glow)" }}
-                >
-                  <Icon className="h-6 w-6" style={{ color: "var(--landing-accent)" }} />
-                </div>
-                <h3 className="font-semibold text-gray-900 text-lg mb-2">
-                  {item.title}
-                </h3>
-                <p className="text-gray-500 text-sm leading-relaxed">
-                  {item.description}
-                </p>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// How It Works
-// ---------------------------------------------------------------------------
-
-function HowItWorksSection({ t }: { t: LT }) {
-  const steps = [
-    { number: "01", title: t("step1_title"), description: t("step1_desc") },
-    { number: "02", title: t("step2_title"), description: t("step2_desc") },
-    { number: "03", title: t("step3_title"), description: t("step3_desc") },
-  ];
-
-  return (
-    <section className="py-24" style={{ backgroundColor: "oklch(0.97 0.004 240)" }}>
-      <div className="container mx-auto px-6">
-        <div className="text-center mb-16">
-          <p
-            className="text-sm font-medium tracking-widest uppercase mb-3"
-            style={{ color: "var(--landing-accent)" }}
-          >
-            {t("how_label")}
-          </p>
-          <h2
-            className="text-4xl text-gray-900"
-            style={{ fontFamily: "var(--font-dm-serif)" }}
-          >
-            {t("how_headline")}
-          </h2>
-        </div>
-
-        <div className="relative grid grid-cols-1 md:grid-cols-3 gap-12 max-w-4xl mx-auto">
-          {/* Connecting line on desktop */}
-          <div
-            className="hidden md:block absolute top-10 left-[calc(100%/6)] right-[calc(100%/6)] h-px"
-            style={{ backgroundColor: "var(--landing-accent-glow)" }}
-          />
-
-          {steps.map((step, i) => (
-            <div key={step.number} className="relative flex flex-col items-center text-center">
-              <div
-                className="w-20 h-20 rounded-full flex items-center justify-center text-2xl font-bold mb-6 border-2 relative z-10"
-                style={{
-                  fontFamily: "var(--font-dm-serif)",
-                  backgroundColor: i === 1 ? "var(--landing-accent)" : "white",
-                  borderColor: i === 1 ? "var(--landing-accent)" : "var(--landing-accent-glow)",
-                  color: i === 1 ? "var(--landing-hero-bg)" : "var(--landing-accent)",
-                }}
-              >
-                {step.number}
-              </div>
-              <h3 className="font-semibold text-gray-900 text-lg mb-3">{step.title}</h3>
-              <p className="text-gray-500 text-sm leading-relaxed">{step.description}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Order Form
-// ---------------------------------------------------------------------------
-
-function OrderFormSection({
-  accessCodeEnabled,
-  orderFormConfig,
-  publicIntakeEnabled,
-  portalEnabled,
-  registrationOpen,
-  t,
-}: {
-  accessCodeEnabled: boolean;
-  orderFormConfig: OrderFormConfig;
-  publicIntakeEnabled: boolean;
-  portalEnabled: boolean;
-  registrationOpen: boolean;
-  t: LT;
-}) {
-  const accountOnly = !publicIntakeEnabled;
-  return (
-    <section id="order-form" className="py-24 bg-white scroll-mt-20">
-      <div className="container mx-auto px-6">
-        <div className="text-center mb-12">
-          <p
-            className="text-sm font-medium tracking-widest uppercase mb-3"
-            style={{ color: "var(--landing-accent)" }}
-          >
-            {t("order_label")}
-          </p>
-          <h2
-            className="text-4xl text-gray-900 mb-4"
-            style={{ fontFamily: "var(--font-dm-serif)" }}
-          >
-            {accountOnly ? t("order_account_only_headline") : t("order_headline")}
-          </h2>
-          <p className="text-gray-500 text-lg max-w-xl mx-auto">
-            {accountOnly ? t("order_account_only_subheadline") : t("order_subheadline")}
-          </p>
-        </div>
-        {accountOnly ? (
-          <AccountOnlyNotice portalEnabled={portalEnabled} registrationOpen={registrationOpen} t={t} />
-        ) : (
-          <OrderForm accessCodeEnabled={accessCodeEnabled} config={orderFormConfig} />
-        )}
-      </div>
-    </section>
-  );
-}
-
-// Shown instead of the form when a shop takes orders from account holders only.
-function AccountOnlyNotice({
-  portalEnabled,
-  registrationOpen,
-  t,
-}: {
-  portalEnabled: boolean;
-  registrationOpen: boolean;
-  t: LT;
-}) {
-  return (
-    <div className="mx-auto w-full max-w-md rounded-xl border border-gray-200 bg-white p-8 text-center shadow-sm">
-      <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-gray-100">
-        <Printer className="h-6 w-6" style={{ color: "var(--landing-accent)" }} />
-      </div>
-      <p className="text-gray-600">
-        {portalEnabled ? t("order_account_only_body") : t("order_account_only_contact")}
-      </p>
-      {portalEnabled && (
-        <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
-          <Button asChild>
-            <Link href="/portal/signin">{t("order_account_only_signin_cta")}</Link>
-          </Button>
-          {registrationOpen && (
-            <Button asChild variant="outline">
-              <Link href="/portal/register">{t("order_account_only_register_cta")}</Link>
-            </Button>
-          )}
-        </div>
-      )}
-    </div>
   );
 }
 

@@ -8,6 +8,7 @@ import * as fs from "fs";
 import * as path from "path";
 import * as yaml from "js-yaml";
 import { prismaTest } from "../fixtures/db";
+import { defaultBlockRows } from "../../lib/landing/defaults";
 
 test.use({ storageState: "tests/.auth/admin.json" });
 
@@ -68,6 +69,12 @@ test.beforeAll(async () => {
       },
     ],
   });
+
+  // Materialize the default landing blocks, so /admin/landing shows a working
+  // editor instead of the "still using the defaults" state with everything
+  // locked — that banner is what a fresh install sees, not what the page is for.
+  await prismaTest.landingBlock.deleteMany({});
+  await prismaTest.landingBlock.createMany({ data: defaultBlockRows() as never });
 });
 
 for (const { slug, route } of routes) {
@@ -75,9 +82,23 @@ for (const { slug, route } of routes) {
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.goto(route);
     await page.waitForLoadState("domcontentloaded");
-    // Settings tabs with more content need a bit longer to settle
-    const waitMs = route.includes("settings") ? 1200 : 800;
+    // Settings tabs with more content need a bit longer to settle; the landing
+    // editor has to load its preview iframe on top of its own render.
+    const waitMs = route.includes("settings") ? 1200 : route.includes("landing") ? 2500 : 800;
     await page.waitForTimeout(waitMs);
+
+    // The landing editor's controls only appear on the block under the pointer —
+    // an untouched shot would show the bare page and explain nothing.
+    if (route.includes("landing")) {
+      const features = page
+        .frameLocator('[data-testid="landing-preview"]')
+        .locator("[data-landing-block]")
+        .nth(1);
+      await features.scrollIntoViewIfNeeded();
+      await features.hover();
+      await page.waitForTimeout(400);
+    }
+
     fs.mkdirSync(OUTPUT_DIR, { recursive: true });
     await page.screenshot({
       path: path.join(OUTPUT_DIR, `${slug}.png`),

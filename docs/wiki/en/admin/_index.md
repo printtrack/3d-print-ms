@@ -18,6 +18,7 @@ Welcome to the help wiki. Here you'll find an explanation for each area of the s
 | [[Planning]] | Calendar and resource planning |
 | [[Inventory]] | Manage filament stock |
 | [[Knowledge Base]] | Maintain problem/solution entries |
+| [[Landing page]] | Compose your public landing page from blocks |
 | [[Customers]] | Customer data and verification (admin only) |
 | [[Customer portal & verification|portal]] | How customers register, get verified and approve quotes |
 | [[Settings]] | Company data, email templates, phases, team, machines |

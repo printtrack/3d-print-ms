@@ -17,7 +17,12 @@ const nextConfig: NextConfig = {
         headers: [
           { key: "Strict-Transport-Security", value: "max-age=63072000; includeSubDomains; preload" },
           { key: "X-Content-Type-Options", value: "nosniff" },
-          { key: "X-Frame-Options", value: "DENY" },
+          // SAMEORIGIN, not DENY: the landing page editor (/admin/landing)
+          // previews the live page in an iframe. Third-party origins still
+          // cannot frame the app, so clickjacking protection is unchanged —
+          // see frame-ancestors below, which says the same thing to modern
+          // browsers and takes precedence over this header.
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
           { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
@@ -31,7 +36,13 @@ const nextConfig: NextConfig = {
               "font-src 'self'",
               "connect-src 'self'",
               "worker-src 'self' blob:",
-              "frame-src 'none'",
+              // 'self', not 'none': the landing page editor embeds the live
+              // landing page to preview it. Only our own pages may be framed,
+              // and only by our own pages (frame-ancestors) — no third-party
+              // origin can embed the CMS, and no third-party page can be
+              // embedded into it.
+              "frame-src 'self'",
+              "frame-ancestors 'self'",
               "object-src 'none'",
               "base-uri 'self'",
               "form-action 'self'",

@@ -7,12 +7,18 @@ import { TUTORIAL_ORDER_ID } from "@/lib/tutorial/sample-data";
 
 const AUTH_REQUIRED_PREFIXES = new Set(["knowledge", "jobs", "projects"]);
 
+// Landing page images are marketing material on a public page — no session, and
+// no reason to forbid shared caches the way order files (private by obscurity of
+// their cuid path) need to.
+const PUBLIC_CACHE_PREFIXES = new Set(["landing"]);
+
 const MIME_TYPES: Record<string, string> = {
   ".jpg": "image/jpeg",
   ".jpeg": "image/jpeg",
   ".png": "image/png",
   ".gif": "image/gif",
   ".webp": "image/webp",
+  ".svg": "image/svg+xml",
   ".stl": "model/stl",
   ".obj": "model/obj",
   ".3mf": "model/3mf",
@@ -73,13 +79,23 @@ export async function GET(
     const ext = path.extname(resolved).toLowerCase();
     const contentType = MIME_TYPES[ext] ?? "application/octet-stream";
 
-    return new NextResponse(buffer, {
-      status: 200,
-      headers: {
-        "Content-Type": contentType,
-        "Cache-Control": "private, max-age=3600",
-      },
-    });
+    const headers: Record<string, string> = {
+      "Content-Type": contentType,
+      "Cache-Control": PUBLIC_CACHE_PREFIXES.has(segments[0])
+        ? "public, max-age=3600"
+        : "private, max-age=3600",
+      "X-Content-Type-Options": "nosniff",
+    };
+
+    // An SVG is a document, not pixels: opened directly (not via <img>, which
+    // never runs script) it would execute in our origin. Uploads are scanned for
+    // <script and on*= handlers, but that regex is evadable — this makes the
+    // point moot regardless.
+    if (ext === ".svg") {
+      headers["Content-Security-Policy"] = "default-src 'none'; style-src 'unsafe-inline'; sandbox";
+    }
+
+    return new NextResponse(buffer, { status: 200, headers });
   } catch {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }

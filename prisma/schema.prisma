@@ -846,6 +846,25 @@ model Setting {
   updatedAt DateTime @updatedAt
 }
 
+// Ein Abschnitt der Landing Page. `type` verweist auf die Registry in
+// lib/landing/blocks.ts, die auch das Zod-Schema für `data` hält — die DB kennt
+// nur JSON, die Struktur wird an den API-Grenzen validiert.
+//
+// Solange die Tabelle leer ist, rendert die Landing Page die Defaults aus
+// lib/landing/defaults.ts. Erst der Editor materialisiert sie als Zeilen, damit
+// ein Update für Bestandsinstallationen unsichtbar bleibt.
+model LandingBlock {
+  id        String   @id @default(cuid())
+  type      String
+  position  Int
+  visible   Boolean  @default(true)
+  data      Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([position])
+}
+
 // Beta-Feedback / Bug-Reports, die Team-Mitglieder direkt aus der Admin-UI
 // melden. Optional an ein GitHub-Issue gekoppelt (siehe lib/feedback-github.ts).
 model Feedback {

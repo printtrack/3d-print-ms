@@ -146,6 +146,71 @@
   color: oklch(1 0 0 / 80%);
 }
 
+/* Inline editing in the /admin/landing preview iframe (see Editable.tsx).
+   Only ever present in edit mode, never on the public page. Styling stays
+   subtractive — the text must keep looking exactly like the text it is, or the
+   preview stops being a preview. */
+/* Every cue is gated on [contenteditable="true"], which the bridge sets once it
+   is listening — a dashed outline inviting a click before then would be an
+   invitation to lose what you type. */
+.landing-editable[contenteditable="true"] {
+  border-radius: 3px;
+  /* No layout-affecting properties: no padding, no display change. The dashed
+     hint is drawn with outline (which does not take space), not border. */
+  transition: background-color 120ms ease, outline-color 120ms ease;
+  outline: 1px dashed transparent;
+  outline-offset: 3px;
+  cursor: text;
+}
+.landing-editable[contenteditable="true"]:hover {
+  outline-color: var(--landing-accent);
+}
+.landing-editable[contenteditable="true"]:focus {
+  outline: 2px solid var(--landing-accent);
+  outline-offset: 3px;
+  background-color: color-mix(in oklch, var(--landing-accent) 12%, transparent);
+}
+/* An empty field would be unclickable — give it something to aim at. */
+.landing-editable[contenteditable="true"]:empty::before {
+  content: "…";
+  opacity: 0.4;
+}
+
+/* Editor chrome inside the preview: block toolbars, item toolbars, link pencils.
+   Hidden until its block is hovered — the preview has to still read as the page,
+   not as a control panel. Kept visible while focused or while its popover is
+   open, so it is reachable by keyboard and does not vanish mid-click. */
+.landing-edit-chrome {
+  opacity: 0;
+  transition: opacity 120ms ease;
+  /* Deliberately NOT pointer-events: none while hidden. Gating that on :hover
+     is a chicken-and-egg: the browser hit-tests the click target before the
+     hover has settled, hits the section underneath, and the button becomes
+     unclickable. It costs nothing to leave it clickable — the toolbar sits
+     inside its block, so a pointer that can reach it is already hovering the
+     block and has already revealed it. */
+}
+[data-landing-block]:hover .landing-edit-chrome,
+.landing-edit-chrome:focus-within,
+.landing-edit-chrome[data-state="open"],
+.landing-edit-chrome:has([data-state="open"]) {
+  opacity: 1;
+}
+
+/* Clickable non-text elements (icons, images, markdown bodies). The outline must
+   not take space — the preview would misrepresent the real layout. */
+.landing-edit-target {
+  outline: 1px dashed transparent;
+  outline-offset: 4px;
+  border-radius: 4px;
+  transition: outline-color 120ms ease;
+  cursor: pointer;
+}
+.landing-edit-target:hover,
+.landing-edit-target[data-state="open"] {
+  outline-color: var(--landing-accent);
+}
+
 /* Kanban board: force visible scrollbar on macOS (opts out of overlay scrollbar system) */
 .kanban-board::-webkit-scrollbar {
   -webkit-appearance: none;

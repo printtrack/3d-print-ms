@@ -18,6 +18,7 @@ Willkommen im Bedienungs-Wiki. Hier findest du für jeden Bereich des Systems ei
 | [[Planung]] | Kalender- und Ressourcenplanung |
 | [[Inventar]] | Filament-Lagerbestand verwalten |
 | [[Wissensdatenbank]] | Problem-/Lösungs-Einträge pflegen |
+| [[Landing-Page]] | Die öffentliche Startseite aus Blöcken zusammenstellen |
 | [[Kunden]] | Kundendaten und Verifizierungen (nur Admin) |
 | [[Kundenportal & Verifizierung|portal]] | Wie Kunden sich registrieren, verifiziert werden und Angebote freigeben |
 | [[Einstellungen]] | Firmendaten, E-Mail-Vorlagen, Phasen, Team, Maschinen |

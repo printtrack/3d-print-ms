@@ -12,6 +12,7 @@ import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import {
   LayoutDashboard,
+  LayoutTemplate,
   ClipboardList,
   Package,
   SlidersHorizontal,
@@ -88,6 +89,7 @@ export function AdminNav({ userRole, companyName = "3D Print CMS", logoUrl = nul
       label: t("knowledge_admin"),
       items: [
         { href: "/admin/knowledge", label: t("knowledge"), icon: BookOpen, feature: "knowledge" },
+        { href: "/admin/landing", label: t("landing"), icon: LayoutTemplate },
         { href: "/admin/customers", label: t("customers"), icon: Users2, adminOnly: true },
         { href: "/admin/feedback", label: t("feedback"), icon: MessageSquarePlus, adminOnly: true, beta: true },
         { href: "/admin/settings", label: t("settings"), icon: SlidersHorizontal, adminOnly: true },
