@@ -250,6 +250,8 @@ export async function seedDb() {
       { name: "Abholbereit", color: "#10b981", position: 3 },
       { name: "Rechnung offen", color: "#a855f7", position: 4 },
       { name: "Abgeschlossen", color: "#6b7280", position: 5 },
+      { name: "Zurückgestellt", color: "#f59e0b", position: 6, isOnHold: true },
+      { name: "Abgelehnt", color: "#ef4444", position: 7, isRejected: true },
     ],
   });
   const phases = await prismaTest.orderPhase.findMany({ orderBy: { position: "asc" } });

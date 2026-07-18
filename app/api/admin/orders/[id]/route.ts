@@ -6,7 +6,7 @@ import { z } from "zod";
 import { rm } from "fs/promises";
 import path from "path";
 import { getUploadDir } from "@/lib/uploads";
-import { sendPhaseChangeEmail, sendSurveyEmail, sendVerificationEmail } from "@/lib/email";
+import { sendPhaseChangeEmail, sendSurveyEmail, sendVerificationEmail, sendOrderOnHoldEmail } from "@/lib/email";
 import { getSetting } from "@/lib/settings";
 import { publish } from "@/lib/event-bus";
 import { shouldGateOnQuote } from "@/lib/quotes";
@@ -106,7 +106,7 @@ export async function PATCH(
     const current = await prisma.order.findUnique({
       where: { id },
       include: {
-        phase: { select: { id: true, name: true, color: true, position: true, isArchive: true } },
+        phase: { select: { id: true, name: true, color: true, position: true, isArchive: true, isRejected: true } },
         assignees: { include: { user: { select: { id: true, name: true } } } },
       },
     });
@@ -174,18 +174,27 @@ export async function PATCH(
       });
     }
 
-    // If the new phase is an archive phase, set archivedAt automatically.
-    // If we are moving out of an archive phase into a non-archive phase, clear archivedAt.
+    // If the new phase is an archive or rejected phase, set archivedAt automatically.
+    // If we are moving out of such a phase into a normal phase, clear archivedAt.
+    // Moving out of a rejected phase also un-rejects (clears rejectedAt + reason).
     let phaseArchivedAt: Date | null | undefined = undefined;
+    let rejectedAtUpdate: Date | null | undefined = undefined;
+    let clearRejectionReason = false;
     if (data.phaseId && data.phaseId !== current.phaseId) {
       const newPhaseForArchive = await prisma.orderPhase.findUnique({
         where: { id: data.phaseId },
-        select: { isArchive: true },
+        select: { isArchive: true, isRejected: true },
       });
-      if (newPhaseForArchive?.isArchive) {
+      if (newPhaseForArchive?.isArchive || newPhaseForArchive?.isRejected) {
         phaseArchivedAt = new Date();
-      } else if (current.phase.isArchive) {
+      } else if (current.phase.isArchive || current.phase.isRejected) {
         phaseArchivedAt = null;
+      }
+      if (newPhaseForArchive?.isRejected) {
+        rejectedAtUpdate = new Date();
+      } else if (current.phase.isRejected) {
+        rejectedAtUpdate = null;
+        clearRejectionReason = true;
       }
     }
 
@@ -212,6 +221,8 @@ export async function PATCH(
         ...(data.estimatedCompletionAt !== undefined
           ? { estimatedCompletionAt: data.estimatedCompletionAt ? new Date(data.estimatedCompletionAt) : null }
           : {}),
+        ...(rejectedAtUpdate !== undefined ? { rejectedAt: rejectedAtUpdate } : {}),
+        ...(clearRejectionReason ? { rejectionReason: null } : {}),
       },
       include: {
         phase: { select: { id: true, name: true, color: true } },
@@ -221,7 +232,7 @@ export async function PATCH(
 
     // Create audit logs
     if (data.phaseId && data.phaseId !== current.phaseId) {
-      const newPhase = await prisma.orderPhase.findUnique({ where: { id: data.phaseId }, select: { name: true, isSurvey: true } });
+      const newPhase = await prisma.orderPhase.findUnique({ where: { id: data.phaseId }, select: { name: true, isSurvey: true, isOnHold: true, isRejected: true } });
       const overrideSuffix = data.overrideReason
         ? ` (Gate übersteuert: ${data.overrideReason})`
         : data.quoteGateOverride
@@ -246,14 +257,24 @@ export async function PATCH(
         });
       }
 
-      // Notify customer via email (non-blocking)
+      // Notify customer via email (non-blocking). On-hold gets its own template;
+      // rejection is handled by the dedicated reject endpoint (needs a reason),
+      // so a bare chip-move into the rejected phase stays silent.
       if (newPhase) {
-        sendPhaseChangeEmail({
-          customerEmail: current.customerEmail,
-          customerName: current.customerName,
-          phaseName: newPhase.name,
-          trackingToken: current.trackingToken,
-        }).catch((err) => console.error("[email] Phase change notification failed:", err));
+        if (newPhase.isOnHold) {
+          sendOrderOnHoldEmail({
+            customerEmail: current.customerEmail,
+            customerName: current.customerName,
+            trackingToken: current.trackingToken,
+          }).catch((err) => console.error("[email] On-hold notification failed:", err));
+        } else if (!newPhase.isRejected) {
+          sendPhaseChangeEmail({
+            customerEmail: current.customerEmail,
+            customerName: current.customerName,
+            phaseName: newPhase.name,
+            trackingToken: current.trackingToken,
+          }).catch((err) => console.error("[email] Phase change notification failed:", err));
+        }
 
         // Trigger survey if new phase is a survey phase and surveys are enabled
         if (newPhase.isSurvey) {

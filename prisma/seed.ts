@@ -79,6 +79,34 @@ async function main() {
     }
   }
 
+  // Ensure "Zurückgestellt" (on hold) and "Abgelehnt" (rejected) phases exist.
+  // Idempotent — runs for fresh and existing installs alike.
+  const specialPhaseDefs = [
+    { name: "Zurückgestellt", color: "#f59e0b", isOnHold: true, isRejected: false },
+    { name: "Abgelehnt", color: "#ef4444", isOnHold: false, isRejected: true },
+  ];
+  for (const def of specialPhaseDefs) {
+    const existing = await prisma.orderPhase.findFirst({ where: { name: def.name } });
+    if (existing) {
+      await prisma.orderPhase.update({
+        where: { id: existing.id },
+        data: { isOnHold: def.isOnHold, isRejected: def.isRejected },
+      });
+    } else {
+      const maxPos = await prisma.orderPhase.aggregate({ _max: { position: true } });
+      await prisma.orderPhase.create({
+        data: {
+          name: def.name,
+          color: def.color,
+          position: (maxPos._max.position ?? -1) + 1,
+          isOnHold: def.isOnHold,
+          isRejected: def.isRejected,
+        },
+      });
+      console.log(`Created "${def.name}" phase`);
+    }
+  }
+
   // Create default project phases only if none exist
   const existingProjectPhases = await prisma.projectPhase.count();
   if (existingProjectPhases === 0) {
@@ -148,6 +176,18 @@ async function main() {
       key: "email_confirm_body",
       value:
         "vielen Dank für Ihren Auftrag! Wir haben ihn erhalten und werden ihn so schnell wie möglich bearbeiten.",
+    },
+    { key: "email_reject_subject", value: "Ihr 3D-Druck-Auftrag: Absage" },
+    {
+      key: "email_reject_body",
+      value:
+        "vielen Dank für Ihre Anfrage. Leider können wir Ihren Auftrag nicht annehmen.\n\nGrund: {{reason}}\n\nWir bitten um Ihr Verständnis und würden uns freuen, Sie bei einem anderen Projekt unterstützen zu dürfen.",
+    },
+    { key: "email_onhold_subject", value: "Ihr 3D-Druck-Auftrag wurde vorgemerkt" },
+    {
+      key: "email_onhold_body",
+      value:
+        "vielen Dank für Ihren Auftrag! Wir nehmen ihn gerne an, haben aktuell aber leider keine freien Kapazitäten. Wir haben Ihren Auftrag vorgemerkt und melden uns, sobald wir mit der Bearbeitung starten können.",
     },
     { key: "email_reset_subject", value: "Passwort zurücksetzen" },
     {
@@ -309,6 +349,18 @@ async function main() {
       key: "email_confirm_body_en",
       value:
         "thank you for your order! We have received it and will process it as soon as possible.",
+    },
+    { key: "email_reject_subject_en", value: "Your 3D print order: declined" },
+    {
+      key: "email_reject_body_en",
+      value:
+        "thank you for your enquiry. Unfortunately we are unable to take on your order.\n\nReason: {{reason}}\n\nWe appreciate your understanding and would be glad to help you with a future project.",
+    },
+    { key: "email_onhold_subject_en", value: "Your 3D print order has been queued" },
+    {
+      key: "email_onhold_body_en",
+      value:
+        "thank you for your order! We would be happy to take it on, but currently have no free capacity. We have queued your order and will get in touch as soon as we can start working on it.",
     },
     { key: "email_reset_subject_en", value: "Reset your password" },
     {

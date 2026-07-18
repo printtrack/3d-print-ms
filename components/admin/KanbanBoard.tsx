@@ -54,6 +54,8 @@ interface Phase {
   color: string;
   position: number;
   isPrototype?: boolean;
+  isRejected?: boolean;
+  isOnHold?: boolean;
 }
 
 interface KanbanBoardProps {
@@ -111,7 +113,11 @@ function ArchiveDropZone({ archiveCount, isDragging }: { archiveCount: number; i
   );
 }
 
-export function KanbanBoard({ phases, initialOrders, searchQuery, archiveCount = 0 }: KanbanBoardProps) {
+export function KanbanBoard({ phases: inputPhases, initialOrders, searchQuery, archiveCount = 0 }: KanbanBoardProps) {
+  // Rejected orders are archived, so their phase never holds a board card — an
+  // "Abgelehnt" column would always be empty and just widen the board. Keep it
+  // off the board (reachable via the archive filter + order detail).
+  const phases = inputPhases.filter((p) => !p.isRejected);
   const prototypePhasesIds = phases.filter((p) => p.isPrototype).map((p) => p.id);
   const [orders, setOrders] = useState<Order[]>(
     initialOrders.map((o) => ({ ...o, phaseId: o.phase.id }))

@@ -21,8 +21,9 @@ export async function GET(
         createdAt: true,
         updatedAt: true,
         deadline: true,
+        rejectionReason: true,
         phase: {
-          select: { name: true, color: true },
+          select: { name: true, color: true, isRejected: true, isOnHold: true },
         },
         orderType: true,
         sourceLinks: {

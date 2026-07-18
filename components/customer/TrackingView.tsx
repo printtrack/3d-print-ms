@@ -70,9 +70,12 @@ interface TrackingData {
   deadline?: string | null;
   orderType?: "PRINT_ONLY" | "DESIGN";
   sourceLinks?: Array<{ id: string; url: string; label: string | null }>;
+  rejectionReason?: string | null;
   phase: {
     name: string;
     color: string;
+    isRejected?: boolean;
+    isOnHold?: boolean;
   };
   files: Array<{
     id: string;
@@ -298,6 +301,35 @@ export function TrackingView({ order, trackingToken }: { order: TrackingData; tr
           </div>
         </CardContent>
       </Card>
+
+      {/* Status banner — declined / queued */}
+      {order.phase.isRejected && (
+        <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-4" data-testid="tracking-rejected-banner">
+          <div className="flex items-start gap-2.5">
+            <XCircle className="h-5 w-5 shrink-0 text-destructive" />
+            <div className="space-y-1">
+              <p className="text-sm font-semibold text-destructive">{t("rejected_title")}</p>
+              <p className="text-sm text-muted-foreground">{t("rejected_desc")}</p>
+              {order.rejectionReason && (
+                <p className="text-sm text-foreground">
+                  <span className="font-medium">{t("rejected_reason_label")}:</span> {order.rejectionReason}
+                </p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+      {order.phase.isOnHold && (
+        <div className="rounded-lg border border-primary/30 bg-amber-50 p-4 dark:bg-amber-950/20" data-testid="tracking-onhold-banner">
+          <div className="flex items-start gap-2.5">
+            <Clock className="h-5 w-5 shrink-0 text-primary" />
+            <div className="space-y-1">
+              <p className="text-sm font-semibold">{t("onhold_title")}</p>
+              <p className="text-sm text-muted-foreground">{t("onhold_desc")}</p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Description */}
       <Card>

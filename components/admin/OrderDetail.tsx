@@ -105,12 +105,14 @@ interface OrderDetailProps {
     quotes?: import("@/components/admin/QuoteEditor").QuoteUI[];
     invoices?: InvoiceUI[];
   };
-  phases: Array<{ id: string; name: string; color: string; isPrototype?: boolean }>;
+  phases: Array<{ id: string; name: string; color: string; isPrototype?: boolean; isRejected?: boolean; isOnHold?: boolean }>;
   teamMembers: Array<{ id: string; name: string; email: string }>;
   currentUserId: string;
   isAdmin: boolean;
   /** Assignment lock applies and this is not the actor's order. */
   readOnly?: boolean;
+  /** Actor holds orders.reject on this order. */
+  canReject?: boolean;
   parts: OrderPartData[];
   availableFilaments: FilamentInventory;
   customerCredit: { id: string; balanceCents: number } | null;
@@ -127,7 +129,7 @@ function getInitials(name: string) {
 
 
 
-export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin, readOnly = false, parts: initialParts, availableFilaments, customerCredit: initialCustomerCredit, partPhases, machines, buildVolume, initialSprints, billing = { quotes: true, invoices: true } }: OrderDetailProps) {
+export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin, readOnly = false, canReject = false, parts: initialParts, availableFilaments, customerCredit: initialCustomerCredit, partPhases, machines, buildVolume, initialSprints, billing = { quotes: true, invoices: true } }: OrderDetailProps) {
   const t = useTranslations("admin");
   const tc = useTranslations("common");
   const rawLocale = useLocale();
@@ -146,6 +148,7 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
       PART_ITERATION_INCREMENTED: t("audit_iteration"),
       ORDER_ARCHIVED: t("audit_archived"),
       ORDER_UNARCHIVED: t("audit_restored"),
+      ORDER_REJECTED: t("audit_rejected"),
       DEADLINE_SET: t("audit_deadline_changed"),
       PRICE_SET: t("audit_price_updated"),
       MATERIAL_ASSIGNED: t("audit_material_assigned"),
@@ -205,6 +208,7 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
   const [togglingPrototype, setTogglingPrototype] = useState(false);
   const [orderType, setOrderType] = useState<"PRINT_ONLY" | "DESIGN">(order.orderType);
   const [archiving, setArchiving] = useState(false);
+  const [rejecting, setRejecting] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [isArchived, setIsArchived] = useState(!!order.archivedAt);
   const [files, setFiles] = useState<OrderFileData[]>(order.files);
@@ -298,6 +302,7 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
 
   const currentPhase = phases.find((p) => p.id === selectedPhaseId);
   const currentPhaseIsPrototype = !!currentPhase?.isPrototype;
+  const currentPhaseIsRejected = !!currentPhase?.isRejected;
 
   const designApproved = verificationRequests.some((vr) => vr.type === "DESIGN_REVIEW" && vr.status === "APPROVED");
   const priceRequest = verificationRequests.find((vr) => vr.type === "PRICE_APPROVAL");
@@ -501,6 +506,29 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
     }
   }
 
+  async function handleReject(reason: string) {
+    setRejecting(true);
+    try {
+      const res = await fetch(`/api/admin/orders/${order.id}/reject`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason }),
+      });
+      if (!res.ok) throw new Error();
+      const updated = await res.json();
+      // Reflect the new phase + archived state in the header immediately;
+      // router.refresh() only re-runs the server components, not this local state.
+      if (updated?.phaseId) setSelectedPhaseId(updated.phaseId);
+      setIsArchived(true);
+      toast.success(t("order_reject_success"));
+      router.refresh();
+    } catch {
+      toast.error(t("toast_action_failed"));
+    } finally {
+      setRejecting(false);
+    }
+  }
+
   async function handleTogglePrototype() {
     setTogglingPrototype(true);
     try {
@@ -669,6 +697,10 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
         isArchived={isArchived}
         archiving={archiving}
         onToggleArchive={handleToggleArchive}
+        canReject={canReject}
+        isRejected={currentPhaseIsRejected}
+        rejecting={rejecting}
+        onReject={handleReject}
         isAdmin={isAdmin}
         readOnly={readOnly}
         deleting={deleting}

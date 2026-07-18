@@ -187,3 +187,29 @@ Im Seitenbereich siehst du, welchen [[Druckjobs]] dieser Auftrag aktuell zugeord
 4. Archivierte Aufträge sind über den Filter **Archiviert** in der Liste wieder auffindbar.
 
 Archivierte Aufträge können reaktiviert werden, indem du die Archivierung aufhebst (gleicher Menüpunkt).
+
+## Auftrag ablehnen
+
+Manche Anfragen kannst oder willst du nicht umsetzen. Statt sie stillschweigend zu archivieren, lehnst du sie mit einer offiziellen Absage an den Auftraggeber ab.
+
+1. Klicke oben rechts auf das **Aktions-Menü** (drei Punkte).
+2. Wähle **Auftrag ablehnen**.
+3. Trage im Dialog den **Grund der Absage** ein (z. B. „technisch nicht umsetzbar", „außerhalb unseres Leistungsspektrums"). Der Grund wird in die Absage-E-Mail übernommen.
+4. Bestätige mit **Auftrag ablehnen**.
+
+Danach passiert Folgendes:
+
+- Der Auftrag wandert in die Phase **Abgelehnt** und wird automatisch archiviert.
+- Der Auftraggeber erhält eine **Absage-E-Mail** mit dem angegebenen Grund. Den Textbaustein passt du unter [[E-Mail-Vorlagen|settings-email]] (Karte **E-Mail: Absage**) an.
+- Auf der öffentlichen [[Sendungsverfolgung|orders]]-Seite sieht der Auftraggeber den Status **Abgelehnt** samt Grund.
+
+Die Ablehnung ist **umkehrbar**: Ziehst du den Auftrag später wieder in eine normale Phase (oder hebst die Archivierung auf), wird der Abgelehnt-Status inklusive Grund entfernt.
+
+> Die Aktion erscheint nur, wenn deine Rolle die Berechtigung **Aufträge ablehnen** besitzt (siehe [[Rollen & Rechte|settings-roles]]).
+
+## Auftrag zurückstellen (keine Kapazität)
+
+Wenn du einen Auftrag grundsätzlich annehmen möchtest, aktuell aber **keine Kapazität** hast, verschiebst du ihn in die Phase **Zurückgestellt** – über den Phasen-Chip oben in der Auftragskopfzeile.
+
+- Der Auftrag bleibt **aktiv** in der Pipeline (er wird nicht archiviert) und kann jederzeit weiterbearbeitet werden.
+- Der Auftraggeber erhält statt der normalen Status-E-Mail eine eigene, freundliche Nachricht („Wir nehmen Ihren Auftrag gerne an, haben aktuell aber keine freien Kapazitäten"). Den Text passt du unter [[E-Mail-Vorlagen|settings-email]] (Karte **E-Mail: Vorgemerkt**) an.

@@ -187,3 +187,29 @@ The sidebar shows which [[Print Jobs|jobs]] this order is currently assigned to.
 4. Archived orders can be found again via the **Archived** filter in the list.
 
 Archived orders can be reactivated by removing the archive flag (same menu item).
+
+## Declining an order
+
+Some enquiries you can't or don't want to fulfil. Instead of silently archiving them, decline them with an official notice to the customer.
+
+1. Click the **Action menu** (three dots) in the top right.
+2. Select **Decline order**.
+3. Enter the **reason for declining** in the dialog (e.g. "not technically feasible", "outside our scope of services"). The reason is included in the decline email.
+4. Confirm with **Decline order**.
+
+Then the following happens:
+
+- The order moves to the **Declined** phase and is archived automatically.
+- The customer receives a **decline email** containing the reason you gave. Adjust the wording under [[Email templates|settings-email]] (the **Email: Decline** card).
+- On the public [[order tracking|orders]] page the customer sees the **Declined** status together with the reason.
+
+Declining is **reversible**: if you later drag the order back into a normal phase (or remove the archive flag), the declined status and reason are cleared.
+
+> The action only appears if your role holds the **Decline orders** permission (see [[Roles & permissions|settings-roles]]).
+
+## Putting an order on hold (no capacity)
+
+When you would like to take on an order in principle but currently have **no capacity**, move it into the **Queued** phase — via the phase chip at the top of the order header.
+
+- The order stays **active** in the pipeline (it is not archived) and can be picked up again at any time.
+- Instead of the normal status email, the customer receives a dedicated, friendly message ("We would be happy to take on your order, but currently have no free capacity"). Adjust the text under [[Email templates|settings-email]] (the **Email: Queued** card).

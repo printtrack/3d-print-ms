@@ -188,6 +188,19 @@ export async function canEditOrder(orderId: string): Promise<boolean> {
 }
 
 /**
+ * May the current actor reject this order? Mirrors canEditOrder but gates on
+ * the orders.reject permission — computed server-side for the same reasons.
+ */
+export async function canRejectOrder(orderId: string): Promise<boolean> {
+  const actor = await getActor();
+  if (!actor) return false;
+  if (actor.isAdmin) return true;
+  if (!actor.permissions.has("orders.reject")) return false;
+  if (!actor.restricted) return true;
+  return isAssignedToOrder(actor.id, orderId);
+}
+
+/**
  * Guard for a permission that is not tied to an assignable object
  * (knowledge base, inventory). The restriction never applies here.
  */

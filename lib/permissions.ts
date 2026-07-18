@@ -33,6 +33,7 @@ export type PermissionKey =
   | "orders.edit"
   | "orders.assign"
   | "orders.archive"
+  | "orders.reject"
   | "orders.delete"
   | "billing.quotes.manage"
   | "billing.invoices.manage"
@@ -79,6 +80,7 @@ export const PERMISSIONS: PermissionDef[] = [
   { key: "orders.edit", group: "orders", scoped: true },
   { key: "orders.assign", group: "orders", scoped: true },
   { key: "orders.archive", group: "orders", scoped: true },
+  { key: "orders.reject", group: "orders", scoped: true },
   { key: "orders.delete", group: "orders", scoped: true, dangerous: true },
 
   { key: "billing.quotes.manage", group: "billing", scoped: true, feature: "quotes" },
@@ -157,6 +159,7 @@ export const DEFAULT_ROLE_PERMISSIONS: PermissionKey[] = [
   "orders.edit",
   "orders.assign",
   "orders.archive",
+  "orders.reject",
   "billing.quotes.manage",
   "billing.invoices.manage",
   "billing.payments.record",

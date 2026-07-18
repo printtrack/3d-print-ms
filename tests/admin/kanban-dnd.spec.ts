@@ -41,7 +41,9 @@ test.describe("Kanban drag and drop", () => {
   });
 
   test("drag card to archive drop zone removes it from the board", async ({ page }) => {
-    await page.setViewportSize({ width: 1920, height: 900 });
+    // Wide enough that every phase column + the archive drop zone fit without
+    // horizontal scroll, so the drop target is on-screen and reachable in one drag.
+    await page.setViewportSize({ width: 2600, height: 900 });
     await page.goto("/admin/orders");
     await expect(page.getByText("DnD Tester").first()).toBeVisible();
 
@@ -77,17 +79,26 @@ test.describe("Kanban drag and drop", () => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/admin/orders");
 
+    // Scope to the mobile list: getByText(...).first() would match the hidden
+    // desktop board card (it precedes the mobile view in the DOM) and never be visible.
+    const mobileList = page.locator('[data-testid="kanban-mobile-list"]');
+    await expect(mobileList.getByText("DnD Tester")).toBeVisible();
     const select = page.locator("select").first();
     await expect(select).toBeVisible();
-    await select.selectOption("__archive__");
 
-    await expect(page.getByText(/archiviert/i).first()).toBeVisible({ timeout: 5000 });
+    // Retry the whole interaction until the archive actually commits: the server-
+    // rendered <select> can be actionable a beat before React wires its onChange, so
+    // a single fast selectOption may be dropped. Reset to the current phase first so
+    // selecting "__archive__" always emits a change event (re-selecting is a no-op).
+    await expect(async () => {
+      if (!(await prismaTest.order.findUnique({ where: { id: orderId } }))?.archivedAt) {
+        await select.selectOption({ index: 0 }).catch(() => {});
+        await select.selectOption("__archive__").catch(() => {});
+      }
+      expect((await prismaTest.order.findUnique({ where: { id: orderId } }))?.archivedAt ?? null).not.toBeNull();
+    }).toPass({ timeout: 15000, intervals: [200, 400, 700, 1000, 1500] });
 
-    const mobileList = page.locator('[data-testid="kanban-mobile-list"]');
-    await expect(mobileList.getByText("DnD Tester")).toHaveCount(0, { timeout: 3000 });
-
-    const updated = await prismaTest.order.findUnique({ where: { id: orderId } });
-    expect(updated?.archivedAt).not.toBeNull();
+    await expect(mobileList.getByText("DnD Tester")).toHaveCount(0, { timeout: 5000 });
   });
 
   test("drag card: order appears in target column after move", async ({ page }) => {

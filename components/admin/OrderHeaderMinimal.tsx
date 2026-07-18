@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import {
   Archive,
   ArrowLeft,
+  Ban,
   Calendar,
   Check,
   ChevronDown,
@@ -24,6 +25,7 @@ import {
   Users,
   X,
 } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -75,6 +77,10 @@ interface OrderHeaderMinimalProps {
   isArchived: boolean;
   archiving: boolean;
   onToggleArchive: () => void | Promise<void>;
+  canReject: boolean;
+  isRejected: boolean;
+  rejecting: boolean;
+  onReject: (reason: string) => void | Promise<void>;
   isAdmin: boolean;
   /** Assignment lock applies — offer nothing that would 403 anyway. */
   readOnly?: boolean;
@@ -673,6 +679,10 @@ function HeaderOverflowMenu({
   isArchived,
   archiving,
   onToggleArchive,
+  canReject,
+  isRejected,
+  rejecting,
+  onReject,
   isAdmin,
   readOnly = false,
   deleting,
@@ -682,6 +692,10 @@ function HeaderOverflowMenu({
   isArchived: boolean;
   archiving: boolean;
   onToggleArchive: () => void | Promise<void>;
+  canReject: boolean;
+  isRejected: boolean;
+  rejecting: boolean;
+  onReject: (reason: string) => void | Promise<void>;
   isAdmin: boolean;
   readOnly?: boolean;
   deleting: boolean;
@@ -691,6 +705,7 @@ function HeaderOverflowMenu({
   const t = useTranslations("admin");
   const tc = useTranslations("common");
   const [open, setOpen] = useState(false);
+  const [rejectReason, setRejectReason] = useState("");
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -720,6 +735,53 @@ function HeaderOverflowMenu({
             </>
           )}
         </button>
+        {canReject && !isRejected && !readOnly && (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <button
+                type="button"
+                disabled={rejecting}
+                data-testid="order-reject-trigger"
+                className="flex w-full items-center gap-2.5 rounded-md px-2 py-1.5 text-left text-[13px] text-destructive hover:bg-destructive/10 disabled:opacity-50"
+              >
+                <Ban className="h-3.5 w-3.5" />
+                {rejecting ? t("order_reject_rejecting") : t("order_reject_action")}
+              </button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>{t("order_reject_confirm_title")}</AlertDialogTitle>
+                <AlertDialogDescription>
+                  {t("order_reject_confirm_desc", { name: customerName })}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <div className="space-y-1.5">
+                <label className="text-[13px] font-medium">{t("order_reject_reason_label")}</label>
+                <Textarea
+                  value={rejectReason}
+                  onChange={(e) => setRejectReason(e.target.value)}
+                  placeholder={t("order_reject_reason_placeholder")}
+                  rows={4}
+                  data-testid="order-reject-reason"
+                />
+              </div>
+              <AlertDialogFooter>
+                <AlertDialogCancel onClick={() => setRejectReason("")}>{tc("cancel")}</AlertDialogCancel>
+                <AlertDialogAction
+                  disabled={rejectReason.trim().length < 3}
+                  onClick={() => {
+                    setOpen(false);
+                    onReject(rejectReason.trim());
+                    setRejectReason("");
+                  }}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  {t("order_reject_action")}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
         {isAdmin && !readOnly && (
           <AlertDialog>
             <AlertDialogTrigger asChild>
@@ -782,6 +844,10 @@ export function OrderHeaderMinimal({
   isArchived,
   archiving,
   onToggleArchive,
+  canReject,
+  isRejected,
+  rejecting,
+  onReject,
   isAdmin,
   readOnly = false,
   deleting,
@@ -938,7 +1004,11 @@ export function OrderHeaderMinimal({
                 isArchived={isArchived}
                 archiving={archiving}
                 onToggleArchive={onToggleArchive}
-        readOnly={readOnly}
+                canReject={canReject}
+                isRejected={isRejected}
+                rejecting={rejecting}
+                onReject={onReject}
+                readOnly={readOnly}
                 isAdmin={isAdmin}
                 deleting={deleting}
                 onDelete={onDelete}

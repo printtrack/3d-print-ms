@@ -107,6 +107,99 @@ export async function sendPhaseChangeEmail({
   });
 }
 
+export async function sendOrderRejectedEmail({
+  customerEmail,
+  customerName,
+  reason,
+  trackingToken,
+}: {
+  customerEmail: string;
+  customerName: string;
+  reason: string;
+  trackingToken: string;
+}) {
+  const [settings, locale] = await Promise.all([
+    getSettings(),
+    getRecipientLocale(customerEmail),
+  ]);
+  const companyName = settings.company_name ?? "3D Print CMS";
+  const signature = settings.company_signature ?? (locale === "en" ? "Your 3D Print Team" : "Ihr 3D-Druck-Team");
+  const contactEmail = settings.contact_email ?? "noreply@3dprinting.local";
+  const wrap = getEmailWrappers(locale);
+  const suffix = localeSuffix(locale);
+
+  const trackingUrl = `${BASE_URL}/track/${trackingToken}`;
+  const vars = { customerName, reason, trackingUrl };
+
+  const subject = renderTemplate(
+    settings[`email_reject_subject${suffix}`] ?? settings.email_reject_subject ?? "Ihr 3D-Druck-Auftrag: Absage",
+    vars
+  );
+  const bodyText = renderTemplate(
+    settings[`email_reject_body${suffix}`] ?? settings.email_reject_body ??
+      "leider können wir Ihren Auftrag nicht annehmen.\n\nGrund: {{reason}}",
+    vars
+  );
+
+  const bodyHtml = `
+    <p>${escapeHtml(wrap.greeting(customerName))}</p>
+    ${bodyText.split("\n").map((line) => `<p>${escapeHtml(line)}</p>`).join("")}`;
+
+  await sendMail({
+    from: `${companyName} <${contactEmail}>`,
+    to: customerEmail,
+    subject,
+    text: [wrap.greeting(customerName), "", bodyText, "", wrap.closing, signature].join("\n"),
+    html: buildHtml(companyName, bodyHtml, signature),
+  });
+}
+
+export async function sendOrderOnHoldEmail({
+  customerEmail,
+  customerName,
+  trackingToken,
+}: {
+  customerEmail: string;
+  customerName: string;
+  trackingToken: string;
+}) {
+  const [settings, locale] = await Promise.all([
+    getSettings(),
+    getRecipientLocale(customerEmail),
+  ]);
+  const companyName = settings.company_name ?? "3D Print CMS";
+  const signature = settings.company_signature ?? (locale === "en" ? "Your 3D Print Team" : "Ihr 3D-Druck-Team");
+  const contactEmail = settings.contact_email ?? "noreply@3dprinting.local";
+  const wrap = getEmailWrappers(locale);
+  const suffix = localeSuffix(locale);
+
+  const trackingUrl = `${BASE_URL}/track/${trackingToken}`;
+  const vars = { customerName, trackingUrl };
+
+  const subject = renderTemplate(
+    settings[`email_onhold_subject${suffix}`] ?? settings.email_onhold_subject ?? "Ihr 3D-Druck-Auftrag wurde vorgemerkt",
+    vars
+  );
+  const bodyText = renderTemplate(
+    settings[`email_onhold_body${suffix}`] ?? settings.email_onhold_body ??
+      "wir nehmen Ihren Auftrag gerne an, haben aktuell aber leider keine freien Kapazitäten. Wir haben ihn vorgemerkt und melden uns.",
+    vars
+  );
+
+  const bodyHtml = `
+    <p>${escapeHtml(wrap.greeting(customerName))}</p>
+    ${bodyText.split("\n").map((line) => `<p>${escapeHtml(line)}</p>`).join("")}
+    <p><a href="${trackingUrl}" style="color:#6366f1">${wrap.trackLink}</a></p>`;
+
+  await sendMail({
+    from: `${companyName} <${contactEmail}>`,
+    to: customerEmail,
+    subject,
+    text: [wrap.greeting(customerName), "", bodyText, "", `${wrap.trackLink}: ${trackingUrl}`, "", wrap.closing, signature].join("\n"),
+    html: buildHtml(companyName, bodyHtml, signature),
+  });
+}
+
 export async function sendOrderConfirmationEmail({
   customerEmail,
   customerName,

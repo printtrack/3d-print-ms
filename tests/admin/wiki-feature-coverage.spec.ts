@@ -101,6 +101,9 @@ const FEATURE_CHECKS: FeatureCheck[] = [
   { feature: "Landing EN falls back to DE", de: ["englisches Feld darf leer bleiben"], en: ["English field may be left empty"] },
   { feature: "Landing edit permission", de: ["Landing-Page bearbeiten"], en: ["Edit landing page"] },
   { feature: "Landing order form block is locked", de: ["Auftragsformular kann nicht gelöscht"], en: ["order form cannot be deleted"] },
+
+  { feature: "Reject order with decline notice", de: ["Auftrag ablehnen"], en: ["Decline an order", "Decline order"] },
+  { feature: "On-hold / no capacity phase", de: ["Zurückgestellt", "keine Kapazität"], en: ["Queued", "no capacity"] },
 ];
 
 function readWikiText(locale: "de" | "en"): string {

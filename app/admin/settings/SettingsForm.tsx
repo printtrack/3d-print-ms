@@ -552,6 +552,66 @@ export function SettingsForm({
 
             <Card>
               <CardHeader>
+                <CardTitle className="text-base">E-Mail: Absage</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-xs text-muted-foreground">
+                  Verfügbare Variablen:{" "}
+                  <code className="bg-muted px-1 rounded">{"{{customerName}}"}</code>{" "}
+                  <code className="bg-muted px-1 rounded">{"{{reason}}"}</code>
+                </p>
+                <div className="space-y-2">
+                  <Label htmlFor="email_reject_subject">Betreff</Label>
+                  <Input
+                    id="email_reject_subject"
+                    value={settings.email_reject_subject ?? ""}
+                    onChange={(e) => set("email_reject_subject", e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email_reject_body">Inhalt</Label>
+                  <Textarea
+                    id="email_reject_body"
+                    rows={4}
+                    value={settings.email_reject_body ?? ""}
+                    onChange={(e) => set("email_reject_body", e.target.value)}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">E-Mail: Vorgemerkt (keine Kapazität)</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <p className="text-xs text-muted-foreground">
+                  Verfügbare Variablen:{" "}
+                  <code className="bg-muted px-1 rounded">{"{{customerName}}"}</code>{" "}
+                  <code className="bg-muted px-1 rounded">{"{{trackingUrl}}"}</code>
+                </p>
+                <div className="space-y-2">
+                  <Label htmlFor="email_onhold_subject">Betreff</Label>
+                  <Input
+                    id="email_onhold_subject"
+                    value={settings.email_onhold_subject ?? ""}
+                    onChange={(e) => set("email_onhold_subject", e.target.value)}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="email_onhold_body">Inhalt</Label>
+                  <Textarea
+                    id="email_onhold_body"
+                    rows={4}
+                    value={settings.email_onhold_body ?? ""}
+                    onChange={(e) => set("email_onhold_body", e.target.value)}
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
                 <CardTitle className="text-base">E-Mail: Freigabeanfrage</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
