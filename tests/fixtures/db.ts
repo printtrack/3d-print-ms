@@ -48,6 +48,7 @@ const TRUNCATE_ORDER = [
   "AuditLog", "OrderComment", "OrderFileNote", "OrderFile", "OrderSourceLink", "SurveyResponse", "VerificationRequest",
   "PaymentReminder", "Payment", "InvoiceItem", "Invoice", "InvoiceNumberCounter",
   "QuoteItem", "Quote",
+  "PrintDispatch",
   "PrintJobAssignee", "PrintJobFilament", "PrintJobPart", "PrintJobFile", "PrintJob",
   "OrderPartAssignee", "OrderPart", "OrderAssignee", "MachineDowntime", "_FilamentMachineCompat", "Machine",
   "MilestoneTaskAssignee", "MilestoneTask", "Milestone", "Sprint", "Order",

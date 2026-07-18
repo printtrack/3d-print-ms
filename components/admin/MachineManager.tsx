@@ -13,10 +13,18 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
-import { Cpu, Pencil, Plus, Trash2, ChevronDown, ChevronRight, Wrench } from "lucide-react";
+import { Cpu, Pencil, Plus, Trash2, ChevronDown, ChevronRight, Wrench, Printer, Loader2 } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { MachineDowntimeDialog } from "@/components/admin/MachineDowntimeDialog";
+import { PRINTER_PROFILES } from "@/lib/printers/registry";
 import { downtimeState } from "@/lib/machine-downtime";
 import { useLocale } from "next-intl";
 import { formatDateTime, localeToDateLocale } from "@/lib/utils";
@@ -29,6 +37,19 @@ interface Downtime {
   endedAt: string | null;
 }
 
+interface MachineConnection {
+  type: string;
+  profile: string | null;
+  vendor: string | null;
+  model: string | null;
+  printerId: string | null;
+  baseUrl: string | null;
+  mockState: string | null;
+  hasToken: boolean;
+}
+
+const VENDORS = [...new Set(PRINTER_PROFILES.map((p) => p.vendor))];
+
 interface Machine {
   id: string;
   name: string;
@@ -38,6 +59,9 @@ interface Machine {
   hourlyRate: number | null;
   notes: string | null;
   isActive: boolean;
+  connected?: boolean;
+  connection?: MachineConnection;
+  lastSeenState?: string | null;
   _count: { printJobs: number };
   downtimes: Downtime[];
 }
@@ -79,6 +103,28 @@ type FormData = {
   hourlyRate: string;
   notes: string;
   isActive: boolean;
+  connVendor: string; // "none" | vendor name
+  connProfile: string; // registry profile id or ""
+  connToken: string;
+  connPrinterId: string;
+  connBaseUrl: string;
+  connMockState: string;
+};
+
+const EMPTY_FORM: FormData = {
+  name: "",
+  buildVolumeX: "",
+  buildVolumeY: "",
+  buildVolumeZ: "",
+  hourlyRate: "",
+  notes: "",
+  isActive: true,
+  connVendor: "none",
+  connProfile: "",
+  connToken: "",
+  connPrinterId: "",
+  connBaseUrl: "",
+  connMockState: "IDLE",
 };
 
 export function MachineManager({ initialMachines }: { initialMachines: Machine[] }) {
@@ -94,16 +140,9 @@ export function MachineManager({ initialMachines }: { initialMachines: Machine[]
   const [downtimeMachine, setDowntimeMachine] = useState<Machine | null>(null);
   const [downtimeOpen, setDowntimeOpen] = useState(false);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
-  const [formData, setFormData] = useState<FormData>({
-    name: "",
-    buildVolumeX: "",
-    buildVolumeY: "",
-    buildVolumeZ: "",
-    hourlyRate: "",
-    notes: "",
-    isActive: true,
-  });
+  const [formData, setFormData] = useState<FormData>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
 
   function loadMachines() {
     return fetch("/api/admin/machines")
@@ -152,12 +191,13 @@ export function MachineManager({ initialMachines }: { initialMachines: Machine[]
   }
 
   function openCreate() {
-    setFormData({ name: "", buildVolumeX: "", buildVolumeY: "", buildVolumeZ: "", hourlyRate: "", notes: "", isActive: true });
+    setFormData(EMPTY_FORM);
     setEditingMachine(null);
     setIsDialogOpen(true);
   }
 
   function openEdit(machine: Machine) {
+    const conn = machine.connection;
     setFormData({
       name: machine.name,
       buildVolumeX: String(machine.buildVolumeX),
@@ -166,13 +206,79 @@ export function MachineManager({ initialMachines }: { initialMachines: Machine[]
       hourlyRate: machine.hourlyRate != null ? String(machine.hourlyRate) : "",
       notes: machine.notes ?? "",
       isActive: machine.isActive,
+      connVendor: conn?.vendor ?? "none",
+      connProfile: conn?.profile ?? "",
+      connToken: "", // never prefilled — blank keeps the stored token
+      connPrinterId: conn?.printerId ?? "",
+      connBaseUrl: conn?.baseUrl ?? "",
+      connMockState: conn?.mockState ?? "IDLE",
     });
     setEditingMachine(machine);
     setIsDialogOpen(true);
   }
 
+  // Selecting a vendor auto-picks its first model (or clears when "Keine").
+  function selectVendor(vendor: string) {
+    if (vendor === "none") {
+      setFormData((prev) => ({ ...prev, connVendor: "none", connProfile: "" }));
+      return;
+    }
+    const first = PRINTER_PROFILES.find((p) => p.vendor === vendor);
+    setFormData((prev) => ({
+      ...prev,
+      connVendor: vendor,
+      connProfile: first?.id ?? "",
+    }));
+  }
+
+  const selectedProfile = PRINTER_PROFILES.find((p) => p.id === formData.connProfile) ?? null;
+
   function field(key: keyof FormData, value: string | boolean) {
     setFormData((prev) => ({ ...prev, [key]: value }));
+  }
+
+  function buildConnectionPayload() {
+    if (formData.connVendor === "none" || !formData.connProfile) {
+      return { profile: "none" as const };
+    }
+    const profile = PRINTER_PROFILES.find((p) => p.id === formData.connProfile);
+    const isMock = profile?.transport === "mock";
+    return {
+      profile: formData.connProfile,
+      token: formData.connToken, // blank = keep stored token (server-side)
+      printerId: formData.connPrinterId.trim() || null,
+      baseUrl: formData.connBaseUrl.trim() || null,
+      mockState: isMock ? formData.connMockState : null,
+    };
+  }
+
+  async function testConnection() {
+    if (!editingMachine) return;
+    setTesting(true);
+    try {
+      // Persist the current connection config first, so the test hits what the
+      // operator just typed.
+      const saveRes = await fetch(`/api/admin/machines/${editingMachine.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ connection: buildConnectionPayload() }),
+      });
+      if (!saveRes.ok) throw new Error();
+      const res = await fetch(`/api/admin/machines/${editingMachine.id}/test-connection`, {
+        method: "POST",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.ok) {
+        toast.success(t("machine_conn_test_ok", { state: data.status?.state ?? "" }));
+        loadMachines();
+      } else {
+        toast.error(data.error || t("machine_conn_test_failed"));
+      }
+    } catch {
+      toast.error(t("machine_conn_test_failed"));
+    } finally {
+      setTesting(false);
+    }
   }
 
   async function handleSave() {
@@ -195,10 +301,11 @@ export function MachineManager({ initialMachines }: { initialMachines: Machine[]
     setSaving(true);
     try {
       if (editingMachine) {
+        const editPayload = { ...payload, connection: buildConnectionPayload() };
         const res = await fetch(`/api/admin/machines/${editingMachine.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
+          body: JSON.stringify(editPayload),
         });
         if (!res.ok) throw new Error();
         const updated = await res.json();
@@ -290,6 +397,20 @@ export function MachineManager({ initialMachines }: { initialMachines: Machine[]
                     )}
                     {!machine.isActive && (
                       <Badge variant="secondary" className="text-xs">{t("machine_badge_inactive")}</Badge>
+                    )}
+                    {machine.connected && (
+                      <Badge
+                        variant="outline"
+                        className="text-xs gap-1"
+                        data-testid="machine-conn-badge"
+                      >
+                        <Printer className="h-3 w-3" />
+                        {machine.lastSeenState
+                          ? t("machine_conn_badge_state", {
+                              state: t(`printer_state_${machine.lastSeenState.toLowerCase()}`),
+                            })
+                          : t("machine_conn_badge_connected")}
+                      </Badge>
                     )}
                   </div>
                   <p className="text-xs text-muted-foreground">
@@ -490,6 +611,140 @@ export function MachineManager({ initialMachines }: { initialMachines: Machine[]
               />
               <Label htmlFor="machine-active">{t("machine_active")}</Label>
             </div>
+
+            {editingMachine && (
+              <div className="space-y-3 pt-3 border-t">
+                <Label className="flex items-center gap-1.5">
+                  <Printer className="h-4 w-4" />
+                  {t("machine_conn_section")}
+                </Label>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="conn-vendor" className="text-xs text-muted-foreground">
+                      {t("machine_conn_vendor")}
+                    </Label>
+                    <Select value={formData.connVendor} onValueChange={selectVendor}>
+                      <SelectTrigger id="conn-vendor" data-testid="conn-vendor">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">{t("machine_conn_type_none")}</SelectItem>
+                        {VENDORS.map((v) => (
+                          <SelectItem key={v} value={v}>{v}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {formData.connVendor !== "none" && (
+                    <div className="space-y-2">
+                      <Label htmlFor="conn-model" className="text-xs text-muted-foreground">
+                        {t("machine_conn_model")}
+                      </Label>
+                      <Select
+                        value={formData.connProfile}
+                        onValueChange={(v) => field("connProfile", v)}
+                      >
+                        <SelectTrigger id="conn-model" data-testid="conn-model">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {PRINTER_PROFILES.filter((p) => p.vendor === formData.connVendor).map((p) => (
+                            <SelectItem key={p.id} value={p.id}>{p.model}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+                </div>
+
+                {selectedProfile && selectedProfile.transport === "mock" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="conn-mock" className="text-xs text-muted-foreground">
+                      {t("machine_conn_mock_state")}
+                    </Label>
+                    <Select
+                      value={formData.connMockState}
+                      onValueChange={(v) => field("connMockState", v)}
+                    >
+                      <SelectTrigger id="conn-mock" data-testid="conn-mock-state">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {["IDLE", "PRINTING", "FINISHED", "OFFLINE"].map((s) => (
+                          <SelectItem key={s} value={s}>{s}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {selectedProfile && selectedProfile.transport !== "mock" && (
+                  <>
+                    {selectedProfile.transport === "prusalink" && (
+                      <p className="text-xs text-muted-foreground">
+                        {t("machine_conn_prusalink_hint")}
+                      </p>
+                    )}
+                    {selectedProfile.transport === "prusa-connect" && (
+                      <p className="text-xs text-muted-foreground">
+                        {t("machine_conn_connect_hint")}
+                      </p>
+                    )}
+                    {selectedProfile.fields.map((f) => (
+                      <div className="space-y-2" key={f.key}>
+                        <Label htmlFor={`conn-${f.key}`} className="text-xs text-muted-foreground">
+                          {t(`machine_conn_field_${f.labelKey}`)}
+                          {!f.required && ` (${t("machine_conn_optional")})`}
+                        </Label>
+                        <Input
+                          id={`conn-${f.key}`}
+                          type={f.key === "token" ? "password" : "text"}
+                          data-testid={`conn-field-${f.key}`}
+                          placeholder={f.key === "token" ? t("machine_conn_token_placeholder") : ""}
+                          value={
+                            f.key === "token"
+                              ? formData.connToken
+                              : f.key === "printerId"
+                                ? formData.connPrinterId
+                                : formData.connBaseUrl
+                          }
+                          onChange={(e) =>
+                            field(
+                              f.key === "token"
+                                ? "connToken"
+                                : f.key === "printerId"
+                                  ? "connPrinterId"
+                                  : "connBaseUrl",
+                              e.target.value
+                            )
+                          }
+                        />
+                      </div>
+                    ))}
+                  </>
+                )}
+
+                {formData.connVendor !== "none" && selectedProfile && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full"
+                    disabled={testing}
+                    onClick={testConnection}
+                    data-testid="conn-test"
+                  >
+                    {testing ? (
+                      <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
+                    ) : (
+                      <Printer className="h-3.5 w-3.5 mr-2" />
+                    )}
+                    {t("machine_conn_test")}
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
 
           <DialogFooter>

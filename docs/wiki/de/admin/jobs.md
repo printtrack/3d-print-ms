@@ -79,6 +79,23 @@ Im Job-Detail erfasst du verwendete Filamente mit Gramm-Angabe. Der eingetragene
 
 Wenn für ein Teil im [[3D-Viewer & Druckorientierung|orders-3dviewer]] eine Druckorientierung gesetzt wurde, verwendet der Planner den Footprint der rotierten Bounding Box — was zu realistischerem Packing führt.
 
+## An Drucker senden
+
+Wenn die Maschine eine [[Einstellungen → Maschinen|settings-machines]]-**Cloud-Verbindung** hat, kannst du die geslicte Datei direkt aus dem Job an den Drucker schicken. Öffne dazu den Job und nutze im Bereich **Drucker** den Button **An Drucker senden**.
+
+Voraussetzung ist eine hochgeladene **Slicing-Datei** (`.gcode`, `.bgcode`, `.3mf`, …) am Job. Ein **Status-Badge** zeigt den Live-Zustand des Druckers (*Bereit*, *Druckt*, *Fertig (Platte belegt)*, *Offline*).
+
+### Auto-Start nur wenn frei
+
+Beim Senden prüft das System den Druckerzustand:
+
+- **Drucker ist frei (Bereit) → sofort starten.** Die Datei wird hochgeladen und der Druck **automatisch gestartet**; der Job wechselt auf **Im Druck**.
+- **Drucker druckt noch oder ein fertiges Teil liegt auf der Platte → nur hochladen.** Der Dispatch bleibt auf **Wartet auf Start**. Sobald die Platte frei ist, klickst du **Jetzt starten**.
+
+So wird nie versehentlich auf eine belegte Platte gedruckt. Über das **✕** brichst du einen wartenden oder laufenden Dispatch ab.
+
+Der Job-Status zieht automatisch nach: Meldet der Drucker den Druck als abgeschlossen, wechselt der Job auf **Verifikation ausstehend** — das übernimmt der regelmäßige Abgleich im Hintergrund.
+
 ## Subseiten
 
 - [[Druckjob erstellen & verwalten|jobs-create]] — Schritt-für-Schritt: Job anlegen, Aufträge zuweisen, Filament erfassen

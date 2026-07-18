@@ -77,6 +77,28 @@ Once the repair or maintenance is finished, click **Mark available**. The outage
 
 Use the **arrow** next to a machine to expand its **downtime history** — every past and ongoing outage with reason, time range, and note. This history is the foundation for future utilization and effectiveness statistics.
 
+## Connection to the printer
+
+So that a [[Druckjobs|print job]] can be sent straight to the printer, you configure the **connection to the printer** in the machine editor. Open a machine via the **pencil icon** and pick the **vendor** first, then the **model**:
+
+- **None** — the machine is for planning only, nothing is sent to hardware.
+- **Prusa → CORE One (Connect/Cloud)** — connected via the **Prusa Connect cloud** (exactly the path OrcaSlicer/PrusaSlicer use). Reachable from anywhere, **no VPN needed**. You enter just the **Prusa Connect API key**, which you generate in Prusa Connect under printer → Settings → *API keys*.
+- **Prusa → CORE One (PrusaLink/local)** — an alternative via **PrusaLink** (the printer's local API) for same-network operation. You enter the **printer address** (e.g. `http://192.168.1.50`) and the **PrusaLink API key**.
+- **Ultimaker → S3** — connected via the **Ultimaker Digital Factory** (cloud). You enter an **access token** and the **cluster / printer ID**, optionally a **base URL**.
+- **Test → Mock printer** — a simulated printer for trying the flow without real hardware; you pick the **simulated state** (e.g. *Ready* or *Printing*).
+
+The **vendor + model** approach means more printers can be added later without changing how it works — a new model simply appears in the picker.
+
+Credentials (API key / token) are stored **encrypted** and are **never** shown again in plain text — leaving the field blank when editing means "unchanged".
+
+> **Cloud or local:** Ultimaker and the Prusa **Connect** variant run through the vendor cloud and are reachable from outside the printer network. The Prusa **PrusaLink** variant talks to the printer locally — so the server must be able to reach the printer (same network, VPN or tunnel).
+
+### Test connection
+
+Click **Test connection**. The system saves the entered details and queries the printer state once. On success the reported state appears (e.g. *Ready*), and the machine list shows a **printer badge** with the last-seen state.
+
+How a job is sent to the printer and started is covered under [[Druckjobs|jobs]] → **Send to printer**.
+
 ## Deleting a machine
 
 Click the **trash icon**. A machine can only be deleted if **no active jobs** are assigned to it. Close or remove the jobs first.

@@ -20,11 +20,37 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { AlertTriangle, Download, Loader2, Search, ShieldCheck, Trash2, Upload, X } from "lucide-react";
+import { AlertTriangle, Download, Loader2, Printer, Search, ShieldCheck, Trash2, Upload, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PrintJob } from "./JobCard";
 import { AssigneePicker } from "@/components/admin/AssigneePicker";
 import { JobVerificationDialog } from "./JobVerificationDialog";
+
+type DispatchStatus =
+  | "QUEUED"
+  | "UPLOADING"
+  | "UPLOADED"
+  | "HELD"
+  | "STARTED"
+  | "PRINTING"
+  | "DONE"
+  | "FAILED"
+  | "CANCELLED";
+
+interface DispatchInfo {
+  id: string;
+  status: DispatchStatus;
+  holdReason: string | null;
+  error: string | null;
+  createdAt: string;
+  printJobFile: { originalName: string } | null;
+}
+
+interface PrinterStateInfo {
+  connected: boolean;
+  state: string | null;
+  error?: string;
+}
 
 interface JobDetailDialogProps {
   job: PrintJob | null;
@@ -62,6 +88,40 @@ const STATUS_COLORS: Record<PrintJob["status"], string> = {
   IN_PROGRESS: "bg-amber-100 text-amber-700",
   AWAITING_VERIFICATION: "bg-orange-100 text-orange-700",
   DONE: "bg-green-100 text-green-700",
+  CANCELLED: "bg-muted text-muted-foreground",
+};
+
+const PRINTER_STATE_LABELS: Record<string, string> = {
+  IDLE: "Bereit",
+  READY: "Bereit",
+  PRINTING: "Druckt",
+  PAUSED: "Pausiert",
+  FINISHED: "Fertig (Platte belegt)",
+  ERROR: "Fehler",
+  OFFLINE: "Offline",
+};
+
+const DISPATCH_STATUS_LABELS: Record<DispatchStatus, string> = {
+  QUEUED: "In Warteschlange",
+  UPLOADING: "Wird übertragen",
+  UPLOADED: "Übertragen",
+  HELD: "Wartet auf Start",
+  STARTED: "Gestartet",
+  PRINTING: "Druckt",
+  DONE: "Abgeschlossen",
+  FAILED: "Fehlgeschlagen",
+  CANCELLED: "Abgebrochen",
+};
+
+const DISPATCH_STATUS_COLORS: Record<DispatchStatus, string> = {
+  QUEUED: "bg-blue-100 text-blue-700",
+  UPLOADING: "bg-blue-100 text-blue-700",
+  UPLOADED: "bg-blue-100 text-blue-700",
+  HELD: "bg-amber-100 text-amber-700",
+  STARTED: "bg-emerald-100 text-emerald-700",
+  PRINTING: "bg-amber-100 text-amber-700",
+  DONE: "bg-green-100 text-green-700",
+  FAILED: "bg-destructive/10 text-destructive",
   CANCELLED: "bg-muted text-muted-foreground",
 };
 
@@ -106,6 +166,10 @@ export function JobDetailDialog({
   const [downloadingStl, setDownloadingStl] = useState(false);
   const [downloadingOrca, setDownloadingOrca] = useState(false);
   const [verifyOpen, setVerifyOpen] = useState(false);
+  const [dispatches, setDispatches] = useState<DispatchInfo[]>([]);
+  const [printerState, setPrinterState] = useState<PrinterStateInfo | null>(null);
+  const [dispatching, setDispatching] = useState(false);
+  const [startingId, setStartingId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const searchDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -121,6 +185,33 @@ export function JobDetailDialog({
       setSearchResults([]);
     }
   }, [job]);
+
+  // Load dispatch history + live printer state whenever the dialog opens.
+  useEffect(() => {
+    if (!job || !open) {
+      setDispatches([]);
+      setPrinterState(null);
+      return;
+    }
+    refreshDispatchInfo(job.id, job.machineId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [job, open]);
+
+  async function refreshDispatchInfo(jobId: string, machineId: string) {
+    try {
+      const [dRes, sRes] = await Promise.all([
+        fetch(`/api/admin/jobs/${jobId}/dispatch`),
+        fetch(`/api/admin/machines/${machineId}/status`),
+      ]);
+      if (dRes.ok) setDispatches(await dRes.json());
+      if (sRes.ok) {
+        const s = await sRes.json();
+        setPrinterState({ connected: s.connected, state: s.status?.state ?? null, error: s.error });
+      }
+    } catch {
+      /* non-fatal — the dispatch panel just stays empty */
+    }
+  }
 
   // Unique material+color requirements from parts (for display when no G-code data yet)
   const partFilaments = useMemo(() => {
@@ -147,6 +238,89 @@ export function JobDetailDialog({
   if (!job) return null;
 
   const assignedPartIds = new Set(job.parts.map((p) => p.orderPartId));
+
+  const sliceFiles = job.files ?? [];
+  const latestDispatch = dispatches[0] ?? null;
+
+  async function handleDispatch() {
+    if (!job) return;
+    if (sliceFiles.length === 0) {
+      toast.error("Keine Druckdatei vorhanden");
+      return;
+    }
+    setDispatching(true);
+    try {
+      const res = await fetch(`/api/admin/jobs/${job.id}/dispatch`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok && res.status !== 502) {
+        toast.error(data.error || "Senden fehlgeschlagen");
+        return;
+      }
+      const d = data.dispatch as DispatchInfo | undefined;
+      if (d?.status === "STARTED") {
+        toast.success("An Drucker gesendet – Druck gestartet");
+        setStatus("IN_PROGRESS");
+        onUpdated({ ...job, status: "IN_PROGRESS" });
+      } else if (d?.status === "HELD") {
+        toast.success(
+          d.holdReason === "bed_occupied"
+            ? "Datei gesendet – Platte belegt, bitte manuell starten"
+            : "Datei gesendet – Drucker beschäftigt, wartet auf Start"
+        );
+      } else if (d?.status === "FAILED") {
+        toast.error(d.error || "Senden an Drucker fehlgeschlagen");
+      }
+      await refreshDispatchInfo(job.id, job.machineId);
+    } catch {
+      toast.error("Senden fehlgeschlagen");
+    } finally {
+      setDispatching(false);
+    }
+  }
+
+  async function handleStartHeld(dispatchId: string) {
+    if (!job) return;
+    setStartingId(dispatchId);
+    try {
+      const res = await fetch(`/api/admin/dispatches/${dispatchId}/start`, {
+        method: "POST",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(data.error || "Start fehlgeschlagen");
+        return;
+      }
+      toast.success("Druck gestartet");
+      setStatus("IN_PROGRESS");
+      onUpdated({ ...job, status: "IN_PROGRESS" });
+      await refreshDispatchInfo(job.id, job.machineId);
+    } catch {
+      toast.error("Start fehlgeschlagen");
+    } finally {
+      setStartingId(null);
+    }
+  }
+
+  async function handleCancelDispatch(dispatchId: string) {
+    if (!job) return;
+    try {
+      const res = await fetch(`/api/admin/dispatches/${dispatchId}/cancel`, {
+        method: "POST",
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.error || "Abbrechen fehlgeschlagen");
+        return;
+      }
+      await refreshDispatchInfo(job.id, job.machineId);
+    } catch {
+      toast.error("Abbrechen fehlgeschlagen");
+    }
+  }
 
   async function handleSave() {
     if (!job) return;
@@ -343,7 +517,6 @@ export function JobDetailDialog({
   }
 
   const hasStlParts = job.parts.some((jp) => jp.orderPart);
-  const sliceFiles = job.files ?? [];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -653,6 +826,118 @@ export function JobDetailDialog({
               )}
               Slicing-Datei hochladen (.gcode, .3mf, …)
             </Button>
+          </div>
+
+          {/* Send to printer */}
+          <div className="space-y-3 pt-2 border-t">
+            <div className="flex items-center justify-between">
+              <Label className="flex items-center gap-1.5">
+                <Printer className="h-4 w-4" />
+                Drucker
+              </Label>
+              {printerState && (
+                <span
+                  className={cn(
+                    "text-xs px-2 py-0.5 rounded-full font-medium",
+                    !printerState.connected
+                      ? "bg-muted text-muted-foreground"
+                      : printerState.state === "IDLE" || printerState.state === "READY"
+                        ? "bg-emerald-100 text-emerald-700"
+                        : printerState.state === "PRINTING"
+                          ? "bg-amber-100 text-amber-700"
+                          : printerState.state === "OFFLINE" || printerState.state == null
+                            ? "bg-destructive/10 text-destructive"
+                            : "bg-blue-100 text-blue-700"
+                  )}
+                  data-testid="printer-state-badge"
+                >
+                  {!printerState.connected
+                    ? "Nicht verbunden"
+                    : PRINTER_STATE_LABELS[printerState.state ?? ""] ?? "Nicht erreichbar"}
+                </span>
+              )}
+            </div>
+
+            {printerState && !printerState.connected ? (
+              <p className="text-xs text-muted-foreground">
+                Für diesen Drucker ist keine Cloud-Verbindung konfiguriert. Verbindung
+                unter „Maschinen“ einrichten.
+              </p>
+            ) : (
+              <Button
+                variant="default"
+                size="sm"
+                className="w-full"
+                disabled={dispatching || sliceFiles.length === 0}
+                onClick={handleDispatch}
+                data-testid="dispatch-btn"
+              >
+                {dispatching ? (
+                  <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
+                ) : (
+                  <Printer className="h-3.5 w-3.5 mr-2" />
+                )}
+                An Drucker senden
+              </Button>
+            )}
+
+            {dispatches.length > 0 && (
+              <div className="space-y-1.5" data-testid="dispatch-list">
+                {dispatches.slice(0, 4).map((d) => (
+                  <div
+                    key={d.id}
+                    className="flex items-center gap-2 p-2 bg-muted/40 rounded text-sm"
+                    data-testid="dispatch-row"
+                    data-status={d.status}
+                  >
+                    <span
+                      className={cn(
+                        "text-xs px-1.5 py-0.5 rounded font-medium shrink-0",
+                        DISPATCH_STATUS_COLORS[d.status]
+                      )}
+                    >
+                      {DISPATCH_STATUS_LABELS[d.status]}
+                    </span>
+                    <span className="text-xs text-muted-foreground truncate flex-1">
+                      {d.status === "HELD" && d.holdReason === "bed_occupied"
+                        ? "Platte belegt"
+                        : d.status === "HELD"
+                          ? "Drucker beschäftigt"
+                          : d.error
+                            ? d.error
+                            : (d.printJobFile?.originalName ?? "")}
+                    </span>
+                    {d.status === "HELD" && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 shrink-0"
+                        disabled={startingId === d.id}
+                        onClick={() => handleStartHeld(d.id)}
+                        data-testid="dispatch-start-btn"
+                      >
+                        {startingId === d.id ? (
+                          <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                          "Jetzt starten"
+                        )}
+                      </Button>
+                    )}
+                    {["HELD", "STARTED", "PRINTING"].includes(d.status) && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-destructive hover:text-destructive shrink-0"
+                        onClick={() => handleCancelDispatch(d.id)}
+                        title="Abbrechen"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
         </div>

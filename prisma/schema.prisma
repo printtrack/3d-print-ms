@@ -34,6 +34,26 @@ enum MachineDowntimeReason {
   DEFECT
 }
 
+enum PrinterConnectionType {
+  NONE
+  MOCK
+  PRUSALINK
+  PRUSA_CONNECT
+  ULTIMAKER_CLOUD
+}
+
+enum PrintDispatchStatus {
+  QUEUED
+  UPLOADING
+  UPLOADED
+  HELD
+  STARTED
+  PRINTING
+  DONE
+  FAILED
+  CANCELLED
+}
+
 enum OrderType {
   PRINT_ONLY
   DESIGN
@@ -292,10 +312,21 @@ model Machine {
   hourlyRate          Decimal?          @db.Decimal(10, 2)
   notes               String?           @db.Text
   isActive            Boolean           @default(true)
+  // Cloud connection to the physical printer (Prusa Connect / Ultimaker Digital
+  // Factory). connectionConfigEnc is AES-256-GCM encrypted JSON
+  // { token, printerId, baseUrl, mockState? } — never returned in plaintext.
+  connectionType      PrinterConnectionType @default(NONE)
+  // Registry profile id (vendor + model, e.g. "prusa-core-one"). Drives the
+  // transport and file-format capabilities — see lib/printers/registry.ts.
+  printerProfile      String?
+  connectionConfigEnc String?           @db.Text
+  lastSeenState       String? // last reported printer state (IDLE/PRINTING/...)
+  lastSeenAt          DateTime?
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt
   printJobs           PrintJob[]
   downtimes           MachineDowntime[]
+  dispatches          PrintDispatch[]
   // Filament spools that are compatible with this machine. Empty on the filament
   // side = that spool works everywhere.
   compatibleFilaments Filament[]        @relation("FilamentMachineCompat")
@@ -334,17 +365,46 @@ model PrintJob {
   filamentUsages     PrintJobFilament[]
   files              PrintJobFile[]
   assignees          PrintJobAssignee[]
+  dispatches         PrintDispatch[]
 }
 
 model PrintJobFile {
-  id           String   @id @default(cuid())
-  printJob     PrintJob @relation(fields: [printJobId], references: [id], onDelete: Cascade)
+  id           String          @id @default(cuid())
+  printJob     PrintJob        @relation(fields: [printJobId], references: [id], onDelete: Cascade)
   printJobId   String
   filename     String
   originalName String
   mimeType     String
   size         Int
-  createdAt    DateTime @default(now())
+  createdAt    DateTime        @default(now())
+  dispatches   PrintDispatch[]
+}
+
+// One attempt to send a print job's G-code to a physical printer and (optionally)
+// start it. Auto-start only fires when the printer reports it is truly idle;
+// otherwise the file is uploaded and the dispatch waits in HELD for a manual start.
+model PrintDispatch {
+  id             String              @id @default(cuid())
+  printJob       PrintJob            @relation(fields: [printJobId], references: [id], onDelete: Cascade)
+  printJobId     String
+  machine        Machine             @relation(fields: [machineId], references: [id])
+  machineId      String
+  printJobFile   PrintJobFile        @relation(fields: [printJobFileId], references: [id])
+  printJobFileId String
+  status         PrintDispatchStatus @default(QUEUED)
+  autoStart      Boolean             @default(true)
+  providerRef    String? // id the printer/cloud assigned to the uploaded job
+  holdReason     String? // printer_busy | bed_occupied — why auto-start was skipped
+  error          String?             @db.Text
+  createdBy      String?
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @updatedAt
+  startedAt      DateTime?
+  finishedAt     DateTime?
+
+  @@index([printJobId])
+  @@index([machineId])
+  @@index([status])
 }
 
 model PrintJobPart {

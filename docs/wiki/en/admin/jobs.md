@@ -79,6 +79,23 @@ In the job detail you record filaments used with gram amounts. The entered usage
 
 If a print orientation has been set for a part in the [[3D Viewer & Print Orientation|orders-3dviewer]], the planner uses the footprint of the rotated bounding box — leading to more realistic packing.
 
+## Send to printer
+
+If the machine has a [[Einstellungen → Maschinen|settings-machines]] **cloud connection**, you can send the sliced file straight from the job to the printer. Open the job and use the **Send to printer** button in the **Printer** section.
+
+This requires an uploaded **slicing file** (`.gcode`, `.bgcode`, `.3mf`, …) on the job. A **status badge** shows the live printer state (*Ready*, *Printing*, *Finished (bed occupied)*, *Offline*).
+
+### Auto-start only when free
+
+When you send, the system checks the printer state:
+
+- **Printer is free (Ready) → start immediately.** The file is uploaded and the print is **started automatically**; the job moves to **In progress**.
+- **Printer is still printing or a finished part is on the bed → upload only.** The dispatch stays at **Waiting to start**. Once the bed is clear, click **Start now**.
+
+This way nothing is ever printed onto an occupied bed by accident. Use the **✕** to cancel a waiting or running dispatch.
+
+The job status follows along automatically: when the printer reports the print as finished, the job moves to **Awaiting verification** — handled by the periodic background sync.
+
 ## Sub-pages
 
 - [[Create & manage print jobs|jobs-create]] — step by step: create job, assign orders, record filament usage

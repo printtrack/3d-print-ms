@@ -87,8 +87,23 @@ export function JobsView({ machines, initialJobs, teamMembers = [] }: JobsViewPr
       }
     }
 
-    runAutoTransition();
-    const id = setInterval(runAutoTransition, 60_000);
+    // Also poll dispatches so printer-driven state (STARTED → PRINTING → DONE)
+    // flows back into the board without a manual reload.
+    async function refreshDispatches() {
+      try {
+        await fetch("/api/admin/dispatches/refresh", { method: "POST" });
+      } catch {
+        // silently ignore network errors
+      }
+    }
+
+    async function tick() {
+      await runAutoTransition();
+      await refreshDispatches();
+    }
+
+    tick();
+    const id = setInterval(tick, 60_000);
     return () => clearInterval(id);
   }, []);
 

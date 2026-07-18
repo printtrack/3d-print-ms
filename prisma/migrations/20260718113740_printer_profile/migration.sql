@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE `Machine` ADD COLUMN `printerProfile` VARCHAR(191) NULL,
+    MODIFY `connectionType` ENUM('NONE', 'MOCK', 'PRUSALINK', 'PRUSA_CONNECT', 'ULTIMAKER_CLOUD') NOT NULL DEFAULT 'NONE';
+

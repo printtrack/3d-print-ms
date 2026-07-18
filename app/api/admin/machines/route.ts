@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { assertAdmin, assertSignedIn } from "@/lib/authz";
+import { toPublicMachine } from "@/lib/printers";
 import { z } from "zod";
 
 const createSchema = z.object({
@@ -26,7 +27,7 @@ export async function GET() {
     },
   });
 
-  return NextResponse.json(machines);
+  return NextResponse.json(machines.map(toPublicMachine));
 }
 
 export async function POST(req: NextRequest) {
@@ -49,7 +50,7 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    return NextResponse.json(machine, { status: 201 });
+    return NextResponse.json(toPublicMachine(machine), { status: 201 });
   } catch (err) {
     if (err instanceof z.ZodError) {
       return NextResponse.json({ error: "Ungültige Eingabe" }, { status: 400 });

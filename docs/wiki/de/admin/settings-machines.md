@@ -77,6 +77,28 @@ Ist die Reparatur oder Wartung abgeschlossen, klicke **Wieder verfügbar**. Der 
 
 Über den **Pfeil** neben einer Maschine klappst du die **Ausfall-Historie** auf — alle vergangenen und laufenden Ausfälle mit Grund, Zeitraum und Notiz. Diese Historie ist die Grundlage für spätere Auslastungs- und Effektivitätsstatistiken.
 
+## Anbindung an den Drucker
+
+Damit ein [[Druckjobs|Druckjob]] direkt an den Drucker geschickt werden kann, hinterlegst du im Maschinen-Editor die **Anbindung an den Drucker**. Öffne eine Maschine über das **Stift-Symbol** und wähle zuerst die **Firma**, dann das **Modell**:
+
+- **Keine** — Maschine ist nur zur Planung da, kein Versand an Hardware.
+- **Prusa → CORE One (Connect/Cloud)** — Anbindung über die **Prusa-Connect-Cloud** (genau der Weg, den auch OrcaSlicer/PrusaSlicer nutzen). Von überall erreichbar, **kein VPN nötig**. Du trägst nur den **Prusa Connect API-Key** ein, den du in Prusa Connect unter Drucker → Einstellungen → *API keys* erzeugst.
+- **Prusa → CORE One (PrusaLink/lokal)** — Alternative über **PrusaLink** (lokale Drucker-API) für Betrieb im gleichen Netz. Du trägst die **Drucker-Adresse** (z. B. `http://192.168.1.50`) und den **PrusaLink API-Key** ein.
+- **Ultimaker → S3** — Anbindung über die **Ultimaker Digital Factory** (Cloud). Du trägst **Zugangs-Token** und **Cluster-/Drucker-ID** ein, optional eine **Basis-URL**.
+- **Test → Mock-Drucker** — simulierter Drucker zum Ausprobieren ohne echte Hardware; du wählst den **simulierten Zustand** (z. B. *Bereit* oder *Druckt*).
+
+Über das **Firma + Modell**-Prinzip lassen sich später weitere Drucker ergänzen, ohne die Bedienung zu ändern — es kommt einfach ein neues Modell in die Auswahl.
+
+Zugangsdaten (API-Key/Token) werden **verschlüsselt** gespeichert und **nie** wieder im Klartext angezeigt — beim Bearbeiten leer lassen bedeutet „unverändert".
+
+> **Cloud oder lokal:** Ultimaker und die Prusa-**Connect**-Variante laufen über die Hersteller-Cloud und sind auch von außerhalb des Druckernetzes erreichbar. Die Prusa-**PrusaLink**-Variante spricht den Drucker direkt lokal an — dafür muss der Server den Drucker im Netz erreichen (gleiches Netz, VPN oder Tunnel).
+
+### Verbindung testen
+
+Klicke **Verbindung testen**. Das System speichert die eingegebenen Daten und fragt einmal den Druckerzustand ab. Bei Erfolg erscheint der gemeldete Zustand (z. B. *Bereit*), und in der Maschinenliste zeigt ein **Drucker-Badge** den zuletzt gesehenen Zustand.
+
+Wie ein Job an den Drucker geschickt und gestartet wird, steht unter [[Druckjobs|jobs]] → **An Drucker senden**.
+
 ## Maschine löschen
 
 Klicke auf das **Papierkorb-Symbol**. Eine Maschine kann nur gelöscht werden, wenn ihr **keine aktiven Jobs** mehr zugeordnet sind. Schließe oder entferne die Jobs zuerst.

@@ -104,6 +104,13 @@ const FEATURE_CHECKS: FeatureCheck[] = [
 
   { feature: "Reject order with decline notice", de: ["Auftrag ablehnen"], en: ["Decline an order", "Decline order"] },
   { feature: "On-hold / no capacity phase", de: ["Zurückgestellt", "keine Kapazität"], en: ["Queued", "no capacity"] },
+
+  { feature: "Printer connection", de: ["Anbindung an den Drucker"], en: ["Connection to the printer"] },
+  { feature: "Printer vendor+model profiles", de: ["wähle zuerst die **Firma**, dann das **Modell**"], en: ["pick the **vendor** first, then the **model**"] },
+  { feature: "Prusa via cloud like OrcaSlicer", de: ["Prusa-Connect-Cloud", "auch OrcaSlicer"], en: ["Prusa Connect cloud", "OrcaSlicer"] },
+  { feature: "Prusa cloud-or-local choice", de: ["Cloud oder lokal"], en: ["Cloud or local"] },
+  { feature: "Send print job to printer", de: ["An Drucker senden"], en: ["Send to printer"] },
+  { feature: "Auto-start only when free", de: ["Auto-Start nur wenn frei"], en: ["Auto-start only when free"] },
 ];
 
 function readWikiText(locale: "de" | "en"): string {
