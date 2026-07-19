@@ -76,6 +76,7 @@ const FEATURE_CHECKS: FeatureCheck[] = [
   { feature: "Registration modes", de: ["Nur mit Einladung", "Geschlossen"], en: ["Invitation only", "Closed"] },
   { feature: "Customer invitations", de: ["Einladungen"], en: ["Invitations"] },
   { feature: "Invitation link expiry / single use", de: ["nur einmal einlösbar"], en: ["redeemable once"] },
+  { feature: "Team member invitation link", de: ["per Einladungslink"], en: ["via invitation link"] },
 
   { feature: "Landing page builder", de: ["Landing-Page-Builder"], en: ["Landing page builder"] },
   { feature: "Landing default content / init", de: ["Seite anpassen"], en: ["Customize page"] },

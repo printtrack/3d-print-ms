@@ -65,9 +65,10 @@ Das Kunden-Konto wird dauerhaft gelöscht. Bestehende **Aufträge**, die diesem 
 
 ## Einladungen
 
-Unterhalb der Kundenliste verwaltest du **Einladungen** ins Kundenportal. Der Abschnitt erscheint,
-sobald die Registrierung nicht auf „Geschlossen“ steht — wie neue Konten grundsätzlich entstehen,
-legst du unter [[Einstellungen|settings]] → Auftragsannahme fest.
+Oben rechts öffnet **Hinzufügen** ein Menü mit zwei Wegen: **Neuer Kunde** (Konto direkt mit
+Startpasswort anlegen) und **Einladen** (Einladungs-Dialog ins Kundenportal). Der Menüpunkt
+**Einladen** erscheint nur, solange die Registrierung nicht auf „Geschlossen“ steht — wie neue Konten
+grundsätzlich entstehen, legst du unter [[Einstellungen|settings]] → Auftragsannahme fest.
 
 Zwei Arten von Einladung:
 
@@ -80,9 +81,11 @@ Zwei Arten von Einladung:
 
 Eine **Notiz** (z. B. „Messekontakt“) hilft dir später beim Zuordnen; der Kunde sieht sie nicht.
 
-Jede Einladung ist **14 Tage gültig** und **nur einmal einlösbar**. Die Liste zeigt je Einladung den
-Zustand — Offen, Eingelöst oder Abgelaufen. Bei offenen Einladungen kannst du den Link über das
-Kopier-Symbol erneut kopieren; über das Papierkorb-Symbol widerrufst du eine Einladung jederzeit.
+Jede Einladung ist **14 Tage gültig** und **nur einmal einlösbar**. Ausstehende Einladungen erscheinen
+**direkt in der Kundenliste** — als gedämpfte Karte mit dem Hinweis **Einladung ausstehend** (bzw.
+**Einladung abgelaufen**). Bei offenen Einladungen kannst du den Link über das Kopier-Symbol erneut
+kopieren; über das Papierkorb-Symbol widerrufst du eine Einladung jederzeit. Sobald sie eingelöst
+wird, wird aus der Karte ein normales Kundenkonto.
 
 ## Kunden-Portal
 

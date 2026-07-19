@@ -9,10 +9,11 @@ test.describe("Team management", () => {
     await expect(page.getByRole("paragraph").filter({ hasText: /^Admin$/ })).toBeVisible();
   });
 
-  test("can invite a new team member", async ({ seed, page }) => {
+  test("can create a new team member directly", async ({ seed, page }) => {
     await page.goto("/admin/team");
 
     await page.getByRole("button", { name: /Hinzufügen/i }).click();
+    await page.getByRole("menuitem", { name: "Mitglied anlegen" }).click();
 
     await page.getByPlaceholder("Max Mustermann").fill("New Team Member");
     await page.getByPlaceholder("max@example.com").fill("newmember@example.com");

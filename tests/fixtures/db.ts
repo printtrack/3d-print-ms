@@ -57,7 +57,7 @@ const TRUNCATE_ORDER = [
   "KnowledgeEntry", "KnowledgeFile",
   "Session", "Account", "PasswordResetToken",
   "CalendarEvent", "CalendarSubscription",
-  "CustomerEmailVerificationToken", "CustomerInvite", "OrderPartIteration", "CustomerCredit", "Customer", "User",
+  "CustomerEmailVerificationToken", "CustomerInvite", "TeamInvite", "OrderPartIteration", "CustomerCredit", "Customer", "User",
   "TeamRolePermission", "TeamRole", "VerificationToken",
   "LandingBlock",
 ];
@@ -167,6 +167,34 @@ export async function createTestCustomerInvite(
     data: {
       email: overrides.email ?? null,
       note: overrides.note ?? null,
+      expiresAt: overrides.expiresAt ?? new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+      usedAt: overrides.usedAt ?? null,
+      usedById: overrides.usedById ?? null,
+      createdById: overrides.createdById ?? null,
+    },
+  });
+}
+
+export async function createTestTeamInvite(
+  overrides: Partial<{
+    email: string | null;
+    note: string | null;
+    role: "ADMIN" | "TEAM_MEMBER";
+    teamRoleId: string | null;
+    restrictedToAssigned: boolean | null;
+    expiresAt: Date;
+    usedAt: Date | null;
+    usedById: string | null;
+    createdById: string | null;
+  }> = {}
+) {
+  return prismaTest.teamInvite.create({
+    data: {
+      email: overrides.email ?? null,
+      note: overrides.note ?? null,
+      role: overrides.role ?? "TEAM_MEMBER",
+      teamRoleId: overrides.teamRoleId ?? null,
+      restrictedToAssigned: overrides.restrictedToAssigned ?? null,
       expiresAt: overrides.expiresAt ?? new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
       usedAt: overrides.usedAt ?? null,
       usedById: overrides.usedById ?? null,

@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getRegistrationMode } from "@/lib/order-intake";
 import { CustomerManager } from "@/components/admin/CustomerManager";
-import { CustomerInviteManager } from "@/components/admin/CustomerInviteManager";
 
 export const dynamic = "force-dynamic";
 
@@ -32,14 +31,13 @@ export default async function CustomersPage() {
     createdAt: c.createdAt.toISOString(),
   }));
 
-  // With registration closed an invite could not be redeemed — nothing to offer.
-  // The mode itself lives in Settings → Auftragsannahme.
+  // With registration closed an invite could not be redeemed — hide the invite
+  // option. The mode itself lives in Settings → Auftragsannahme.
   const registrationMode = await getRegistrationMode();
 
   return (
     <div className="space-y-6">
-      <CustomerManager initialCustomers={serialized} />
-      {registrationMode !== "closed" && <CustomerInviteManager />}
+      <CustomerManager initialCustomers={serialized} canInvite={registrationMode !== "closed"} />
     </div>
   );
 }

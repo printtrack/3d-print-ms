@@ -34,7 +34,7 @@ Welcome to the help wiki. Here you'll find an explanation for each area of the s
 | [[Settings → Billing & Documents|settings-billing]] | Billing rules, dunning and document templates |
 | [[Settings → Email templates|settings-email]] | Configure automatic customer notifications |
 | [[Settings → Phases|settings-phases]] | Manage order, part and project phases |
-| [[Settings → Team|settings-team]] | Invite team members and assign roles |
+| [[Team]] | Create and invite team members and assign roles |
 | [[Settings → Machines|settings-machines]] | Add 3D printers and configure build volume |
 
 ## Search

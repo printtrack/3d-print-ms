@@ -20,7 +20,9 @@ export function SignInForm() {
   const callbackUrl = searchParams.get("callbackUrl") ?? "/admin";
 
   const [loading, setLoading] = useState(false);
-  const [form, setForm] = useState({ email: "", password: "" });
+  // Prefilled after redeeming a team invite (?email=…) so the new member only
+  // has to type the password they just chose.
+  const [form, setForm] = useState({ email: searchParams.get("email") ?? "", password: "" });
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

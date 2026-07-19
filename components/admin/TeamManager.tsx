@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -23,8 +23,20 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
 import { formatDate } from "@/lib/utils";
-import { Plus, Trash2, Pencil, Shield, User, Lock } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Plus, Trash2, Pencil, Shield, User, Lock, UserPlus, Mail } from "lucide-react";
 import { useTranslations } from "next-intl";
+import {
+  TeamInviteDialog,
+  PendingTeamInviteCard,
+  isPendingInvite,
+  type TeamInvite,
+} from "@/components/admin/TeamInviteManager";
 
 export interface TeamMember {
   id: string;
@@ -158,6 +170,48 @@ export function TeamManager({
     teamRoleId: defaultRoleId,
     restriction: "inherit" as RestrictionChoice,
   });
+
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [invites, setInvites] = useState<TeamInvite[]>([]);
+
+  const loadInvites = useCallback(async () => {
+    try {
+      const res = await fetch("/api/admin/team/invites");
+      if (!res.ok) throw new Error();
+      setInvites(await res.json());
+    } catch {
+      toast.error(t("team_invite_load_failed"));
+    }
+  }, [t]);
+
+  useEffect(() => {
+    loadInvites();
+  }, [loadInvites]);
+
+  async function copyInviteLink(token: string) {
+    try {
+      await navigator.clipboard.writeText(
+        `${window.location.origin}/auth/accept-invite?token=${token}`
+      );
+      toast.success(t("team_invite_copied"));
+    } catch {
+      toast.error(t("team_invite_copy_failed"));
+    }
+  }
+
+  async function revokeInvite(token: string) {
+    if (!confirm(t("team_invite_delete_confirm"))) return;
+    try {
+      const res = await fetch(`/api/admin/team/invites/${token}`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+      setInvites((prev) => prev.filter((i) => i.token !== token));
+      toast.success(t("team_invite_deleted"));
+    } catch {
+      toast.error(t("team_invite_delete_failed"));
+    }
+  }
+
+  const pendingInvites = invites.filter(isPendingInvite);
 
   const [editingMember, setEditingMember] = useState<TeamMember | null>(null);
   const [editForm, setEditForm] = useState({
@@ -304,10 +358,24 @@ export function TeamManager({
             {t("team_desc")}
           </p>
         </div>
-        <Button onClick={openCreate}>
-          <Plus className="h-4 w-4 mr-2" />
-          {tc("add")}
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button>
+              <Plus className="h-4 w-4 mr-2" />
+              {tc("add")}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={openCreate}>
+              <UserPlus className="h-4 w-4 mr-2" />
+              {t("team_add_member")}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setInviteOpen(true)}>
+              <Mail className="h-4 w-4 mr-2" />
+              {t("team_add_invite")}
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       <div className="grid gap-3">
@@ -394,11 +462,30 @@ export function TeamManager({
             </CardContent>
           </Card>
         ))}
+
+        {/* Pending invitations sit in the same list as members, flagged as not
+            yet active. Redeemed invites drop out — that person is a member now. */}
+        {pendingInvites.map((invite) => (
+          <PendingTeamInviteCard
+            key={invite.token}
+            invite={invite}
+            roleName={invite.teamRoleId ? roles.find((r) => r.id === invite.teamRoleId)?.name ?? null : null}
+            onCopy={copyInviteLink}
+            onRevoke={revokeInvite}
+          />
+        ))}
       </div>
 
-      {members.length === 0 && (
+      {members.length === 0 && pendingInvites.length === 0 && (
         <div className="text-center py-12 text-muted-foreground">{t("team_empty")}</div>
       )}
+
+      <TeamInviteDialog
+        roles={roles}
+        open={inviteOpen}
+        onOpenChange={setInviteOpen}
+        onCreated={(invite) => setInvites((prev) => [invite, ...prev])}
+      />
 
       <Dialog open={!!editingMember} onOpenChange={(open) => { if (!open) setEditingMember(null); }}>
         <DialogContent>

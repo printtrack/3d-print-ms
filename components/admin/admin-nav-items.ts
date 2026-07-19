@@ -10,6 +10,7 @@ export const ADMIN_NAV_HREFS = [
   "/admin/knowledge",
   "/admin/landing",
   "/admin/customers",
+  "/admin/team",
   "/admin/settings",
 ] as const;
 

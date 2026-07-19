@@ -24,25 +24,11 @@ export default async function SettingsPage({
     getEnabledFeatures(),
   ]);
 
-  const [settings, phases, members, machines, partPhases, projectPhases, projectFilePhases, subscriptions, roles] = await Promise.all([
+  const [settings, phases, machines, partPhases, projectPhases, projectFilePhases, subscriptions, roles] = await Promise.all([
     getSettings(),
     prisma.orderPhase.findMany({
       orderBy: { position: "asc" },
       include: { _count: { select: { orders: true } } },
-    }),
-    prisma.user.findMany({
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        createdAt: true,
-        teamRoleId: true,
-        restrictedToAssigned: true,
-        teamRole: { select: { id: true, name: true, color: true, restricted: true } },
-        _count: { select: { assignedOrders: true } },
-      },
-      orderBy: { createdAt: "asc" },
     }),
     prisma.machine.findMany({
       orderBy: { name: "asc" },
@@ -72,18 +58,6 @@ export default async function SettingsPage({
       },
     }),
   ]);
-
-  const serializedMembers = members.map((m) => ({
-    ...m,
-    createdAt: m.createdAt.toISOString(),
-  }));
-
-  const roleOptions = roles.map((r) => ({
-    id: r.id,
-    name: r.name,
-    restricted: r.restricted,
-    isDefault: r.isDefault,
-  }));
 
   const serializedMachines = machines.map((m) => ({
     ...m,
@@ -135,15 +109,12 @@ export default async function SettingsPage({
         initialSettings={settings}
         defaultTab={tab}
         initialPhases={phases}
-        initialMembers={serializedMembers}
-        currentUserId={session?.user?.id ?? ""}
         initialMachines={serializedMachines}
         initialPartPhases={partPhases}
         initialProjectPhases={projectPhases}
         initialProjectFilePhases={projectFilePhases}
         initialSubscriptions={serializedSubscriptions}
         initialRoles={serializedRoles}
-        roleOptions={roleOptions}
         enabledFeatures={enabledFeatures}
       />
     </div>

@@ -29,8 +29,9 @@ The Settings area is **admin-only**. This is where you configure the entire syst
 | **Part phases** | Manage phases for individual parts → [[Settings → Phases|settings-phases]] |
 | **Project phases** | Manage phases for projects → [[Settings → Phases|settings-phases]] |
 | **Project file phases** | Dedicated phases for project files (e.g. Draft → In Review → Final) → [[Projects\|projects]] |
-| **Team** | Invite and manage team members → [[Settings → Team|settings-team]] |
 | **Machines** | Add and configure 3D printers → [[Settings → Machines|settings-machines]] |
+
+> Team management is no longer a settings section but its own page: [[Team]] (sidebar → "Knowledge & Admin").
 
 ## Company data (Tab: Company)
 
@@ -145,5 +146,5 @@ Enter imprint and privacy policy text. These appear on the public pages (`/legal
 - [[Settings → Billing & Documents|settings-billing]] — billing rules, dunning and document templates
 - [[Settings → Email templates|settings-email]] — configure automatic customer notifications
 - [[Settings → Phases|settings-phases]] — order phases, part phases and project phases
-- [[Settings → Team|settings-team]] — manage team members
+- [[Team]] — manage team members (its own page under "Knowledge & Admin")
 - [[Settings → Machines|settings-machines]] — add 3D printers

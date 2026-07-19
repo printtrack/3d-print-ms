@@ -29,8 +29,9 @@ Der Einstellungsbereich ist **ausschließlich für Admins**. Hier konfigurierst 
 | **Teilphasen** | Phasen für Einzelteile verwalten → [[Einstellungen → Phasen|settings-phases]] |
 | **Projektphasen** | Phasen für Projekte verwalten → [[Einstellungen → Phasen|settings-phases]] |
 | **Projekt-Dateiphasen** | Eigene Phasen für Projektdateien (z. B. Entwurf → In Prüfung → Final) → [[Projekte\|projects]] |
-| **Team** | Teammitglieder einladen und Rollen verwalten → [[Einstellungen → Team|settings-team]] |
 | **Maschinen** | 3D-Drucker anlegen und konfigurieren → [[Einstellungen → Maschinen|settings-machines]] |
+
+> Die Teamverwaltung ist keine Einstellungs-Sektion mehr, sondern eine eigene Seite: [[Team]] (Sidebar → „Wissen & Verwaltung").
 
 ## Firmendaten (Tab: Unternehmen)
 
@@ -148,5 +149,5 @@ Hinterlege Impressum und Datenschutzerklärung. Diese Texte erscheinen auf den �
 - [[Einstellungen → Abrechnung & Belege|settings-billing]] — Abrechnungsregeln, Mahnwesen und Belegvorlagen
 - [[Einstellungen → E-Mail-Vorlagen|settings-email]] — automatische Phasen-E-Mails konfigurieren
 - [[Einstellungen → Phasen|settings-phases]] — Auftragsphasen, Teilphasen und Projektphasen
-- [[Einstellungen → Team|settings-team]] — Teammitglieder verwalten
+- [[Team]] — Teammitglieder verwalten (eigene Seite unter „Wissen & Verwaltung")
 - [[Einstellungen → Maschinen|settings-machines]] — 3D-Drucker anlegen

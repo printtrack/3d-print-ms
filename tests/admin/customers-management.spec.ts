@@ -11,6 +11,7 @@ test.describe("Admin Customer Management", () => {
   test("happy path: admin creates customer — appears with Verifiziert badge", async ({ seed, page }) => {
     await page.goto("/admin/customers");
     await page.getByRole("button", { name: "Hinzufügen" }).click();
+    await page.getByRole("menuitem", { name: "Neuer Kunde" }).click();
 
     const dialog = page.getByRole("dialog");
     await dialog.getByLabel("Name *").fill("Erika Muster");
@@ -81,6 +82,7 @@ test.describe("Admin Customer Management", () => {
 
     await page.goto("/admin/customers");
     await page.getByRole("button", { name: "Hinzufügen" }).click();
+    await page.getByRole("menuitem", { name: "Neuer Kunde" }).click();
 
     const dialog = page.getByRole("dialog");
     await dialog.getByLabel("Name *").fill("Zweiter");

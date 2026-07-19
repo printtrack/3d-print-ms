@@ -65,9 +65,10 @@ The customer account is permanently deleted. Existing **orders** linked to that 
 
 ## Invitations
 
-Below the customer list you manage **invitations** to the customer portal. The section appears as
-long as registration is not set to "Closed" — how new accounts come into existence at all is
-decided under [[Settings|settings]] → Order intake.
+At the top right, **Add** opens a menu with two paths: **New customer** (create an account directly
+with a starting password) and **Invite** (invitation dialog to the customer portal). The **Invite**
+item only appears as long as registration is not set to "Closed" — how new accounts come into
+existence at all is decided under [[Settings|settings]] → Order intake.
 
 Two kinds of invitation:
 
@@ -80,9 +81,10 @@ Two kinds of invitation:
 
 A **note** (e.g. "trade fair contact") helps you match it up later; the customer never sees it.
 
-Every invitation is **valid for 14 days** and **redeemable once**. The list shows each invitation's
-state — Open, Redeemed or Expired. For open invitations you can re-copy the link via the copy icon,
-and the bin icon revokes an invitation at any time.
+Every invitation is **valid for 14 days** and **redeemable once**. Pending invitations show up
+**right in the customer list** — as a muted card marked **Invitation pending** (or **Invitation
+expired**). For open invitations you can re-copy the link via the copy icon, and the bin icon revokes
+an invitation at any time. Once it is redeemed, the card turns into a normal customer account.
 
 ## The customer portal
 

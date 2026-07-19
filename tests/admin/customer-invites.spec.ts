@@ -95,8 +95,11 @@ test.describe("invite management UI", () => {
     void seed;
     await page.goto("/admin/customers");
 
+    await page.getByRole("button", { name: /Hinzufügen/i }).click();
+    await page.getByRole("menuitem", { name: "Einladen" }).click();
+
     await page.getByLabel("E-Mail (optional)").fill("eingeladen@example.com");
-    await page.getByRole("button", { name: "Einladen" }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Einladen" }).click();
 
     await expect(page.getByTestId("invite-row")).toHaveCount(1);
     // Scoped to the row: the success toast repeats the address.
@@ -114,6 +117,20 @@ test.describe("invite management UI", () => {
 
     await expect(page.getByTestId("invite-row")).toHaveCount(0);
     expect(await prismaTest.customerInvite.findUnique({ where: { token: invite.token } })).toBeNull();
+  });
+
+  test("shows an open invite inline as pending, and hides redeemed ones", async ({ seed, page }) => {
+    void seed;
+    await createTestCustomerInvite({ email: "wartet@example.com" });
+    await createTestCustomerInvite({ email: "erledigt@example.com", usedAt: new Date() });
+
+    await page.goto("/admin/customers");
+
+    const row = page.getByTestId("invite-row");
+    await expect(row).toHaveCount(1);
+    await expect(row.getByText("wartet@example.com")).toBeVisible();
+    await expect(row.getByText("Einladung ausstehend")).toBeVisible();
+    await expect(page.getByText("erledigt@example.com")).toHaveCount(0);
   });
 
   test("hides the invite section when registration is closed", async ({ seed, page }) => {

@@ -11,7 +11,7 @@ order: 9.25
 
 ![Rollen und Rechte](/wiki-screenshots/settings-roles.png)
 
-Unter **Einstellungen → Rollen & Rechte** legst du eigene Rollen an — etwa „Schüler" oder „Betreuer" — und bestimmst per Häkchen, was ihre Mitglieder dürfen. Die Zuordnung zu einer Person passiert im Tab [[Einstellungen → Team]].
+Unter **Einstellungen → Rollen & Rechte** legst du eigene Rollen an — etwa „Schüler" oder „Betreuer" — und bestimmst per Häkchen, was ihre Mitglieder dürfen. Die Zuordnung zu einer Person passiert auf der Seite [[Team]].
 
 ## Die zwei Ebenen
 
@@ -66,7 +66,7 @@ Das **Sortieren** von Karten innerhalb einer Kanban-Spalte ist erlaubt, auch fü
 
 ## Sperre je Mitglied übersteuern
 
-Die Sperre der Rolle ist nur der Standard. Im Tab [[Einstellungen → Team]] kannst du sie pro Person übersteuern:
+Die Sperre der Rolle ist nur der Standard. Auf der Seite [[Team]] kannst du sie pro Person übersteuern:
 
 | Einstellung | Wirkung |
 |-------------|---------|

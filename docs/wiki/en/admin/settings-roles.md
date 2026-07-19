@@ -11,7 +11,7 @@ order: 9.25
 
 ![Roles and permissions](/wiki-screenshots/settings-roles.png)
 
-Under **Settings → Roles & permissions** you define your own roles — "Student" or "Supervisor", say — and tick what their members may do. Assigning a role to a person happens in the [[Settings → Team]] tab.
+Under **Settings → Roles & permissions** you define your own roles — "Student" or "Supervisor", say — and tick what their members may do. Assigning a role to a person happens on the [[Team]] page.
 
 ## The two layers
 
@@ -66,7 +66,7 @@ The knowledge base and inventory have no assignment concept. There the tick box 
 
 ## Overriding the lock per member
 
-The role's lock is only the default. In the [[Settings → Team]] tab you can override it per person:
+The role's lock is only the default. On the [[Team]] page you can override it per person:
 
 | Setting | Effect |
 |---------|--------|

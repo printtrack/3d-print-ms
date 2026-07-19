@@ -34,7 +34,7 @@ Willkommen im Bedienungs-Wiki. Hier findest du für jeden Bereich des Systems ei
 | [[Einstellungen → Abrechnung & Belege|settings-billing]] | Abrechnungsregeln, Mahnwesen und Belegvorlagen |
 | [[Einstellungen → E-Mail-Vorlagen]] | Automatische Kunden-Benachrichtigungen konfigurieren |
 | [[Einstellungen → Phasen]] | Auftrags-, Teil- und Projektphasen verwalten |
-| [[Einstellungen → Team]] | Teammitglieder einladen und Rollen zuweisen |
+| [[Team]] | Teammitglieder anlegen, einladen und Rollen zuweisen |
 | [[Einstellungen → Maschinen]] | 3D-Drucker anlegen und Bauvolumen konfigurieren |
 
 ## Suche

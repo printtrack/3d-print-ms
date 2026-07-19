@@ -198,6 +198,7 @@ model User {
   calendarEvents       CalendarEvent[]
   feedback             Feedback[]
   customerInvites      CustomerInvite[]
+  teamInvites          TeamInvite[]
 
   @@index([teamRoleId])
 }
@@ -1026,6 +1027,29 @@ model CustomerInvite {
   createdById String?
   createdAt   DateTime  @default(now())
   createdBy   User?     @relation(fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([email])
+  @@index([createdById])
+}
+
+/// Invite for a new team member (User). Unlike CustomerInvite, the admin fixes
+/// the system role and permissions here; the redeemer only sets name + password.
+model TeamInvite {
+  token                String    @id @default(cuid())
+  email                String?
+  note                 String?   @db.Text
+  /// System role the account is created with when the invite is redeemed.
+  role                 Role      @default(TEAM_MEMBER)
+  /// TeamRole assigned on redemption (ignored for ADMIN invites).
+  teamRoleId           String?
+  /// Per-member restriction override baked into the invite (null = inherit).
+  restrictedToAssigned Boolean?
+  expiresAt            DateTime
+  usedAt               DateTime?
+  usedById             String?
+  createdById          String?
+  createdAt            DateTime  @default(now())
+  createdBy            User?     @relation(fields: [createdById], references: [id], onDelete: SetNull)
 
   @@index([email])
   @@index([createdById])

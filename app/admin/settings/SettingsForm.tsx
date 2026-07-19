@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, Building2, Scale, Mail, MessageSquare, Layers, LayoutList, FolderKanban, Files, Users, Printer, FileText, Upload, History, ToggleRight, Palette, ClipboardList, CalendarRange, Inbox, AlertTriangle, PencilRuler, ShieldCheck } from "lucide-react";
+import { Plus, Trash2, Building2, Scale, Mail, MessageSquare, Layers, LayoutList, FolderKanban, Files, Printer, FileText, Upload, History, ToggleRight, Palette, ClipboardList, CalendarRange, Inbox, AlertTriangle, PencilRuler, ShieldCheck } from "lucide-react";
 import { TIMELINE_EVENTS, TIMELINE_GROUP_ORDER, settingKey, MASTER_SETTING_KEY, isEventVisible, type TimelineGroup } from "@/lib/tracking-timeline";
 import { FEATURES, type FeatureKey } from "@/lib/features";
 import { SUPPORTED_FORMATS } from "@/lib/order-form-config";
@@ -25,7 +25,6 @@ import {
 import Link from "next/link";
 import Image from "next/image";
 import { PhaseManager } from "@/components/admin/PhaseManager";
-import { TeamManager, type TeamRoleOption, type TeamMember } from "@/components/admin/TeamManager";
 import { RoleManager, type RoleListItem } from "@/components/admin/RoleManager";
 import { MachineManager } from "@/components/admin/MachineManager";
 import { CalendarSubscriptionManager, type CalendarSubscription } from "@/components/admin/CalendarSubscriptionManager";
@@ -82,15 +81,12 @@ interface SettingsFormProps {
   initialSettings: Record<string, string>;
   defaultTab?: string;
   initialPhases: Phase[];
-  initialMembers: TeamMember[];
-  currentUserId: string;
   initialMachines: Machine[];
   initialPartPhases: PartPhase[];
   initialProjectPhases: ProjectPhaseData[];
   initialProjectFilePhases: ProjectFilePhaseData[];
   initialSubscriptions: CalendarSubscription[];
   initialRoles: RoleListItem[];
-  roleOptions: TeamRoleOption[];
   enabledFeatures: Record<FeatureKey, boolean>;
 }
 
@@ -139,7 +135,6 @@ const NAV_GROUPS = [
     label: "Ressourcen",
     items: [
       { key: "rollen", label: "Rollen & Rechte", icon: ShieldCheck },
-      { key: "team", label: "Team", icon: Users },
       { key: "maschinen", label: "Maschinen", icon: Printer },
       { key: "webkalender", label: "Web-Kalender", icon: CalendarRange },
     ],
@@ -195,15 +190,12 @@ export function SettingsForm({
   initialSettings,
   defaultTab,
   initialPhases,
-  initialMembers,
-  currentUserId,
   initialMachines,
   initialPartPhases,
   initialProjectPhases,
   initialProjectFilePhases,
   initialSubscriptions,
   initialRoles,
-  roleOptions,
   enabledFeatures,
 }: SettingsFormProps) {
   const [settings, setSettings] = useState<Record<string, string>>(initialSettings);
@@ -1187,11 +1179,6 @@ export function SettingsForm({
         {/* Rollen & Rechte */}
         {activeSection === "rollen" && (
           <RoleManager initialRoles={initialRoles} enabledFeatures={enabledFeatures} />
-        )}
-
-        {/* Team */}
-        {activeSection === "team" && (
-          <TeamManager initialMembers={initialMembers} currentUserId={currentUserId} roles={roleOptions} />
         )}
 
         {/* Phasen */}

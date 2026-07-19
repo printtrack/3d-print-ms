@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -24,10 +24,22 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  CustomerInviteDialog,
+  PendingCustomerInviteCard,
+  isPendingCustomerInvite,
+  type CustomerInvite,
+} from "@/components/admin/CustomerInviteManager";
 import { toast } from "sonner";
 import { useTranslations } from "next-intl";
 import { formatDate, formatDateTime } from "@/lib/utils";
-import { Wallet, Plus, Minus, CheckCircle2, Clock, Pencil, Trash2, UserPlus, ShieldCheck } from "lucide-react";
+import { Wallet, Plus, Minus, CheckCircle2, Clock, Pencil, Trash2, UserPlus, ShieldCheck, Mail } from "lucide-react";
 
 interface CustomerRow {
   id: string;
@@ -351,15 +363,63 @@ function EditDialog({
   );
 }
 
-export function CustomerManager({ initialCustomers }: { initialCustomers: CustomerRow[] }) {
+export function CustomerManager({
+  initialCustomers,
+  canInvite = false,
+}: {
+  initialCustomers: CustomerRow[];
+  canInvite?: boolean;
+}) {
   const t = useTranslations("admin");
   const tc = useTranslations("common");
   const [customers, setCustomers] = useState(initialCustomers);
   const [activeCredit, setActiveCredit] = useState<CustomerRow | null>(null);
   const [showCreate, setShowCreate] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [invites, setInvites] = useState<CustomerInvite[]>([]);
   const [editCustomer, setEditCustomer] = useState<CustomerRow | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<CustomerRow | null>(null);
   const [verifying, setVerifying] = useState<string | null>(null);
+
+  const loadInvites = useCallback(async () => {
+    if (!canInvite) return;
+    try {
+      const res = await fetch("/api/admin/invites");
+      if (!res.ok) throw new Error();
+      setInvites(await res.json());
+    } catch {
+      toast.error("Einladungen konnten nicht geladen werden");
+    }
+  }, [canInvite]);
+
+  useEffect(() => {
+    loadInvites();
+  }, [loadInvites]);
+
+  async function copyInviteLink(token: string) {
+    try {
+      await navigator.clipboard.writeText(
+        `${window.location.origin}/portal/register?invite=${token}`
+      );
+      toast.success("Link kopiert");
+    } catch {
+      toast.error("Link konnte nicht kopiert werden");
+    }
+  }
+
+  async function revokeInvite(token: string) {
+    if (!confirm("Einladung wirklich löschen?")) return;
+    try {
+      const res = await fetch(`/api/admin/invites/${token}`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+      setInvites((prev) => prev.filter((i) => i.token !== token));
+      toast.success("Einladung gelöscht");
+    } catch {
+      toast.error("Einladung konnte nicht gelöscht werden");
+    }
+  }
+
+  const pendingInvites = invites.filter(isPendingCustomerInvite);
 
   function handleBalanceUpdated(id: string, newBalance: number) {
     setCustomers((prev) => prev.map((c) => (c.id === id ? { ...c, creditBalanceCents: newBalance } : c)));
@@ -407,10 +467,31 @@ export function CustomerManager({ initialCustomers }: { initialCustomers: Custom
           <h1 className="text-2xl font-bold tracking-tight">Kunden</h1>
           <p className="text-muted-foreground text-sm">Kundenkonten und Guthaben verwalten</p>
         </div>
-        <Button size="sm" onClick={() => setShowCreate(true)}>
-          <Plus className="h-4 w-4 mr-1.5" />
-          Hinzufügen
-        </Button>
+        {canInvite ? (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm">
+                <Plus className="h-4 w-4 mr-1.5" />
+                Hinzufügen
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => setShowCreate(true)}>
+                <UserPlus className="h-4 w-4 mr-2" />
+                Neuer Kunde
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setInviteOpen(true)}>
+                <Mail className="h-4 w-4 mr-2" />
+                Einladen
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        ) : (
+          <Button size="sm" onClick={() => setShowCreate(true)}>
+            <Plus className="h-4 w-4 mr-1.5" />
+            Hinzufügen
+          </Button>
+        )}
       </div>
 
       <div className="grid gap-3">
@@ -466,9 +547,20 @@ export function CustomerManager({ initialCustomers }: { initialCustomers: Custom
             </CardContent>
           </Card>
         ))}
+
+        {/* Pending invitations sit in the same list as customers, flagged as not
+            yet redeemed. Redeemed invites drop out — that person is a customer now. */}
+        {pendingInvites.map((invite) => (
+          <PendingCustomerInviteCard
+            key={invite.token}
+            invite={invite}
+            onCopy={copyInviteLink}
+            onRevoke={revokeInvite}
+          />
+        ))}
       </div>
 
-      {customers.length === 0 && (
+      {customers.length === 0 && pendingInvites.length === 0 && (
         <div className="text-center py-12 text-muted-foreground">Keine Kundenkonten</div>
       )}
 
@@ -476,6 +568,14 @@ export function CustomerManager({ initialCustomers }: { initialCustomers: Custom
         <CreateDialog
           onClose={() => setShowCreate(false)}
           onCreated={(c) => setCustomers((prev) => [...prev, c])}
+        />
+      )}
+
+      {canInvite && (
+        <CustomerInviteDialog
+          open={inviteOpen}
+          onOpenChange={setInviteOpen}
+          onCreated={(invite) => setInvites((prev) => [invite, ...prev])}
         />
       )}
 
