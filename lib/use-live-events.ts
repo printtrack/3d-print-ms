@@ -5,7 +5,9 @@ import type { AdminEvent } from "@/lib/event-bus";
 
 export function useLiveEvents(onEvent: (event: AdminEvent) => void) {
   const onEventRef = useRef(onEvent);
-  onEventRef.current = onEvent;
+  useEffect(() => {
+    onEventRef.current = onEvent;
+  });
 
   useEffect(() => {
     const es = new EventSource("/api/admin/events");

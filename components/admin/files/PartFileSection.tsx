@@ -848,7 +848,7 @@ export function PartFileSection({
                 </div>
                 {verificationRequest.rejectionReason && (
                   <p className="text-xs text-muted-foreground bg-muted rounded px-2 py-1">
-                    „{verificationRequest.rejectionReason}"
+                    „{verificationRequest.rejectionReason}“
                   </p>
                 )}
               </div>

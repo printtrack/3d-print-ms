@@ -306,7 +306,7 @@ export function ModelViewerDialog({
                 {notes.length === 0 && !pendingHit && (
                   <div className="flex flex-col items-center justify-center h-full text-center text-sm text-muted-foreground p-6 gap-2">
                     {mode === "admin"
-                      ? <>"Notiz hinzufügen" klicken und auf das Modell tippen.</>
+                      ? <>„Notiz hinzufügen“ klicken und auf das Modell tippen.</>
                       : "Keine Notizen vorhanden."}
                   </div>
                 )}

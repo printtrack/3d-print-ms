@@ -20,6 +20,38 @@ const eslintConfig = defineConfig([
     "playwright-report/**",
     "test-results/**",
   ]),
+  // Honour the conventional leading-underscore marker for intentionally unused
+  // bindings (interface-shaped stubs like the printer adapters, placeholder
+  // callback args, catch bindings). Applies everywhere.
+  {
+    rules: {
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        {
+          argsIgnorePattern: "^_",
+          varsIgnorePattern: "^_",
+          caughtErrorsIgnorePattern: "^_",
+          destructuredArrayIgnorePattern: "^_",
+        },
+      ],
+    },
+  },
+  // Test specs destructure the `seed` fixture purely to trigger the DB
+  // reset+seed before each test (see tests/fixtures/test-base.ts). It's
+  // intentionally often unused, so don't flag it as an unused variable.
+  {
+    files: ["tests/**/*.{ts,tsx}"],
+    rules: {
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        {
+          argsIgnorePattern: "^(_|seed$)",
+          varsIgnorePattern: "^(_|seed$)",
+          destructuredArrayIgnorePattern: "^_",
+        },
+      ],
+    },
+  },
 ]);
 
 export default eslintConfig;

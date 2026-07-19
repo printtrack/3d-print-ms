@@ -245,22 +245,18 @@ export function OrderDetail({ order, phases, teamMembers, currentUserId, isAdmin
   // Sync server-provided lists from props when they change after router.refresh()
   useEffect(() => {
     setVerificationRequests(order.verificationRequests ?? []);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [order.verificationRequests]);
 
   useEffect(() => {
     setComments(order.comments);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [order.comments]);
 
   useEffect(() => {
     setParts(initialParts);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialParts]);
 
   useEffect(() => {
     setFiles(order.files);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [order.files]);
 
   type ActivityItem =

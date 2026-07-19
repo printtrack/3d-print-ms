@@ -52,7 +52,6 @@ export function JobsView({ machines, initialJobs, teamMembers = [] }: JobsViewPr
   // Sync initialJobs into local state when props change after router.refresh()
   useEffect(() => {
     setJobs(initialJobs);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialJobs]);
 
   useLiveEvents(

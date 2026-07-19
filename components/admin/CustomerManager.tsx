@@ -502,7 +502,7 @@ export function CustomerManager({ initialCustomers }: { initialCustomers: Custom
           <AlertDialogHeader>
             <AlertDialogTitle>Kunde löschen?</AlertDialogTitle>
             <AlertDialogDescription>
-              „{deleteTarget?.name}" wird dauerhaft gelöscht. Bestehende Bestellungen bleiben erhalten, werden aber anonymisiert.
+              „{deleteTarget?.name}“ wird dauerhaft gelöscht. Bestehende Bestellungen bleiben erhalten, werden aber anonymisiert.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

@@ -194,7 +194,6 @@ export function JobDetailDialog({
       return;
     }
     refreshDispatchInfo(job.id, job.machineId);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [job, open]);
 
   async function refreshDispatchInfo(jobId: string, machineId: string) {

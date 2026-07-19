@@ -695,7 +695,7 @@ export function TrackingView({ order, trackingToken }: { order: TrackingData; tr
                   )}
                   {vr.status === "REJECTED" && vr.rejectionReason && (
                     <p className="text-xs text-muted-foreground bg-muted rounded px-2 py-1 mt-1">
-                      „{vr.rejectionReason}"
+                      „{vr.rejectionReason}“
                     </p>
                   )}
                 </div>

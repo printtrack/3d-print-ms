@@ -447,13 +447,13 @@ export function SettingsForm({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="off">Keine Verifikation – Kunden sind sofort bestellberechtigt</SelectItem>
-                    <SelectItem value="admin">Manuell durch Admin – Kunden unter „Kunden" freischalten</SelectItem>
+                    <SelectItem value="admin">Manuell durch Admin – Kunden unter „Kunden“ freischalten</SelectItem>
                     <SelectItem value="email">Per E-Mail-Bestätigung – Kunden erhalten einen Bestätigungs-Link</SelectItem>
                   </SelectContent>
                 </Select>
                 {(settings.customer_verification_mode === "email") && (
                   <p className="text-xs text-amber-600">
-                    Bitte E-Mail-Vorlage unter dem Tab „E-Mails" konfigurieren (Schlüssel: Kundenverifikation).
+                    Bitte E-Mail-Vorlage unter dem Tab „E-Mails“ konfigurieren (Schlüssel: Kundenverifikation).
                   </p>
                 )}
               </div>
@@ -677,7 +677,7 @@ export function SettingsForm({
               </CardHeader>
               <CardContent className="space-y-4">
                 <p className="text-xs text-muted-foreground">
-                  Wird versendet, wenn Verifikationsmodus „Per E-Mail-Bestätigung" aktiv ist. Verfügbare Variablen: <code className="font-mono">{"{{name}}"}</code>, <code className="font-mono">{"{{verificationUrl}}"}</code>, <code className="font-mono">{"{{companyName}}"}</code>.
+                  Wird versendet, wenn Verifikationsmodus „Per E-Mail-Bestätigung“ aktiv ist. Verfügbare Variablen: <code className="font-mono">{"{{name}}"}</code>, <code className="font-mono">{"{{verificationUrl}}"}</code>, <code className="font-mono">{"{{companyName}}"}</code>.
                 </p>
                 <div className="space-y-2">
                   <Label htmlFor="email_customer_verify_subject">Betreff</Label>
@@ -707,7 +707,7 @@ export function SettingsForm({
               </CardHeader>
               <CardContent className="space-y-4">
                 <p className="text-xs text-muted-foreground">
-                  Wird versendet, wenn das Team eine direkte Nachricht an den Kunden sendet (Tab „Kundenkontakt" auf der Auftragsseite). Verfügbare Variablen: <code className="font-mono">{"{{customerName}}"}</code>, <code className="font-mono">{"{{messageBody}}"}</code>, <code className="font-mono">{"{{trackingUrl}}"}</code>, <code className="font-mono">{"{{companyName}}"}</code>.
+                  Wird versendet, wenn das Team eine direkte Nachricht an den Kunden sendet (Tab „Kundenkontakt“ auf der Auftragsseite). Verfügbare Variablen: <code className="font-mono">{"{{customerName}}"}</code>, <code className="font-mono">{"{{messageBody}}"}</code>, <code className="font-mono">{"{{trackingUrl}}"}</code>, <code className="font-mono">{"{{companyName}}"}</code>.
                 </p>
                 <div className="space-y-2">
                   <Label htmlFor="email_customer_message_subject_de">Betreff (Deutsch)</Label>
@@ -837,7 +837,7 @@ export function SettingsForm({
               <CardHeader>
                 <CardTitle className="text-base">Kundenverlauf</CardTitle>
                 <p className="text-sm text-muted-foreground">
-                  Steuere, welche Ereignisse Kunden im „Verlauf" der Tracking-Seite sehen.
+                  Steuere, welche Ereignisse Kunden im „Verlauf“ der Tracking-Seite sehen.
                   Interne Vorgänge (Team-Zuweisung, Druckaufträge, interne Kommentare,
                   Teilphasen, Preise) werden grundsätzlich nie übermittelt.
                 </p>

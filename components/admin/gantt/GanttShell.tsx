@@ -120,6 +120,10 @@ export function GanttShell({ children }: GanttShellProps) {
   const panDragRef = useRef<PanDragState | null>(null);
   const pinchStateRef = useRef<PinchState | null>(null);
 
+  // Hydration-Guard: erst nach dem Client-Mount rendern wir zeitabhängige Teile
+  // (heutige Linie), um SSR-Mismatch zu vermeiden. Das setState im Effect ist
+  // hier gewollt und nur einmalig.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { setMounted(true); }, []);
   useEffect(() => { pxDRef.current = pxD; }, [pxD]);
   useEffect(() => { originMsRef.current = originMs; }, [originMs]);
@@ -312,7 +316,7 @@ export function GanttShell({ children }: GanttShellProps) {
     const firstDay = new Date(startDay.getFullYear(), startDay.getMonth(), startDay.getDate());
     const cells: React.ReactNode[] = [];
 
-    let cur = new Date(firstDay);
+    const cur = new Date(firstDay);
     while (cur.getTime() <= endMs + 86_400_000) {
       const x = (cur.getTime() - startMs) / msPerPx;
       const day = new Date(cur);

@@ -136,7 +136,6 @@ export function ModelThumbnail({ url, filename, noteCount, onClick, className, c
       renderer?.dispose();
       if (container.firstChild) container.innerHTML = "";
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [url, ext, colorHex]);
 
   if (error) {

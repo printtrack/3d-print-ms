@@ -15,10 +15,10 @@ import { prismaTest, resetDb, seedDb } from "./db";
 type SeedData = Awaited<ReturnType<typeof seedDb>>;
 
 export const test = base.extend<{ seed: SeedData }>({
-  seed: async ({}, use) => {
+  seed: async ({}, provide) => {
     await resetDb();
     const data = await seedDb();
-    await use(data);
+    await provide(data);
   },
 });
 

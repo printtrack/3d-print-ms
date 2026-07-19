@@ -93,6 +93,9 @@ export function DashboardHome({
   const maxPhaseCount = Math.max(...phaseBreakdown.map((p) => p.orderCount), 1);
 
   function timeAgo(isoString: string): string {
+    // Relative-Zeit-Label ("vor 5 Min") — hängt bewusst von der aktuellen Zeit
+    // ab. Rein anzeigend, keine Reaktivität nötig, daher hier zulässig.
+    // eslint-disable-next-line react-hooks/purity
     const diff = Date.now() - new Date(isoString).getTime();
     const mins = Math.floor(diff / 60000);
     if (mins < 1) return t("dashboard_just_now");

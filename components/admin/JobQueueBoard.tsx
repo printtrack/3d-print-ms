@@ -41,7 +41,6 @@ export function JobQueueBoard({ machines, initialJobs, onJobCreated, onJobUpdate
   const [jobs, setJobs] = useState<PrintJob[]>(initialJobs);
 
   // Sync status-only updates pushed down from parent (e.g. auto-transition DONE)
-  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     setJobs((prev) =>
       prev.map((j) => {
@@ -50,7 +49,6 @@ export function JobQueueBoard({ machines, initialJobs, onJobCreated, onJobUpdate
       })
     );
   }, [initialJobs]);
-  /* eslint-enable react-hooks/set-state-in-effect */
   const [activeJob, setActiveJob] = useState<PrintJob | null>(null);
   const [selectedJob, setSelectedJob] = useState<PrintJob | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);

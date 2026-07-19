@@ -344,7 +344,7 @@ export function ModelViewer({
       }
 
       // Highlight mesh — rebuilt when hovered face changes
-      let highlightMesh: THREE.Mesh | null = null;
+      const highlightMesh: THREE.Mesh | null = null;
 
       renderer = new THREE.WebGLRenderer({ antialias: true });
       renderer.setPixelRatio(window.devicePixelRatio);

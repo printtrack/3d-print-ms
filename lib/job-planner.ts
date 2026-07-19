@@ -432,7 +432,7 @@ export async function plan(): Promise<{ proposed: ProposedJob[]; skipped: Skippe
 
     // Prefer the machine of an existing job using this spool, if it's compatible.
     const existingJobForFilament = existingJobByFilamentId.get(filamentId);
-    let machine =
+    const machine =
       existingJobForFilament && compatList.some((m) => m.id === existingJobForFilament.machineId)
         ? compatList.find((m) => m.id === existingJobForFilament.machineId)!
         : compatList[machineIdx % compatList.length];

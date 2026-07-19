@@ -430,7 +430,6 @@ export function JobTimeline({ machines, jobs, onJobCreated, onJobUpdated, onJobD
     setDragPreview({ ...preview });
   }
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (panDragRef.current && !dragStateRef.current) {
       const dx = e.clientX - panDragRef.current.startClientX;
@@ -444,7 +443,6 @@ export function JobTimeline({ machines, jobs, onJobCreated, onJobUpdated, onJobD
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   const handleMouseUp = useCallback(() => {
     panDragRef.current = null;
     const drag = dragStateRef.current;
@@ -708,7 +706,7 @@ export function JobTimeline({ machines, jobs, onJobCreated, onJobUpdated, onJobD
     const msPerPxD = 86_400_000 / pxD;
     const endMs = originMs + contentWidth * msPerPxD;
     const d0 = new Date(originMs);
-    let cur = new Date(d0.getFullYear(), d0.getMonth(), d0.getDate());
+    const cur = new Date(d0.getFullYear(), d0.getMonth(), d0.getDate());
     const cells: React.ReactNode[] = [];
     while (cur.getTime() <= endMs + 86_400_000) {
       const x = (cur.getTime() - originMs) / msPerPxD;
@@ -830,7 +828,7 @@ export function JobTimeline({ machines, jobs, onJobCreated, onJobUpdated, onJobD
       const d0 = new Date(originMs);
       const firstDay = new Date(d0.getFullYear(), d0.getMonth(), d0.getDate());
       const dayCells: React.ReactNode[] = [];
-      let cur = new Date(firstDay);
+      const cur = new Date(firstDay);
       while (cur.getTime() <= endMs + 86_400_000) {
         const x = (cur.getTime() - originMs) / (3_600_000 / pxH);
         const dayWidth = 24 * pxH;
