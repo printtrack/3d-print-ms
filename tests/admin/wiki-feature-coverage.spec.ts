@@ -112,6 +112,27 @@ const FEATURE_CHECKS: FeatureCheck[] = [
   { feature: "Prusa cloud-or-local choice", de: ["Cloud oder lokal"], en: ["Cloud or local"] },
   { feature: "Send print job to printer", de: ["An Drucker senden"], en: ["Send to printer"] },
   { feature: "Auto-start only when free", de: ["Auto-Start nur wenn frei"], en: ["Auto-start only when free"] },
+
+  { feature: "Automatic batching into jobs", de: ["Bündelung** läuft vollautomatisch"], en: ["Batching** is fully automatic"] },
+  { feature: "Manual/one-click scheduling", de: ["Auf Zeitachse planen"], en: ["Place on timeline"] },
+  { feature: "Scheduling order: deadline then filament", de: ["Frist zuerst", "Wenig Rüstzeit"], en: ["Deadline first", "Little setup time"] },
+  { feature: "Manual schedule wins", de: ["werden nie verschoben"], en: ["are never moved"] },
+  { feature: "Machine material slots", de: ["Materialplätze"], en: ["Material slots", "material slots"] },
+  { feature: "Loaded filament per slot", de: ["Geladenes Filament"], en: ["Loaded filament"] },
+  { feature: "Filament change required flag", de: ["Filamentwechsel nötig"], en: ["filament change required"] },
+  { feature: "Filament change blocks the start", de: ["startet der Job nicht"], en: ["the job does not start"] },
+  { feature: "Multi-material jobs", de: ["mehreren Materialplätzen"], en: ["several material slots"] },
+  { feature: "Attendance hours", de: ["Anwesenheitszeiten"], en: ["Attendance hours", "attendance hours"] },
+  { feature: "Unattended printing over the weekend", de: ["auch nachts und übers Wochenende"], en: ["overnight and across the weekend"] },
+  { feature: "Timeline setup/waiting hatching", de: ["Gelbe Schraffur", "Graue Schraffur"], en: ["Amber hatching", "Grey hatching"] },
+  { feature: "Open filament change list", de: ["Offene Filamentwechsel abarbeiten"], en: ["Working through open filament changes"] },
+  { feature: "Manual move recalculates", de: ["Beim Verschieben rechnet alles mit"], en: ["Moving a job recalculates everything"] },
+  { feature: "Build volume checked on manual move", de: ["Bauraum wird auch von Hand geprüft"], en: ["Build volume is checked for manual moves"] },
+  { feature: "Drop rules on the timeline", de: ["Was beim Ziehen blockiert wird"], en: ["What a drop refuses"] },
+  { feature: "Automatic re-planning on part changes", de: ["Automatische Neuplanung bei Änderungen"], en: ["Automatic re-planning on changes"] },
+  { feature: "Re-planning blocked while printing", de: ["noch nicht im Druck"], en: ["not printing yet"] },
+  { feature: "Printer fallback by build volume", de: ["Drucker-Auswahl nach Bauraum"], en: ["Printer choice by build volume"] },
+  { feature: "Unschedulable parts list", de: ["Nicht einplanbare Teile"], en: ["Parts that cannot be scheduled"] },
 ];
 
 function readWikiText(locale: "de" | "en"): string {

@@ -70,9 +70,9 @@ Click a filament to edit the quantity directly — for example after a physical 
 
 This lets you plan filament use ahead of time without distorting the books: anything that wasn't actually printed doesn't count as consumed.
 
-## Overcommit warning when planning
+## Overcommit through automatic planning
 
-The [[Suggest print jobs|jobs|job suggestion dialog]] checks per proposed job whether available stock is sufficient for the required filament. If not, a red warning appears on the row. Clicking **Create** opens a confirmation dialog listing the affected filaments — you can still schedule the jobs (for example if a refill is expected shortly).
+[[Automatic job planning|jobs]] schedules jobs even when available stock is not sufficient on paper — otherwise production would stall on a missing spool. The shortfall shows up here instead: **Available** turns negative and is displayed in red. That is your signal to reorder before the job is due.
 
 ## Low-stock warning
 

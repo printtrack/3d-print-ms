@@ -18,8 +18,7 @@ const DARK = "rgba(0,0,0,0.60)";
 // The MutationObserver continuously re-evaluates this list as the DOM changes.
 const SPOTLIGHT_PRIORITY: Partial<Record<string, string[]>> = {
   jobs_plan: [
-    '[data-tutorial="plan-jobs-confirm"]',
-    '[data-tutorial="plan-jobs-btn"]',
+    '[data-tutorial="planned-job"]',
   ],
   job_verify: [
     '[data-tutorial="verify-complete-btn"]:not([disabled])',

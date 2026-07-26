@@ -31,6 +31,8 @@ Die Maschine ist sofort verfügbar und kann neuen Jobs zugewiesen werden.
 | **Bauvolumen X** | ja | Breite des Druckraums in mm |
 | **Bauvolumen Y** | ja | Tiefe des Druckraums in mm |
 | **Bauvolumen Z** | ja | Höhe des Druckraums in mm |
+| **Materialplätze** | ja | Wie viele Filamente der Drucker gleichzeitig geladen hat (1 = Einzelextruder, 4 = AMS/MMU …) |
+| **Geladenes Filament** | nein | Welche Spule aktuell in welchem Platz steckt — nur beim Bearbeiten sichtbar |
 | **Stundensatz (€/h)** | nein | Wird für zukünftige Kostenkalkulationen verwendet |
 | **Notizen** | nein | Freitext für Besonderheiten (z. B. spezielle Filamentanforderungen) |
 | **Aktiv** | — | Inaktive Maschinen tauchen bei neuen Jobs nicht auf |
@@ -43,6 +45,17 @@ Das Bauvolumen ist **entscheidend für den automatischen Druckjob-Planner**. Der
 2. Höhe des Teils gegen Bauvolumen Z
 
 Wenn du das Bauvolumen falsch einträgst, schlägt der Planner Kombinationen vor, die physisch nicht möglich sind.
+
+## Materialplätze und Filamentwechsel
+
+Die **Materialplätze** sagen dem Planer, wie viele verschiedene Filamente gleichzeitig im Drucker stecken:
+
+- **1 Platz (Standard, Einzelextruder):** Ein Druckjob enthält immer genau ein Filament. Braucht der nächste Job eine andere Spule, ist ein Filamentwechsel fällig.
+- **Mehrere Plätze (AMS/MMU):** Der Planer darf Teile verschiedener Farben in einen Job legen, solange die Anzahl der Plätze reicht.
+
+Das **geladene Filament** je Platz ist der Ausgangszustand für die Wechsel-Erkennung. Trag hier ein, was gerade wirklich im Drucker steckt — danach pflegt PrintTrack den Zustand selbst: Jedes Mal, wenn du bei einem Druckjob **Wechsel erledigt** bestätigst, werden die Plätze auf die Spulen dieses Jobs gesetzt.
+
+> Solange ein fälliger Filamentwechsel nicht bestätigt ist, startet der betroffene [[Druckjob|jobs]] nicht, sondern wird nach hinten geschoben.
 
 ## Maschine bearbeiten
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { Fragment, useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -8,6 +8,8 @@ import { toast } from "sonner";
 import type { PrintJob } from "./JobCard";
 import { JobDetailDialog } from "./JobDetailDialog";
 import { CreateJobDialog } from "./CreateJobDialog";
+import { isAttended, unattendedIntervals, type AttendanceConfig } from "@/lib/attendance";
+import { DEFAULT_PRINT_MINUTES } from "@/lib/job-timing";
 
 interface DragState {
   type: "move" | "resize" | "schedule";
@@ -26,7 +28,15 @@ interface DragPreview {
   width: number;
   machineId: string;
   isOverlapping?: boolean;
+  blockedBy?: "occupied" | "pickup" | "unattended" | "past" | null;
 }
+
+const DROP_BLOCK_MESSAGES: Record<"occupied" | "pickup" | "unattended" | "past", string> = {
+  occupied: "Überschneidung mit einem anderen Druckauftrag",
+  pickup: "Drucker noch belegt — die fertige Platte des vorherigen Jobs ist noch nicht entnommen",
+  unattended: "Für diesen Job steht ein Filamentwechsel an — dafür muss jemand vor Ort sein",
+  past: "Startzeit liegt in der Vergangenheit",
+};
 
 interface Downtime {
   id: string;
@@ -47,6 +57,8 @@ interface Machine {
 interface JobTimelineProps {
   machines: Machine[];
   jobs: PrintJob[];
+  /** Staffed hours — printing runs unattended, human steps do not. */
+  attendance?: AttendanceConfig;
   onJobCreated: (job: PrintJob) => void;
   onJobUpdated: (job: PrintJob) => void;
   onJobDeleted: (id: string) => void;
@@ -102,6 +114,8 @@ const ROW_H = 56;
 const RULER_H = 72;
 const BAND_H = 22;
 const MIN_PX_H = 0.02;
+/** Smallest width a hatched marker is drawn with, so it survives zooming out. */
+const MIN_MARKER_W = 4;
 const MAX_PX_H = 150;
 
 // Pixels-per-hour defaults for each preset mode
@@ -143,7 +157,7 @@ function getHourStep(pixelsPerHour: number): number | null {
   return null;
 }
 
-export function JobTimeline({ machines, jobs, onJobCreated, onJobUpdated, onJobDeleted, teamMembers = [] }: JobTimelineProps) {
+export function JobTimeline({ machines, jobs, attendance, onJobCreated, onJobUpdated, onJobDeleted, teamMembers = [] }: JobTimelineProps) {
   const [viewMode, setViewMode] = useState<ViewMode>("week");
   const [originMs, setOriginMs] = useState(() => Date.now() - 24 * 3_600_000);
   const [pxH, setPxH] = useState(DEFAULT_PX_H_BY_VIEW.week);
@@ -167,6 +181,7 @@ export function JobTimeline({ machines, jobs, onJobCreated, onJobUpdated, onJobD
   const hasDraggedRef = useRef(false);
   const machinesRef = useRef(machines);
   const jobsRef = useRef(jobs);
+  const attendanceRef = useRef(attendance);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressPendingRef = useRef<{
     job: PrintJob;
@@ -186,6 +201,7 @@ export function JobTimeline({ machines, jobs, onJobCreated, onJobUpdated, onJobD
   useEffect(() => { setMounted(true); }, []);
   useEffect(() => { machinesRef.current = machines; }, [machines]);
   useEffect(() => { jobsRef.current = jobs; }, [jobs]);
+  useEffect(() => { attendanceRef.current = attendance; }, [attendance]);
 
   // Auto-open job detail when ?jobId= URL param is present (e.g. deep-link from Order Detail part badge)
   useEffect(() => {
@@ -309,6 +325,33 @@ export function JobTimeline({ machines, jobs, onJobCreated, onJobUpdated, onJobD
     return Math.max(3, (minutes / 60) * pixelsPerHourRef.current);
   }
 
+  /** Grey "nobody on site" bands behind the whole row (weekends, nights). */
+  function renderUnattendedBands() {
+    if (!attendance?.enabled || contentWidth === 0) return null;
+    const visibleHours = contentWidth / pxH;
+    // Zoomed far out every night collapses into a hairline: the striping would
+    // be noise, so drop the bands instead of drawing thousands of 1px slivers.
+    if (visibleHours > 120 * 24) return null;
+    const from = new Date(originMs);
+    const to = new Date(originMs + visibleHours * 3_600_000);
+    return unattendedIntervals(attendance, from, to).map((iv, i) => {
+      const left = ((iv.start - originMs) / 3_600_000) * pxH;
+      const width = ((iv.end - iv.start) / 3_600_000) * pxH;
+      if (width < 2) return null;
+      return (
+        <div
+          key={`unattended-${i}`}
+          data-testid="timeline-unattended-band"
+          className="absolute top-0 bottom-0 pointer-events-none z-[1]"
+          // Plain tint, no hatching: the background must stay quiet so the
+          // hatched setup/pickup blocks on the bars remain readable.
+          style={{ left, width, backgroundColor: "rgba(100, 116, 139, 0.06)" }}
+          title="Niemand vor Ort — Drucke laufen weiter, Entnahme und Filamentwechsel erst danach"
+        />
+      );
+    });
+  }
+
   function getMachineJobs(machineId: string): PrintJob[] {
     return jobs.filter((j) => j.machineId === machineId && j.plannedAt != null);
   }
@@ -357,19 +400,44 @@ export function JobTimeline({ machines, jobs, onJobCreated, onJobUpdated, onJobD
     };
   }
 
-  function checkClientOverlap(previewLeft: number, previewWidth: number, targetMachineId: string, excludeJobId: string): boolean {
+  /**
+   * Why a drop is not allowed — mirrors the server-side guards so the user sees
+   * it while dragging instead of getting an error afterwards.
+   */
+  type DropBlock = "occupied" | "pickup" | "unattended" | "past" | null;
+
+  function checkDropBlocked(
+    previewLeft: number,
+    previewWidth: number,
+    targetMachineId: string,
+    excludeJobId: string
+  ): DropBlock {
+    const pxPerH = pixelsPerHourRef.current;
+    const startMs = originMsRef.current + (previewLeft / pxPerH) * 3_600_000;
+
+    // The past is over — a job cannot be scheduled behind the current time.
+    if (startMs < Date.now()) return "past";
+
+    // Starting works remotely — but a pending spool swap needs somebody on site.
+    const dragged = jobsRef.current.find((j) => j.id === excludeJobId);
+    const needsSwap = Boolean(dragged?.filamentChange && !dragged.filamentChange.confirmed);
+    if (needsSwap && attendanceRef.current?.enabled && !isAttended(attendanceRef.current, startMs)) {
+      return "unattended";
+    }
+
     const machineJobs = jobsRef.current.filter(
       (j) => j.machineId === targetMachineId && j.id !== excludeJobId && j.plannedAt != null
     );
-    const pxPerH = pixelsPerHourRef.current;
     for (const j of machineJobs) {
       const jLeft = jobLeftForRef(j.plannedAt!);
-      const jWidth = Math.max(pxPerH / 4, ((j.printTimeMinutes ?? 120) / 60) * pxPerH);
-      if (previewLeft < jLeft + jWidth && previewLeft + previewWidth > jLeft) {
-        return true;
+      const jWidth = Math.max(pxPerH / 4, ((j.printTimeMinutes ?? DEFAULT_PRINT_MINUTES) / 60) * pxPerH);
+      // The printer stays busy until the finished plate is taken off.
+      const jBusyRight = j.pickupAt ? Math.max(jLeft + jWidth, jobLeftForRef(j.pickupAt)) : jLeft + jWidth;
+      if (previewLeft < jBusyRight && previewLeft + previewWidth > jLeft) {
+        return previewLeft >= jLeft + jWidth ? "pickup" : "occupied";
       }
     }
-    return false;
+    return null;
   }
 
   function applyPointerMove(clientX: number, clientY: number) {
@@ -414,16 +482,16 @@ export function JobTimeline({ machines, jobs, onJobCreated, onJobUpdated, onJobD
         }
       }
 
-      const isOverlapping = checkClientOverlap(snappedLeft, drag.originalWidth, targetMachineId, drag.jobId);
-      preview = { jobId: drag.jobId, left: snappedLeft, width: drag.originalWidth, machineId: targetMachineId, isOverlapping };
+      const blockedBy = checkDropBlocked(snappedLeft, drag.originalWidth, targetMachineId, drag.jobId);
+      preview = { jobId: drag.jobId, left: snappedLeft, width: drag.originalWidth, machineId: targetMachineId, isOverlapping: blockedBy !== null, blockedBy };
     } else {
       const rawWidth = Math.max(pxPerH / 4, drag.originalWidth + dx);
       const rawMinutes = (rawWidth / pxPerH) * 60;
       const snappedMinutes = snapToGrid(rawMinutes, pxPerH);
       const snappedWidth = Math.max(pxPerH / 4, (snappedMinutes / 60) * pxPerH);
       const targetMachineId = machinesRef.current[drag.originalMachineIndex]?.id ?? drag.job.machineId ?? "";
-      const isOverlapping = checkClientOverlap(drag.originalLeft, snappedWidth, targetMachineId, drag.jobId);
-      preview = { jobId: drag.jobId, left: drag.originalLeft, width: snappedWidth, machineId: targetMachineId, isOverlapping };
+      const blockedBy = checkDropBlocked(drag.originalLeft, snappedWidth, targetMachineId, drag.jobId);
+      preview = { jobId: drag.jobId, left: drag.originalLeft, width: snappedWidth, machineId: targetMachineId, isOverlapping: blockedBy !== null, blockedBy };
     }
 
     dragPreviewRef.current = preview;
@@ -456,7 +524,7 @@ export function JobTimeline({ machines, jobs, onJobCreated, onJobUpdated, onJobD
     if (!drag || !hasDraggedRef.current || !preview) return;
 
     if (preview.isOverlapping) {
-      toast.error("Überschneidung mit einem anderen Druckauftrag");
+      toast.error(DROP_BLOCK_MESSAGES[preview.blockedBy ?? "occupied"]);
       return;
     }
 
@@ -491,8 +559,10 @@ export function JobTimeline({ machines, jobs, onJobCreated, onJobUpdated, onJobD
         body: JSON.stringify({ printTimeMinutes: newMinutes }),
       })
         .then(async (r) => {
-          if (r.status === 409) {
-            toast.error("Überschneidung mit einem anderen Druckauftrag");
+          if (!r.ok) {
+            // Show the server's reason (overlap, plate not cleared, …) verbatim
+            const d = await r.json().catch(() => ({}));
+            toast.error(d.error ?? "Änderung fehlgeschlagen");
             return;
           }
           const { job }: { job: PrintJob } = await r.json();
@@ -1058,6 +1128,7 @@ export function JobTimeline({ machines, jobs, onJobCreated, onJobUpdated, onJobD
                 >
                   {renderGridLines()}
                   {renderTodayHighlight()}
+                  {renderUnattendedBands()}
 
                   {/* Downtime blocks (maintenance / defect) */}
                   {(machine.downtimes ?? []).map((d) => {
@@ -1111,19 +1182,88 @@ export function JobTimeline({ machines, jobs, onJobCreated, onJobUpdated, onJobD
                     const durationLabel = job.printTimeMinutes
                       ? ` (${(job.printTimeMinutes / 60).toFixed(1)}h)`
                       : "";
+                    const needsFilamentChange = Boolean(job.filamentChange && !job.filamentChange.confirmed);
+                    // An unattended start is fine (prints can be dispatched
+                    // remotely) — but not while a filament swap is still open.
+                    const startsUnattended =
+                      needsFilamentChange &&
+                      Boolean(attendance?.enabled) &&
+                      !isAttended(attendance!, jobStartMs);
+                    // Hatched lead-in: setup the operator still owes this job.
+                    // Zoomed out, 15 minutes are a fraction of a pixel — keep a
+                    // minimum width (like the job bar itself) so the marker never
+                    // silently disappears at low zoom levels.
+                    const setupWidth = job.setupMinutes
+                      ? Math.max(MIN_MARKER_W, (job.setupMinutes / 60) * pxH)
+                      : 0;
+                    // Hatched tail: plate sits finished on the bed until somebody is on site.
+                    const pickupWidth = job.pickupAt
+                      ? Math.max(MIN_MARKER_W, jobLeft(job.pickupAt) - (left + width))
+                      : 0;
                     const isBeingDragged = dragPreview?.jobId === job.id;
                     const isLongPressActive = longPressActiveId === job.id;
                     const statusColor = STATUS_COLOR[job.status];
                     return (
+                      <Fragment key={job.id}>
+                      {setupWidth > 0 && (
+                        <div
+                          key={`${job.id}-setup`}
+                          data-testid="timeline-setup-block"
+                          className="absolute top-1.5 bottom-1.5 rounded-l-md pointer-events-none z-[6]"
+                          style={{
+                            left: left - setupWidth,
+                            width: setupWidth,
+                            backgroundColor: "rgba(217, 119, 6, 0.12)",
+                            backgroundImage:
+                              "repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(217, 119, 6, 0.35) 4px, rgba(217, 119, 6, 0.35) 8px)",
+                            border: "1px dashed rgba(217, 119, 6, 0.7)",
+                            borderRight: "none",
+                          }}
+                          title={`Rüstzeit: ${job.setupMinutes} min (Filamentwechsel)`}
+                        />
+                      )}
+                      {pickupWidth > 0 && (
+                        <div
+                          key={`${job.id}-pickup`}
+                          data-testid="timeline-pickup-block"
+                          className="absolute top-1.5 bottom-1.5 rounded-r-md pointer-events-none z-[6]"
+                          style={{
+                            left: left + width,
+                            width: pickupWidth,
+                            backgroundColor: "rgba(100, 116, 139, 0.10)",
+                            backgroundImage:
+                              "repeating-linear-gradient(45deg, transparent, transparent 4px, rgba(100, 116, 139, 0.30) 4px, rgba(100, 116, 139, 0.30) 8px)",
+                            border: "1px dashed rgba(100, 116, 139, 0.6)",
+                            borderLeft: "none",
+                          }}
+                          title="Fertig, aber niemand vor Ort — Platte belegt den Drucker bis zur Entnahme"
+                        />
+                      )}
                       <div
-                        key={job.id}
-                        data-tutorial={job.status === "AWAITING_VERIFICATION" ? "awaiting-job" : undefined}
-                        data-testid={hitsDowntime ? "job-downtime-warning" : undefined}
+                        data-tutorial={
+                          job.status === "AWAITING_VERIFICATION"
+                            ? "awaiting-job"
+                            : job.status === "PLANNED"
+                            ? "planned-job"
+                            : undefined
+                        }
+                        data-testid={
+                          hitsDowntime
+                            ? "job-downtime-warning"
+                            : needsFilamentChange
+                            ? "job-filament-change"
+                            : undefined
+                        }
                         className={cn(
                           "absolute top-1.5 bottom-1.5 rounded-md shadow-sm px-2 text-xs font-medium truncate hover:z-20 select-none transition-transform",
                           isBeingDragged ? "opacity-30" : "hover:brightness-95",
                           isLongPressActive ? "ring-2 ring-primary scale-105" : "",
-                          hitsDowntime ? "ring-2 ring-red-500" : ""
+                          hitsDowntime ? "ring-2 ring-red-500" : "",
+                          // Pending spool swap: dashed outline — the job cannot start yet.
+                          !hitsDowntime && needsFilamentChange ? "ring-2 ring-amber-500 ring-dashed" : "",
+                          !hitsDowntime && !needsFilamentChange && startsUnattended
+                            ? "ring-2 ring-slate-400 ring-dashed"
+                            : ""
                         )}
                         style={{
                           left,
@@ -1136,7 +1276,15 @@ export function JobTimeline({ machines, jobs, onJobCreated, onJobUpdated, onJobD
                           borderColor: statusColor,
                           color: statusColor,
                         }}
-                        title={`${customerName} — ${job.printTimeMinutes ? job.printTimeMinutes + " min" : "Dauer unbekannt"}`}
+                        title={
+                          `${customerName} — ${job.printTimeMinutes ? job.printTimeMinutes + " min" : "Dauer unbekannt"}` +
+                          (needsFilamentChange
+                            ? `\nFilamentwechsel nötig: ${job.filamentChange!.load.join(", ")} einlegen`
+                            : "") +
+                          (startsUnattended
+                            ? "\nFilamentwechsel nötig, aber zur Startzeit ist niemand vor Ort"
+                            : "")
+                        }
                         onMouseDown={(e) => handleJobMouseDown(e, job, machineIndex)}
                         onTouchStart={(e) => handleJobTouchStart(e, job, machineIndex, "move")}
                         onClick={(e) => {
@@ -1146,6 +1294,18 @@ export function JobTimeline({ machines, jobs, onJobCreated, onJobUpdated, onJobD
                         }}
                       >
                         {hitsDowntime && <span className="mr-0.5" title="Maschine im Ausfall">⚠</span>}
+                        {!hitsDowntime && needsFilamentChange && (
+                          <span className="mr-0.5" title="Filamentwechsel offen">⇄</span>
+                        )}
+                        {!hitsDowntime && startsUnattended && (
+                          <span
+                            className="mr-0.5"
+                            data-testid="job-unattended-start"
+                            title="Filamentwechsel nötig, aber zur Startzeit ist niemand vor Ort"
+                          >
+                            ☾
+                          </span>
+                        )}
                         {width > 60 && customerName}
                         {width > 80 && durationLabel}
                         {/* Resize handle */}
@@ -1159,6 +1319,7 @@ export function JobTimeline({ machines, jobs, onJobCreated, onJobUpdated, onJobD
                           <div className="w-px h-3 rounded-full" style={{ backgroundColor: statusColor }} />
                         </div>
                       </div>
+                      </Fragment>
                     );
                   })}
 

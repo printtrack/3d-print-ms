@@ -4,6 +4,7 @@ import { assertOrderAccess, getActor } from "@/lib/authz";
 import { z } from "zod";
 import { sendVerificationEmail } from "@/lib/email";
 import { triggerOrderAutoAdvance, triggerPartAutoAdvance } from "@/lib/phase-auto-advance";
+import { triggerAutoPlan } from "@/lib/job-auto-plan";
 
 const postSchema = z.object({
   type: z.enum(["DESIGN_REVIEW", "PRICE_APPROVAL"]),
@@ -170,6 +171,8 @@ export async function PATCH(
               details: `Designfreigabe genehmigt – Teil auf Phase "${printReadyPhase.name}" gesetzt`,
             },
           });
+          // Print-ready → plan it into a job right away
+          triggerAutoPlan(userId ?? null);
         }
       } else {
         const defaultPhase = await prisma.partPhase.findFirst({ where: { isDefault: true } });

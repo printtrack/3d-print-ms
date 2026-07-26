@@ -286,7 +286,7 @@ model Order {
 }
 
 model Filament {
-  id                 String             @id @default(cuid())
+  id                 String                    @id @default(cuid())
   name               String
   material           String
   color              String
@@ -294,25 +294,30 @@ model Filament {
   brand              String?
   spoolWeightGrams   Int
   remainingGrams     Int
-  pricePerKg         Decimal?           @db.Decimal(10, 2)
-  notes              String?            @db.Text
-  isActive           Boolean            @default(true)
-  createdAt          DateTime           @default(now())
-  updatedAt          DateTime           @updatedAt
+  pricePerKg         Decimal?                  @db.Decimal(10, 2)
+  notes              String?                   @db.Text
+  isActive           Boolean                   @default(true)
+  createdAt          DateTime                  @default(now())
+  updatedAt          DateTime                  @updatedAt
   printJobFilaments  PrintJobFilament[]
+  plannedForJobs     PrintJobPlannedFilament[]
+  loadedInSlots      MachineFilamentSlot[]
   // Machines this spool can be printed on. Empty = compatible with all machines.
-  compatibleMachines Machine[]          @relation("FilamentMachineCompat")
+  compatibleMachines Machine[]                 @relation("FilamentMachineCompat")
 }
 
 model Machine {
-  id                  String            @id @default(cuid())
+  id                  String                @id @default(cuid())
   name                String
   buildVolumeX        Int
   buildVolumeY        Int
   buildVolumeZ        Int
-  hourlyRate          Decimal?          @db.Decimal(10, 2)
-  notes               String?           @db.Text
-  isActive            Boolean           @default(true)
+  // How many filaments the printer can hold at once (1 = single extruder,
+  // >1 = AMS/MMU style). Caps how many different spools one job may need.
+  materialSlots       Int                   @default(1)
+  hourlyRate          Decimal?              @db.Decimal(10, 2)
+  notes               String?               @db.Text
+  isActive            Boolean               @default(true)
   // Cloud connection to the physical printer (Prusa Connect / Ultimaker Digital
   // Factory). connectionConfigEnc is AES-256-GCM encrypted JSON
   // { token, printerId, baseUrl, mockState? } — never returned in plaintext.
@@ -320,17 +325,18 @@ model Machine {
   // Registry profile id (vendor + model, e.g. "prusa-core-one"). Drives the
   // transport and file-format capabilities — see lib/printers/registry.ts.
   printerProfile      String?
-  connectionConfigEnc String?           @db.Text
+  connectionConfigEnc String?               @db.Text
   lastSeenState       String? // last reported printer state (IDLE/PRINTING/...)
   lastSeenAt          DateTime?
-  createdAt           DateTime          @default(now())
-  updatedAt           DateTime          @updatedAt
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
   printJobs           PrintJob[]
+  filamentSlots       MachineFilamentSlot[]
   downtimes           MachineDowntime[]
   dispatches          PrintDispatch[]
   // Filament spools that are compatible with this machine. Empty on the filament
   // side = that spool works everywhere.
-  compatibleFilaments Filament[]        @relation("FilamentMachineCompat")
+  compatibleFilaments Filament[]            @relation("FilamentMachineCompat")
 }
 
 model MachineDowntime {
@@ -348,25 +354,30 @@ model MachineDowntime {
 }
 
 model PrintJob {
-  id                 String             @id @default(cuid())
-  machineId          String
-  machine            Machine            @relation(fields: [machineId], references: [id])
-  status             PrintJobStatus     @default(PLANNED)
-  shortCode          String?            @unique
-  queuePosition      Int                @default(0)
-  plannedAt          DateTime?
-  startedAt          DateTime?
-  completedAt        DateTime?
-  printTimeMinutes   Int?
-  printTimeFromGcode Boolean            @default(false)
-  notes              String?            @db.Text
-  createdAt          DateTime           @default(now())
-  updatedAt          DateTime           @updatedAt
-  parts              PrintJobPart[]
-  filamentUsages     PrintJobFilament[]
-  files              PrintJobFile[]
-  assignees          PrintJobAssignee[]
-  dispatches         PrintDispatch[]
+  id                        String                    @id @default(cuid())
+  machineId                 String
+  machine                   Machine                   @relation(fields: [machineId], references: [id])
+  status                    PrintJobStatus            @default(PLANNED)
+  shortCode                 String?                   @unique
+  queuePosition             Int                       @default(0)
+  plannedAt                 DateTime?
+  startedAt                 DateTime?
+  completedAt               DateTime?
+  printTimeMinutes          Int?
+  printTimeFromGcode        Boolean                   @default(false)
+  // Set when someone confirmed the filament swap this job needs. Until then the
+  // job is never auto-started — the printer still holds the wrong spool.
+  filamentChangeConfirmedAt DateTime?
+  filamentChangeConfirmedBy String?
+  notes                     String?                   @db.Text
+  createdAt                 DateTime                  @default(now())
+  updatedAt                 DateTime                  @updatedAt
+  parts                     PrintJobPart[]
+  plannedFilaments          PrintJobPlannedFilament[]
+  filamentUsages            PrintJobFilament[]
+  files                     PrintJobFile[]
+  assignees                 PrintJobAssignee[]
+  dispatches                PrintDispatch[]
 }
 
 model PrintJobFile {
@@ -406,6 +417,33 @@ model PrintDispatch {
   @@index([printJobId])
   @@index([machineId])
   @@index([status])
+}
+
+/// Which spool sits in which slot of a printer right now. Rows only exist for
+/// slots that have been loaded; confirming a filament change rewrites them.
+model MachineFilamentSlot {
+  id         String    @id @default(cuid())
+  machine    Machine   @relation(fields: [machineId], references: [id], onDelete: Cascade)
+  machineId  String
+  slot       Int
+  filament   Filament? @relation(fields: [filamentId], references: [id], onDelete: SetNull)
+  filamentId String?
+  updatedAt  DateTime  @updatedAt
+
+  @@unique([machineId, slot])
+  @@index([filamentId])
+}
+
+/// Spools the planner assigned to a job (the "should be loaded" state) — as
+/// opposed to PrintJobFilament, which records what was actually consumed.
+model PrintJobPlannedFilament {
+  printJobId String
+  filamentId String
+  printJob   PrintJob @relation(fields: [printJobId], references: [id], onDelete: Cascade)
+  filament   Filament @relation(fields: [filamentId], references: [id], onDelete: Cascade)
+
+  @@id([printJobId, filamentId])
+  @@index([filamentId])
 }
 
 model PrintJobPart {

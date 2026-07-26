@@ -6,14 +6,13 @@ interface MockHandlerOptions {
   onOrderMoved: (phaseId: string) => void;
   onFilamentSelected: () => void;
   onPartPhaseSet: () => void;
-  onJobsPlanned: () => void;
   onJobVerified: () => void;
 }
 
 const ORDER_PATCH_RE = /\/api\/admin\/orders\/([^/?]+)(\?.*)?$/;
 const PART_PATCH_RE = /\/api\/admin\/orders\/[^/]+\/parts\/([^/?]+)(\?.*)?$/;
-const JOBS_PLAN_RE = /\/api\/admin\/jobs\/plan$/;
-const JOBS_PLAN_COMMIT_RE = /\/api\/admin\/jobs\/plan\/commit$/;
+const JOBS_AUTO_PLAN_RE = /\/api\/admin\/jobs\/auto-plan$/;
+const JOBS_SCHEDULE_RE = /\/api\/admin\/jobs\/schedule$/;
 const JOB_GET_RE = /\/api\/admin\/jobs\/(tutorial-job-[ab])(\?.*)?$/;
 const JOB_VERIFY_PARTS_RE = /\/api\/admin\/jobs\/([^/]+)\/verify-parts$/;
 const JOBS_AUTO_RE = /\/api\/admin\/jobs\/auto-transition$/;
@@ -79,6 +78,13 @@ export function createMockFetchHandler(opts: MockHandlerOptions) {
     // Harmless passthrough
     if (ORDERS_REORDER_RE.test(url)) return jsonResponse({ ok: true });
     if (JOBS_AUTO_RE.test(url) && method === "POST") return jsonResponse({ started: [], completed: [] });
+    // Planning runs by itself in the real app — during the tour the mock job is already there.
+    if (JOBS_AUTO_PLAN_RE.test(url) && method === "POST") {
+      return jsonResponse({ createdJobIds: [], skipped: [] });
+    }
+    if (JOBS_SCHEDULE_RE.test(url) && method === "POST") {
+      return jsonResponse({ scheduledJobIds: [], skippedJobIds: [], skipped: [] });
+    }
     if (COMMENTS_RE.test(url) && method === "POST") {
       return jsonResponse({ id: "tut-comment", content: "", createdAt: NOW, author: { id: "admin", name: "Admin", email: "" } });
     }
@@ -130,30 +136,6 @@ export function createMockFetchHandler(opts: MockHandlerOptions) {
       const body = init?.body ? JSON.parse(init.body as string) : {};
       if (body.phaseId) opts.onOrderMoved(body.phaseId);
       return jsonResponse({ id: TUTORIAL_ORDER_ID, ...body });
-    }
-
-    // Plan — get proposal
-    if (JOBS_PLAN_RE.test(url) && method === "POST") {
-      return jsonResponse({
-        proposed: [
-          {
-            type: "new",
-            machineId: "tutorial-machine-a",
-            machineName: "Bambu X1C #1",
-            filamentLabel: "PLA Grau",
-            utilizationPct: 24,
-            estimatedGramsTotal: 24,
-            parts: [{ orderPartId: TUTORIAL_PART_ID, partName: "Elektronen-Träger", quantity: 3 }],
-          },
-        ],
-        skipped: [],
-      });
-    }
-
-    // Plan commit
-    if (JOBS_PLAN_COMMIT_RE.test(url) && method === "POST") {
-      opts.onJobsPlanned();
-      return jsonResponse({ created: [{ id: TUTORIAL_JOB_ID_A }] });
     }
 
     // Job GET (after commit)

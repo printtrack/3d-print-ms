@@ -81,11 +81,11 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   },
   {
     id: "jobs_plan",
-    targetSelector: '[data-tutorial="plan-jobs-btn"]',
+    targetSelector: '[data-tutorial="planned-job"]',
     requiredPath: "/admin/jobs",
     placement: "bottom",
-    autoAdvance: true,
-    showNext: false,
+    autoAdvance: false,
+    showNext: true,
     i18nKey: "tutorial.steps.jobs_plan",
   },
   {

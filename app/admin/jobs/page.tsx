@@ -3,6 +3,9 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { getEnabledFeatures } from "@/lib/features";
 import { resolveFilamentForPart } from "@/lib/filament-resolve";
+import { runAutoPlanExclusive } from "@/lib/job-auto-plan";
+import { getAttendanceConfig } from "@/lib/attendance-server";
+import type { SkippedPart } from "@/lib/job-planner";
 import { TutorialAwareJobsView } from "@/components/admin/tutorial/TutorialAwareJobsView";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
@@ -16,11 +19,28 @@ export default async function JobsPage() {
 
   if (!(await getEnabledFeatures()).jobs) redirect("/admin");
 
-  const [machines, jobs, users, inventory] = await Promise.all([
+  // Batch print-ready parts into jobs before reading — the board is always up
+  // to date without a click. When those jobs print is decided separately
+  // (drag on the timeline or the "auto-schedule" button).
+  let skippedParts: SkippedPart[] = [];
+  try {
+    skippedParts = (await runAutoPlanExclusive((session.user as { id?: string })?.id ?? null)).skipped;
+  } catch {
+    // planning is best-effort — never block the board
+  }
+
+  const [attendance, machines, jobs, users, inventory] = await Promise.all([
+    getAttendanceConfig(),
     prisma.machine.findMany({
       where: { isActive: true },
       orderBy: { name: "asc" },
-      include: { downtimes: { orderBy: { startedAt: "desc" }, take: 50 } },
+      include: {
+        downtimes: { orderBy: { startedAt: "desc" }, take: 50 },
+        filamentSlots: {
+          orderBy: { slot: "asc" },
+          include: { filament: { select: { id: true, name: true, material: true, color: true, colorHex: true } } },
+        },
+      },
     }),
     prisma.printJob.findMany({
       where: { status: { in: ["PLANNED", "SLICED", "IN_PROGRESS", "AWAITING_VERIFICATION"] } },
@@ -37,6 +57,11 @@ export default async function JobsPage() {
           },
         },
         filamentUsages: {
+          include: {
+            filament: { select: { id: true, name: true, material: true, color: true, colorHex: true } },
+          },
+        },
+        plannedFilaments: {
           include: {
             filament: { select: { id: true, name: true, material: true, color: true, colorHex: true } },
           },
@@ -76,6 +101,12 @@ export default async function JobsPage() {
     hourlyRate: m.hourlyRate ? Number(m.hourlyRate) : null,
     createdAt: m.createdAt.toISOString(),
     updatedAt: m.updatedAt.toISOString(),
+    filamentSlots: m.filamentSlots.map((fs) => ({
+      slot: fs.slot,
+      filamentId: fs.filamentId,
+      label: fs.filament ? `${fs.filament.material} ${fs.filament.color}` : null,
+      colorHex: fs.filament?.colorHex ?? null,
+    })),
     downtimes: m.downtimes.map((d) => ({
       id: d.id,
       reason: d.reason,
@@ -92,6 +123,12 @@ export default async function JobsPage() {
     completedAt: j.completedAt ? j.completedAt.toISOString() : null,
     createdAt: j.createdAt.toISOString(),
     updatedAt: j.updatedAt.toISOString(),
+    filamentChangeConfirmedAt: j.filamentChangeConfirmedAt ? j.filamentChangeConfirmedAt.toISOString() : null,
+    plannedFilaments: j.plannedFilaments.map((pf) => ({
+      filamentId: pf.filamentId,
+      label: `${pf.filament.material} ${pf.filament.color}`,
+      colorHex: pf.filament.colorHex,
+    })),
     filamentUsages: j.filamentUsages.map((fu) => ({
       ...fu,
       createdAt: fu.createdAt.toISOString(),
@@ -117,6 +154,8 @@ export default async function JobsPage() {
       machines={serializedMachines}
       initialJobs={serializedJobs}
       teamMembers={users}
+      initialSkipped={skippedParts}
+      attendance={attendance}
     />
   );
 }

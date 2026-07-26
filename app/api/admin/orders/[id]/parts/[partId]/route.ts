@@ -6,6 +6,8 @@ import { maybeAutoSendPartDesignVerification } from "@/lib/design-verification";
 import { evaluatePartEnterGate } from "@/lib/phase-conditions";
 import { triggerOrderAutoAdvance, triggerPartAutoAdvance } from "@/lib/phase-auto-advance";
 import { parseAxis, deriveColorHex } from "@/lib/filament-resolve";
+import { replanParts } from "@/lib/job-replan";
+import { triggerAutoPlan } from "@/lib/job-auto-plan";
 
 const patchSchema = z.object({
   name: z.string().min(1).optional(),
@@ -168,6 +170,38 @@ export async function PATCH(
     if (data.partPhaseId !== undefined && data.partPhaseId !== currentPart.partPhaseId) {
       triggerPartAutoAdvance(partId);
       triggerOrderAutoAdvance(id);
+    }
+
+    // Spec changes invalidate an already planned slot: pull the part out of its
+    // open job so the auto-planner can re-batch it (running prints stay as they are).
+    const replanReasons: string[] = [];
+    if (mat !== undefined && (mat.concrete !== currentPart.material || mat.any !== currentPart.materialAny)) {
+      replanReasons.push("Material geändert");
+    }
+    if (col !== undefined && (col.concrete !== currentPart.color || col.any !== currentPart.colorAny)) {
+      replanReasons.push("Farbe geändert");
+    }
+    if (data.quantity !== undefined && data.quantity !== currentPart.quantity) {
+      replanReasons.push("Menge geändert");
+    }
+    if (
+      data.partPhaseId !== undefined &&
+      data.partPhaseId !== currentPart.partPhaseId &&
+      !part.partPhase?.isPrintReady &&
+      !part.partPhase?.isMisprint
+    ) {
+      replanReasons.push("nicht mehr druckbereit");
+    }
+    if (replanReasons.length > 0) {
+      await replanParts([partId], replanReasons.join(", "), userId);
+    } else if (
+      data.partPhaseId !== undefined &&
+      data.partPhaseId !== currentPart.partPhaseId &&
+      (part.partPhase?.isPrintReady || part.partPhase?.isMisprint)
+    ) {
+      // Print-ready parts are planned right away instead of waiting for the
+      // next visit to the jobs board.
+      triggerAutoPlan(userId);
     }
 
     return NextResponse.json(part);

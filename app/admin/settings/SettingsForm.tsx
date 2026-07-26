@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, Trash2, Building2, Scale, Mail, MessageSquare, Layers, LayoutList, FolderKanban, Files, Printer, FileText, Upload, History, ToggleRight, Palette, ClipboardList, CalendarRange, Inbox, AlertTriangle, PencilRuler, ShieldCheck } from "lucide-react";
+import { Plus, Trash2, Building2, Scale, Mail, MessageSquare, Layers, LayoutList, FolderKanban, Files, Printer, FileText, Upload, History, ToggleRight, Palette, ClipboardList, CalendarRange, CalendarClock, Inbox, AlertTriangle, PencilRuler, ShieldCheck } from "lucide-react";
 import { TIMELINE_EVENTS, TIMELINE_GROUP_ORDER, settingKey, MASTER_SETTING_KEY, isEventVisible, type TimelineGroup } from "@/lib/tracking-timeline";
 import { FEATURES, type FeatureKey } from "@/lib/features";
 import { SUPPORTED_FORMATS } from "@/lib/order-form-config";
@@ -27,6 +27,7 @@ import Image from "next/image";
 import { PhaseManager } from "@/components/admin/PhaseManager";
 import { RoleManager, type RoleListItem } from "@/components/admin/RoleManager";
 import { MachineManager } from "@/components/admin/MachineManager";
+import { AttendanceSettings } from "@/components/admin/AttendanceSettings";
 import { CalendarSubscriptionManager, type CalendarSubscription } from "@/components/admin/CalendarSubscriptionManager";
 import { PartPhaseManager } from "@/components/admin/PartPhaseManager";
 import { ProjectPhaseManagerInline } from "@/components/admin/ProjectPhaseManagerInline";
@@ -54,9 +55,11 @@ interface Machine {
   buildVolumeX: number;
   buildVolumeY: number;
   buildVolumeZ: number;
+  materialSlots: number;
   hourlyRate: number | null;
   notes: string | null;
   isActive: boolean;
+  filamentSlots?: { slot: number; filamentId: string | null }[];
   _count: { printJobs: number };
   downtimes: {
     id: string;
@@ -82,6 +85,7 @@ interface SettingsFormProps {
   defaultTab?: string;
   initialPhases: Phase[];
   initialMachines: Machine[];
+  availableFilaments?: Array<{ id: string; name: string; material: string; color: string; colorHex: string | null }>;
   initialPartPhases: PartPhase[];
   initialProjectPhases: ProjectPhaseData[];
   initialProjectFilePhases: ProjectFilePhaseData[];
@@ -136,6 +140,7 @@ const NAV_GROUPS = [
     items: [
       { key: "rollen", label: "Rollen & Rechte", icon: ShieldCheck },
       { key: "maschinen", label: "Maschinen", icon: Printer },
+      { key: "anwesenheit", label: "Anwesenheitszeiten", icon: CalendarClock },
       { key: "webkalender", label: "Web-Kalender", icon: CalendarRange },
     ],
   },
@@ -191,6 +196,7 @@ export function SettingsForm({
   defaultTab,
   initialPhases,
   initialMachines,
+  availableFilaments = [],
   initialPartPhases,
   initialProjectPhases,
   initialProjectFilePhases,
@@ -1203,7 +1209,12 @@ export function SettingsForm({
 
         {/* Maschinen */}
         {activeSection === "maschinen" && (
-          <MachineManager initialMachines={initialMachines} />
+          <MachineManager initialMachines={initialMachines} availableFilaments={availableFilaments} />
+        )}
+
+        {/* Anwesenheitszeiten */}
+        {activeSection === "anwesenheit" && (
+          <AttendanceSettings initialSettings={initialSettings} />
         )}
 
         {/* Web-Kalender */}

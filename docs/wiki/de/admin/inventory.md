@@ -70,9 +70,9 @@ Klicke auf ein Filament, um die Menge direkt zu bearbeiten — zum Beispiel nach
 
 So lässt sich die Auslastung des Filaments vorausplanen, ohne dass die Buchhaltung Schaden nimmt: was nicht gedruckt wurde, gilt auch nicht als verbraucht.
 
-## Überzugs-Warnung beim Planen
+## Überzug durch die automatische Planung
 
-Im [[Druckjobs vorschlagen|jobs|Jobs-Vorschlagsdialog]] wird pro vorgeschlagenem Job geprüft, ob der verfügbare Bestand für das benötigte Filament ausreicht. Reicht er nicht, erscheint eine rote Warnung an der Job-Zeile. Beim Klick auf **Erstellen** öffnet sich ein Bestätigungsdialog mit der Liste der betroffenen Filamente — du kannst die Jobs trotzdem planen (z. B. wenn Nachschub kurzfristig erwartet wird).
+Die [[automatische Druckplanung|jobs]] plant auch dann, wenn der verfügbare Bestand für das benötigte Filament rechnerisch nicht ausreicht — sonst würde die Produktion an einer fehlenden Spule hängen bleiben. Der Fehlbestand wird stattdessen hier sichtbar: Der Wert **Verfügbar** wird negativ und rot dargestellt. Das ist das Signal, Nachschub zu bestellen, bevor der Job an der Reihe ist.
 
 ## Wenig-Bestand-Hinweis
 

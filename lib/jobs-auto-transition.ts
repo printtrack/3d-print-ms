@@ -1,12 +1,24 @@
 import { prisma } from "@/lib/db";
 import { currentlyDownMachineIds } from "@/lib/machine-downtime";
+import { getFilamentChanges } from "@/lib/filament-changes-server";
+import { DEFAULT_PRINT_MINUTES } from "@/lib/job-timing";
 
-export async function runJobAutoTransition(): Promise<{ started: string[]; completed: string[] }> {
+/** How far a job is pushed back while its filament change is still pending. */
+const FILAMENT_CHANGE_DEFER_MINUTES = 15;
+
+export async function runJobAutoTransition(): Promise<{
+  started: string[];
+  completed: string[];
+  deferred: string[];
+}> {
   const now = new Date();
 
   // 1. PLANNED/SLICED → IN_PROGRESS: plannedAt has passed
-  const downMachineIds = await currentlyDownMachineIds(now);
-  const toStart = (
+  const [downMachineIds, filamentChanges] = await Promise.all([
+    currentlyDownMachineIds(now),
+    getFilamentChanges(),
+  ]);
+  const due = (
     await prisma.printJob.findMany({
       where: {
         status: { in: ["PLANNED", "SLICED"] },
@@ -16,6 +28,23 @@ export async function runJobAutoTransition(): Promise<{ started: string[]; compl
     })
     // Don't auto-start jobs on a machine that is currently down — it can't print.
   ).filter((job) => !downMachineIds.has(job.machineId));
+
+  // A job whose spool swap is still open must not start: the printer holds the
+  // wrong filament. Push it back instead of silently printing the wrong thing.
+  const deferred: string[] = [];
+  const toStart: typeof due = [];
+  for (const job of due) {
+    const change = filamentChanges.get(job.id);
+    if (change && !change.confirmed) {
+      await prisma.printJob.update({
+        where: { id: job.id },
+        data: { plannedAt: new Date(now.getTime() + FILAMENT_CHANGE_DEFER_MINUTES * 60_000) },
+      });
+      deferred.push(job.id);
+      continue;
+    }
+    toStart.push(job);
+  }
 
   for (const job of toStart) {
     await prisma.printJob.update({
@@ -36,19 +65,19 @@ export async function runJobAutoTransition(): Promise<{ started: string[]; compl
     }
   }
 
-  // 2. IN_PROGRESS → AWAITING_VERIFICATION: startedAt (or plannedAt) + printTimeMinutes has elapsed
+  // 2. IN_PROGRESS → AWAITING_VERIFICATION: startedAt (or plannedAt) + print time elapsed.
+  // Jobs without a measured print time use the same default the timeline draws
+  // with — otherwise a job whose bar has long ended would sit in "printing"
+  // forever and never ask for verification.
   const inProgress = await prisma.printJob.findMany({
-    where: {
-      status: "IN_PROGRESS",
-      printTimeMinutes: { not: null },
-    },
+    where: { status: "IN_PROGRESS" },
     include: { parts: { include: { orderPart: true } }, machine: { select: { name: true } } },
   });
 
   const toComplete = inProgress.filter((job) => {
     const baseTime = job.startedAt ?? job.plannedAt;
     if (!baseTime) return false;
-    const endMs = baseTime.getTime() + job.printTimeMinutes! * 60_000;
+    const endMs = baseTime.getTime() + (job.printTimeMinutes ?? DEFAULT_PRINT_MINUTES) * 60_000;
     return endMs <= now.getTime();
   });
 
@@ -74,5 +103,6 @@ export async function runJobAutoTransition(): Promise<{ started: string[]; compl
   return {
     started: toStart.map((j) => j.id),
     completed: toComplete.map((j) => j.id),
+    deferred,
   };
 }

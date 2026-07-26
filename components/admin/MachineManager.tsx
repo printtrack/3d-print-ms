@@ -56,9 +56,11 @@ interface Machine {
   buildVolumeX: number;
   buildVolumeY: number;
   buildVolumeZ: number;
+  materialSlots: number;
   hourlyRate: number | null;
   notes: string | null;
   isActive: boolean;
+  filamentSlots?: { slot: number; filamentId: string | null }[];
   connected?: boolean;
   connection?: MachineConnection;
   lastSeenState?: string | null;
@@ -100,6 +102,9 @@ type FormData = {
   buildVolumeX: string;
   buildVolumeY: string;
   buildVolumeZ: string;
+  materialSlots: string;
+  /** Loaded spool per slot, index = slot - 1. "" = empty. */
+  loadedFilamentIds: string[];
   hourlyRate: string;
   notes: string;
   isActive: boolean;
@@ -116,6 +121,8 @@ const EMPTY_FORM: FormData = {
   buildVolumeX: "",
   buildVolumeY: "",
   buildVolumeZ: "",
+  materialSlots: "1",
+  loadedFilamentIds: [],
   hourlyRate: "",
   notes: "",
   isActive: true,
@@ -127,7 +134,13 @@ const EMPTY_FORM: FormData = {
   connMockState: "IDLE",
 };
 
-export function MachineManager({ initialMachines }: { initialMachines: Machine[] }) {
+export function MachineManager({
+  initialMachines,
+  availableFilaments = [],
+}: {
+  initialMachines: Machine[];
+  availableFilaments?: Array<{ id: string; name: string; material: string; color: string; colorHex: string | null }>;
+}) {
   const t = useTranslations("admin");
   const tc = useTranslations("common");
   const locale = useLocale();
@@ -203,6 +216,11 @@ export function MachineManager({ initialMachines }: { initialMachines: Machine[]
       buildVolumeX: String(machine.buildVolumeX),
       buildVolumeY: String(machine.buildVolumeY),
       buildVolumeZ: String(machine.buildVolumeZ),
+      materialSlots: String(machine.materialSlots ?? 1),
+      loadedFilamentIds: Array.from({ length: machine.materialSlots ?? 1 }, (_, i) => {
+        const slot = (machine.filamentSlots ?? []).find((fs) => fs.slot === i + 1);
+        return slot?.filamentId ?? "";
+      }),
       hourlyRate: machine.hourlyRate != null ? String(machine.hourlyRate) : "",
       notes: machine.notes ?? "",
       isActive: machine.isActive,
@@ -233,7 +251,7 @@ export function MachineManager({ initialMachines }: { initialMachines: Machine[]
 
   const selectedProfile = PRINTER_PROFILES.find((p) => p.id === formData.connProfile) ?? null;
 
-  function field(key: keyof FormData, value: string | boolean) {
+  function field(key: keyof FormData, value: string | boolean | string[]) {
     setFormData((prev) => ({ ...prev, [key]: value }));
   }
 
@@ -293,6 +311,7 @@ export function MachineManager({ initialMachines }: { initialMachines: Machine[]
       buildVolumeX: parseInt(formData.buildVolumeX, 10),
       buildVolumeY: parseInt(formData.buildVolumeY, 10),
       buildVolumeZ: parseInt(formData.buildVolumeZ, 10),
+      materialSlots: Math.max(1, parseInt(formData.materialSlots, 10) || 1),
       hourlyRate: formData.hourlyRate ? parseFloat(formData.hourlyRate) : null,
       notes: formData.notes.trim() || null,
       isActive: formData.isActive,
@@ -301,7 +320,13 @@ export function MachineManager({ initialMachines }: { initialMachines: Machine[]
     setSaving(true);
     try {
       if (editingMachine) {
-        const editPayload = { ...payload, connection: buildConnectionPayload() };
+        const editPayload = {
+          ...payload,
+          connection: buildConnectionPayload(),
+          loadedFilamentIds: Array.from({ length: payload.materialSlots }, (_, i) =>
+            formData.loadedFilamentIds[i] ? formData.loadedFilamentIds[i] : null
+          ),
+        };
         const res = await fetch(`/api/admin/machines/${editingMachine.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -577,6 +602,52 @@ export function MachineManager({ initialMachines }: { initialMachines: Machine[]
                 </div>
               </div>
             </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="machine-slots">{t("machine_material_slots")}</Label>
+              <Input
+                id="machine-slots"
+                type="number"
+                min={1}
+                max={16}
+                value={formData.materialSlots}
+                onChange={(e) => field("materialSlots", e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">{t("machine_material_slots_hint")}</p>
+            </div>
+
+            {editingMachine && availableFilaments.length > 0 && (
+              <div className="space-y-2">
+                <Label>{t("machine_loaded_filament")}</Label>
+                <div className="space-y-2">
+                  {Array.from({ length: Math.max(1, parseInt(formData.materialSlots, 10) || 1) }, (_, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <span className="text-xs text-muted-foreground w-16 shrink-0">
+                        {t("machine_loaded_slot", { slot: i + 1 })}
+                      </span>
+                      <select
+                        aria-label={t("machine_loaded_slot", { slot: i + 1 })}
+                        className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs"
+                        value={formData.loadedFilamentIds[i] ?? ""}
+                        onChange={(e) => {
+                          const next = [...formData.loadedFilamentIds];
+                          next[i] = e.target.value;
+                          field("loadedFilamentIds", next);
+                        }}
+                      >
+                        <option value="">{t("machine_loaded_empty")}</option>
+                        {availableFilaments.map((f) => (
+                          <option key={f.id} value={f.id}>
+                            {f.material} {f.color}
+                            {f.name ? ` (${f.name})` : ""}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="machine-rate">{t("machine_rate_label")}</Label>

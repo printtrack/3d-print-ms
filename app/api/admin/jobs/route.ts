@@ -27,6 +27,11 @@ const jobInclude = {
       filament: { select: { id: true, name: true, material: true, color: true, colorHex: true } },
     },
   },
+  plannedFilaments: {
+    include: {
+      filament: { select: { id: true, name: true, material: true, color: true, colorHex: true } },
+    },
+  },
   assignees: { include: { user: { select: { id: true, name: true, email: true } } } },
 } as const;
 

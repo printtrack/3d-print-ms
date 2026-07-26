@@ -52,6 +52,8 @@ test.describe("Assignee-Filter über alle Ebenen", () => {
 
   test("FilterBar zeigt Personen-Chip für aktiven Filter", async ({ page }) => {
     await page.goto(`/admin/orders?assigneeId=${member.id}`);
-    await expect(page.getByText("Filter Tester")).toBeVisible({ timeout: 8000 });
+    // Die FilterBar rendert den Chip zweimal (Desktop- und Mobile-Variante) —
+    // ohne .first() schlägt der Strict Mode sporadisch zu.
+    await expect(page.getByText("Filter Tester").first()).toBeVisible({ timeout: 8000 });
   });
 });

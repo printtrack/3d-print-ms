@@ -49,8 +49,8 @@ const TRUNCATE_ORDER = [
   "PaymentReminder", "Payment", "InvoiceItem", "Invoice", "InvoiceNumberCounter",
   "QuoteItem", "Quote",
   "PrintDispatch",
-  "PrintJobAssignee", "PrintJobFilament", "PrintJobPart", "PrintJobFile", "PrintJob",
-  "OrderPartAssignee", "OrderPart", "OrderAssignee", "MachineDowntime", "_FilamentMachineCompat", "Machine",
+  "PrintJobAssignee", "PrintJobFilament", "PrintJobPlannedFilament", "PrintJobPart", "PrintJobFile", "PrintJob",
+  "OrderPartAssignee", "OrderPart", "OrderAssignee", "MachineDowntime", "MachineFilamentSlot", "_FilamentMachineCompat", "Machine",
   "MilestoneTaskAssignee", "MilestoneTask", "Milestone", "Sprint", "Order",
   "OrderPhase", "PartPhase", "Filament",
   "ProjectComment", "ProjectFile", "ProjectAuditLog", "ProjectAssignee", "Project", "ProjectFilePhase", "ProjectPhase",
@@ -369,17 +369,39 @@ export async function createTestMachine(
     buildVolumeY: number;
     buildVolumeZ: number;
     isActive: boolean;
+    /** Filaments the printer holds at once — 1 = single extruder (default). */
+    materialSlots: number;
+    /** Spools currently loaded, index = slot - 1. */
+    loadedFilamentIds: Array<string | null>;
   }> = {}
 ) {
-  return prismaTest.machine.create({
+  const machine = await prismaTest.machine.create({
     data: {
       name: overrides.name ?? "Test Drucker",
       buildVolumeX: overrides.buildVolumeX ?? 220,
       buildVolumeY: overrides.buildVolumeY ?? 220,
       buildVolumeZ: overrides.buildVolumeZ ?? 250,
+      materialSlots: overrides.materialSlots ?? 1,
       isActive: overrides.isActive ?? true,
     },
   });
+
+  if (overrides.loadedFilamentIds?.length) {
+    await prismaTest.machineFilamentSlot.createMany({
+      data: overrides.loadedFilamentIds.map((filamentId, i) => ({
+        machineId: machine.id,
+        slot: i + 1,
+        filamentId,
+      })),
+    });
+  }
+
+  return machine;
+}
+
+/** Assigns the spools a job is planned to print with (planner output). */
+export async function createTestPlannedFilament(printJobId: string, filamentId: string) {
+  return prismaTest.printJobPlannedFilament.create({ data: { printJobId, filamentId } });
 }
 
 export async function createTestMachineDowntime(

@@ -6,6 +6,7 @@ import path from "path";
 import { randomUUID } from "crypto";
 import { getUploadDir } from "@/lib/uploads";
 import { validateFileContent } from "@/lib/file-validation";
+import { designSiblingPartIds, invalidateBboxCache, replanParts } from "@/lib/job-replan";
 
 const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
 const ALLOWED_EXTENSIONS = new Set([".jpg", ".jpeg", ".png", ".gif", ".webp", ".stl", ".obj", ".3mf"]);
@@ -94,6 +95,12 @@ export async function POST(req: NextRequest) {
             details: `Teil "${updatedPart.name}" – Iteration #${updatedPart.iterationCount}`,
           },
         });
+
+        // New geometry: the cached bbox and any planned slot are stale. Colour
+        // variants share the design, so the whole group is affected.
+        const affected = await designSiblingPartIds(partId);
+        await invalidateBboxCache(affected);
+        await replanParts(affected, "Neues Design hochgeladen", actor.id);
       }
 
       await prisma.auditLog.create({

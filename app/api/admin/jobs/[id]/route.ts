@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { assertJobAccess, assertSignedIn, getActor } from "@/lib/authz";
 import { z } from "zod";
-import { checkJobOverlap } from "@/lib/overlap-check";
+import { checkJobOverlap, isStartAttended } from "@/lib/overlap-check";
+import { getFilamentChanges } from "@/lib/filament-changes-server";
+import { buildOf, orientationFor } from "@/lib/job-planner";
 import { publish } from "@/lib/event-bus";
 import { triggerOrderAutoAdvance, triggerPartAutoAdvance } from "@/lib/phase-auto-advance";
 import { resolveFilamentForPart, partPrintableOnMachine } from "@/lib/filament-resolve";
@@ -32,6 +34,11 @@ const jobInclude = {
     },
   },
   filamentUsages: {
+    include: {
+      filament: { select: { id: true, name: true, material: true, color: true, colorHex: true } },
+    },
+  },
+  plannedFilaments: {
     include: {
       filament: { select: { id: true, name: true, material: true, color: true, colorHex: true } },
     },
@@ -92,7 +99,14 @@ export async function PATCH(
     // Fetch current job state once for guards that need it
     const current = await prisma.printJob.findUnique({
       where: { id },
-      select: { status: true, printTimeFromGcode: true, machineId: true, plannedAt: true, printTimeMinutes: true },
+      select: {
+        status: true,
+        printTimeFromGcode: true,
+        machineId: true,
+        plannedAt: true,
+        startedAt: true,
+        printTimeMinutes: true,
+      },
     });
 
     if (data.assigneeIds !== undefined) {
@@ -130,8 +144,37 @@ export async function PATCH(
       });
       if (overlap.overlapping) {
         return NextResponse.json(
-          { error: "Überschneidung mit einem anderen Druckauftrag", conflictJobId: overlap.conflictJobId },
+          {
+            error: overlap.conflictIsPickupWait
+              ? "Drucker noch belegt — die fertige Platte des vorherigen Jobs ist noch nicht entnommen"
+              : "Überschneidung mit einem anderen Druckauftrag",
+            conflictJobId: overlap.conflictJobId,
+          },
           { status: 409 }
+        );
+      }
+
+      // The past is over, and a start needs somebody on site to load the plate —
+      // both rules apply to manual moves just like they do to auto-scheduling.
+      // Order matters: a past date is the more specific reason to report.
+      const notStarted = current?.startedAt === null && (current?.status === "PLANNED" || current?.status === "SLICED");
+      if (notStarted && effectivePlannedAt.getTime() < Date.now()) {
+        return NextResponse.json(
+          { error: "Startzeit liegt in der Vergangenheit" },
+          { status: 422 }
+        );
+      }
+
+      // Starting is possible remotely, so an unattended start is fine — unless
+      // the job still needs a spool swap, which somebody has to do by hand.
+      const pendingChange = (await getFilamentChanges()).get(id);
+      if (pendingChange && !pendingChange.confirmed && !(await isStartAttended(effectivePlannedAt))) {
+        return NextResponse.json(
+          {
+            error:
+              "Für diesen Job steht ein Filamentwechsel an — der Start muss in einer Anwesenheitszeit liegen",
+          },
+          { status: 422 }
         );
       }
     }
@@ -158,6 +201,47 @@ export async function PATCH(
           { error: `Teil „${blocked.orderPart.name}" ist nicht mit Drucker „${target?.name ?? ""}" kompatibel` },
           { status: 422 }
         );
+      }
+
+      // Build volume: dragging a job onto a smaller printer must not silently
+      // produce a plan that can never be printed.
+      const machine = await prisma.machine.findUnique({
+        where: { id: data.machineId },
+        select: { name: true, buildVolumeX: true, buildVolumeY: true, buildVolumeZ: true },
+      });
+      if (machine) {
+        const measured = await prisma.printJobPart.findMany({
+          where: { printJobId: id },
+          select: {
+            orderPart: {
+              select: {
+                name: true,
+                bboxXmm: true,
+                bboxYmm: true,
+                bboxZmm: true,
+                orientQx: true,
+                orientQy: true,
+                orientQz: true,
+                orientQw: true,
+              },
+            },
+          },
+        });
+        const tooLarge = measured.find(({ orderPart: p }) => {
+          if (p.bboxXmm === null || p.bboxYmm === null || p.bboxZmm === null) return false;
+          return (
+            orientationFor(p, { x: p.bboxXmm, y: p.bboxYmm, z: p.bboxZmm }, buildOf(machine)) === null
+          );
+        });
+        if (tooLarge) {
+          const p = tooLarge.orderPart;
+          return NextResponse.json(
+            {
+              error: `Teil „${p.name}" (${p.bboxXmm}×${p.bboxYmm}×${p.bboxZmm} mm) passt nicht in den Bauraum von „${machine.name}" (${machine.buildVolumeX}×${machine.buildVolumeY}×${machine.buildVolumeZ} mm)`,
+            },
+            { status: 422 }
+          );
+        }
       }
     }
 

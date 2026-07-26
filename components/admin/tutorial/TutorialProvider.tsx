@@ -152,12 +152,6 @@ export function TutorialProvider({ children, autoStart = false }: TutorialProvid
       onPartPhaseSet: () => {
         setTimeout(() => advance(), 400);
       },
-      onJobsPlanned: () => {
-        setTimeout(() => {
-          simulatePrintDone();
-          advance();
-        }, 600);
-      },
       onJobVerified: () => {
         setTimeout(() => advance(), 300);
       },
@@ -165,7 +159,14 @@ export function TutorialProvider({ children, autoStart = false }: TutorialProvid
 
     const uninstall = installFetchInterceptor(handler);
     return uninstall;
-  }, [state.active, advance, moveOrder, simulatePrintDone]);
+  }, [state.active, advance, moveOrder]);
+
+  // The verify step needs a finished print — planning no longer needs a click,
+  // so the simulation is tied to entering the step.
+  useEffect(() => {
+    if (!state.active || state.step !== "job_verify" || state.printSimulated) return;
+    simulatePrintDone();
+  }, [state.active, state.step, state.printSimulated, simulatePrintDone]);
 
   function handleSkip() {
     skip();

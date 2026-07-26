@@ -30,7 +30,10 @@ const patchSchema = z.object({
   buildVolumeX: z.number().int().positive().optional(),
   buildVolumeY: z.number().int().positive().optional(),
   buildVolumeZ: z.number().int().positive().optional(),
+  materialSlots: z.number().int().min(1).max(16).optional(),
   hourlyRate: z.number().nonnegative().nullable().optional(),
+  /** Spools currently loaded, index = slot - 1. `null` clears a slot. */
+  loadedFilamentIds: z.array(z.string().nullable()).max(16).optional(),
   notes: z.string().nullable().optional(),
   isActive: z.boolean().optional(),
   connection: connectionSchema.optional(),
@@ -48,7 +51,7 @@ export async function PATCH(
 
   try {
     const body = await req.json();
-    const { connection, ...fields } = patchSchema.parse(body);
+    const { connection, loadedFilamentIds, ...fields } = patchSchema.parse(body);
 
     const data: Record<string, unknown> = { ...fields };
 
@@ -85,6 +88,21 @@ export async function PATCH(
     }
 
     const machine = await prisma.machine.update({ where: { id }, data });
+
+    // Which spools sit in the printer right now — the baseline for filament-change
+    // detection. Slots beyond the machine's capacity are dropped.
+    if (loadedFilamentIds) {
+      const slots = Math.max(1, machine.materialSlots);
+      for (let slot = 1; slot <= slots; slot++) {
+        const filamentId = loadedFilamentIds[slot - 1] ?? null;
+        await prisma.machineFilamentSlot.upsert({
+          where: { machineId_slot: { machineId: id, slot } },
+          create: { machineId: id, slot, filamentId },
+          update: { filamentId },
+        });
+      }
+      await prisma.machineFilamentSlot.deleteMany({ where: { machineId: id, slot: { gt: slots } } });
+    }
 
     return NextResponse.json(toPublicMachine(machine));
   } catch (err) {

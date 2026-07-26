@@ -24,7 +24,7 @@ export default async function SettingsPage({
     getEnabledFeatures(),
   ]);
 
-  const [settings, phases, machines, partPhases, projectPhases, projectFilePhases, subscriptions, roles] = await Promise.all([
+  const [settings, phases, machines, partPhases, projectPhases, projectFilePhases, subscriptions, roles, filaments] = await Promise.all([
     getSettings(),
     prisma.orderPhase.findMany({
       orderBy: { position: "asc" },
@@ -35,6 +35,7 @@ export default async function SettingsPage({
       include: {
         _count: { select: { printJobs: true } },
         downtimes: { orderBy: { startedAt: "desc" }, take: 50 },
+        filamentSlots: { orderBy: { slot: "asc" }, select: { slot: true, filamentId: true } },
       },
     }),
     prisma.partPhase.findMany({
@@ -57,6 +58,11 @@ export default async function SettingsPage({
         _count: { select: { users: true } },
       },
     }),
+    prisma.filament.findMany({
+      where: { isActive: true },
+      orderBy: [{ material: "asc" }, { color: "asc" }],
+      select: { id: true, name: true, material: true, color: true, colorHex: true },
+    }),
   ]);
 
   const serializedMachines = machines.map((m) => ({
@@ -64,6 +70,7 @@ export default async function SettingsPage({
     hourlyRate: m.hourlyRate ? Number(m.hourlyRate) : null,
     createdAt: m.createdAt.toISOString(),
     updatedAt: m.updatedAt.toISOString(),
+    filamentSlots: m.filamentSlots.map((fs) => ({ slot: fs.slot, filamentId: fs.filamentId })),
     downtimes: m.downtimes.map((d) => ({
       id: d.id,
       reason: d.reason,
@@ -110,6 +117,7 @@ export default async function SettingsPage({
         defaultTab={tab}
         initialPhases={phases}
         initialMachines={serializedMachines}
+        availableFilaments={filaments}
         initialPartPhases={partPhases}
         initialProjectPhases={projectPhases}
         initialProjectFilePhases={projectFilePhases}

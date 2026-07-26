@@ -16,7 +16,8 @@ test.use({ storageState: "tests/.auth/admin.json" });
 // Happy path — full UI flow
 // ---------------------------------------------------------------------------
 
-test("schlägt druckbereite Teile als Job vor und erstellt ihn", async ({ seed, page }) => {
+test("bündelt druckbereite Teile ohne Klick zu Jobs", async ({ seed, page }) => {
+  void seed;
   const filament = await createTestFilament({ material: "PLA", color: "Rot", colorHex: "#FF0000" });
   const machine = await createTestMachine({ name: "Drucker Alpha", buildVolumeX: 220, buildVolumeY: 220, buildVolumeZ: 250 });
 
@@ -24,25 +25,99 @@ test("schlägt druckbereite Teile als Job vor und erstellt ihn", async ({ seed, 
   await createTestPrintReadyPart({ filamentId: filament.id, name: "Teil B", gramsEstimated: 60 });
   await createTestPrintReadyPart({ filamentId: filament.id, name: "Teil C", gramsEstimated: 40 });
 
+  // Kein Planen-Button mehr — das Öffnen der Seite bündelt bereits
   await page.goto("/admin/jobs");
-  await page.getByRole("button", { name: /Druckjobs vorschlagen/i }).click();
+  await expect(page.getByRole("button", { name: /Druckjobs vorschlagen/i })).toHaveCount(0);
 
-  // Dialog öffnet sich und lädt Vorschläge
+  const jobs = await prismaTest.printJob.findMany({
+    where: { machineId: machine.id },
+    include: { parts: true, plannedFilaments: true },
+  });
+  expect(jobs.length).toBeGreaterThan(0);
+  expect(jobs.flatMap((j) => j.parts)).toHaveLength(3);
+  // Die Spule steht am Job — Basis für die Filamentwechsel-Erkennung
+  expect(jobs[0].plannedFilaments.map((f) => f.filamentId)).toEqual([filament.id]);
+  // Terminiert wird erst auf Knopfdruck
+  for (const job of jobs) expect(job.plannedAt).toBeNull();
+});
+
+test("legt Jobs derselben Maschine überschneidungsfrei hintereinander", async ({ seed, page }) => {
+  void seed;
+  const filament = await createTestFilament({ material: "PLA", color: "Grün", colorHex: "#00FF00" });
+  const machine = await createTestMachine({ name: "Serie", buildVolumeX: 220, buildVolumeY: 220, buildVolumeZ: 250 });
+
+  // Je Teil ein eigener Job (2×22500 mm² > 70 % der Bauplatte)
+  for (let i = 0; i < 3; i++) {
+    await createTestPrintReadyPart({ filamentId: filament.id, name: `Block ${i + 1}`, bboxX: 150, bboxY: 150, bboxZ: 150 });
+  }
+
+  const res = await page.request.post("/api/admin/jobs/schedule");
+  expect(res.ok()).toBeTruthy();
+
+  const jobs = await prismaTest.printJob.findMany({
+    where: { machineId: machine.id },
+    orderBy: { plannedAt: "asc" },
+  });
+  expect(jobs.length).toBeGreaterThanOrEqual(2);
+
+  const DEFAULT_MINUTES = 120;
+  for (let i = 1; i < jobs.length; i++) {
+    const prev = jobs[i - 1];
+    const prevEnd = prev.plannedAt!.getTime() + (prev.printTimeMinutes ?? DEFAULT_MINUTES) * 60_000;
+    expect(jobs[i].plannedAt!.getTime()).toBeGreaterThanOrEqual(prevEnd);
+  }
+});
+
+test("weicht auf einen größeren Drucker aus statt das Teil liegen zu lassen", async ({ seed, page }) => {
+  void seed;
+  // Round-Robin würde bei "A Klein" (alphabetisch zuerst) landen — dort passt das Teil nicht
+  const small = await createTestMachine({ name: "A Klein", buildVolumeX: 200, buildVolumeY: 200, buildVolumeZ: 200 });
+  const big = await createTestMachine({ name: "B Groß", buildVolumeX: 400, buildVolumeY: 400, buildVolumeZ: 400 });
+
+  const filament = await createTestFilament({ material: "PLA", color: "Schwarz", colorHex: "#000000" });
+  await createTestPrintReadyPart({
+    filamentId: filament.id,
+    name: "Großes Teil",
+    bboxX: 300,
+    bboxY: 300,
+    bboxZ: 300,
+  });
+
+  const res = await page.request.post("/api/admin/jobs/plan");
+  expect(res.ok()).toBeTruthy();
+  const { proposed, skipped } = await res.json();
+
+  expect(skipped).toHaveLength(0);
+  expect(proposed).toHaveLength(1);
+  expect(proposed[0].machineId).toBe(big.id);
+  void small;
+});
+
+test("zeigt nicht einplanbare Teile mit Begründung auf der Jobs-Seite", async ({ seed, page }) => {
+  void seed;
+  const filament = await createTestFilament({ material: "PLA", color: "Rot", colorHex: "#FF0000" });
+  await createTestMachine({ name: "Zu klein", buildVolumeX: 220, buildVolumeY: 220, buildVolumeZ: 250 });
+  await createTestPrintReadyPart({
+    filamentId: filament.id,
+    name: "Passt nirgends",
+    bboxX: 300,
+    bboxY: 300,
+    bboxZ: 300,
+  });
+
+  await page.goto("/admin/jobs");
+  await page.getByTestId("unplannable-btn").click();
+
   const dialog = page.getByRole("dialog");
-  await expect(dialog).toBeVisible();
-  await expect(dialog.getByText("Vorgeschlagene Jobs")).toBeVisible({ timeout: 10_000 });
+  await expect(dialog.getByText("Passt nirgends")).toBeVisible();
+  await expect(dialog.getByText(/Zu groß/)).toBeVisible();
+});
 
-  // Mindestens ein Vorschlag für PLA Rot auf Drucker Alpha
-  await expect(dialog.getByText("Drucker Alpha")).toBeVisible();
-  await expect(dialog.getByText(/PLA/)).toBeVisible();
-
-  // Alle ausgewählt (default) → erstellen
-  await dialog.getByRole("button", { name: /Job.* erstellen/i }).click();
-  await expect(dialog).not.toBeVisible({ timeout: 5_000 });
-
-  // Job erscheint in Timeline (Nicht geplant)
-  await expect(page.getByText(/Nicht geplant/i)).toBeVisible();
-  void machine;
+test("verlangt eine Session für den Auto-Planer", async ({ browser }) => {
+  const context = await browser.newContext({ storageState: { cookies: [], origins: [] } });
+  const res = await context.request.post("/api/admin/jobs/auto-plan");
+  expect(res.status()).toBe(401);
+  await context.close();
 });
 
 // ---------------------------------------------------------------------------

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,7 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { AlertTriangle, Download, Loader2, Printer, Search, ShieldCheck, Trash2, Upload, X } from "lucide-react";
+import { AlertTriangle, Download, Loader2, Printer, Repeat, Search, ShieldCheck, Trash2, Upload, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { PrintJob } from "./JobCard";
 import { AssigneePicker } from "@/components/admin/AssigneePicker";
@@ -168,6 +169,8 @@ export function JobDetailDialog({
   const [verifyOpen, setVerifyOpen] = useState(false);
   const [dispatches, setDispatches] = useState<DispatchInfo[]>([]);
   const [printerState, setPrinterState] = useState<PrinterStateInfo | null>(null);
+  const [confirmingChange, setConfirmingChange] = useState(false);
+  const router = useRouter();
   const [dispatching, setDispatching] = useState(false);
   const [startingId, setStartingId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -240,6 +243,23 @@ export function JobDetailDialog({
 
   const sliceFiles = job.files ?? [];
   const latestDispatch = dispatches[0] ?? null;
+
+  async function handleConfirmFilamentChange() {
+    if (!job) return;
+    setConfirmingChange(true);
+    try {
+      const res = await fetch(`/api/admin/jobs/${job.id}/filament-change`, { method: "POST" });
+      if (!res.ok) throw new Error();
+      toast.success("Filamentwechsel bestätigt");
+      // The change chain of every following job shifts — let the server recompute.
+      router.refresh();
+      onOpenChange(false);
+    } catch {
+      toast.error("Filamentwechsel konnte nicht bestätigt werden");
+    } finally {
+      setConfirmingChange(false);
+    }
+  }
 
   async function handleDispatch() {
     if (!job) return;
@@ -826,6 +846,41 @@ export function JobDetailDialog({
               Slicing-Datei hochladen (.gcode, .3mf, …)
             </Button>
           </div>
+
+          {/* Pending filament change — the job cannot start until this is done */}
+          {job.filamentChange && !job.filamentChange.confirmed && (
+            <div
+              className="space-y-2 pt-2 border-t"
+              data-testid="filament-change-panel"
+            >
+              <Label className="flex items-center gap-1.5 text-amber-700 dark:text-amber-500">
+                <Repeat className="h-4 w-4" />
+                Filamentwechsel nötig
+              </Label>
+              <p className="text-xs text-muted-foreground">
+                {job.filamentChange.unload.length > 0
+                  ? `${job.filamentChange.unload.join(", ")} entnehmen, `
+                  : ""}
+                <span className="font-medium text-foreground">{job.filamentChange.load.join(", ")}</span> einlegen.
+                Der Druck startet erst, wenn der Wechsel bestätigt ist.
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                disabled={confirmingChange}
+                onClick={handleConfirmFilamentChange}
+                data-testid="confirm-filament-change-btn"
+              >
+                {confirmingChange ? (
+                  <Loader2 className="h-3.5 w-3.5 mr-2 animate-spin" />
+                ) : (
+                  <Repeat className="h-3.5 w-3.5 mr-2" />
+                )}
+                Wechsel erledigt
+              </Button>
+            </div>
+          )}
 
           {/* Send to printer */}
           <div className="space-y-3 pt-2 border-t">

@@ -9,6 +9,8 @@ const createSchema = z.object({
   buildVolumeX: z.number().int().positive(),
   buildVolumeY: z.number().int().positive(),
   buildVolumeZ: z.number().int().positive(),
+  // How many spools the printer holds at once (AMS/MMU). 1 = single extruder.
+  materialSlots: z.number().int().min(1).max(16).optional(),
   hourlyRate: z.number().nonnegative().nullable().optional(),
   notes: z.string().nullable().optional(),
   isActive: z.boolean().optional(),
@@ -24,6 +26,10 @@ export async function GET() {
     include: {
       _count: { select: { printJobs: true } },
       downtimes: { orderBy: { startedAt: "desc" }, take: 50 },
+      filamentSlots: {
+        orderBy: { slot: "asc" },
+        include: { filament: { select: { id: true, name: true, material: true, color: true, colorHex: true } } },
+      },
     },
   });
 
@@ -44,6 +50,7 @@ export async function POST(req: NextRequest) {
         buildVolumeX: data.buildVolumeX,
         buildVolumeY: data.buildVolumeY,
         buildVolumeZ: data.buildVolumeZ,
+        materialSlots: data.materialSlots ?? 1,
         hourlyRate: data.hourlyRate ?? null,
         notes: data.notes ?? null,
         isActive: data.isActive ?? true,

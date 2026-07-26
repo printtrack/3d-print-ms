@@ -31,6 +31,8 @@ The machine is immediately available and can be assigned to new jobs.
 | **Build volume X** | yes | Width of the print space in mm |
 | **Build volume Y** | yes | Depth of the print space in mm |
 | **Build volume Z** | yes | Height of the print space in mm |
+| **Material slots** | yes | How many filaments the printer holds at once (1 = single extruder, 4 = AMS/MMU …) |
+| **Loaded filament** | no | Which spool sits in which slot right now — only shown when editing |
 | **Hourly rate (€/h)** | no | Used for future cost calculations |
 | **Notes** | no | Free text for special requirements (e.g. specific filament requirements) |
 | **Active** | — | Inactive machines do not appear for new jobs |
@@ -43,6 +45,17 @@ The build volume is **critical for the automatic job planner**. The planner calc
 2. Height of the part against build volume Z
 
 If you enter the wrong build volume, the planner may suggest combinations that are physically impossible.
+
+## Material slots and filament changes
+
+The **material slots** tell the planner how many different filaments sit in the printer at the same time:
+
+- **1 slot (default, single extruder):** a print job always holds exactly one filament. If the next job needs another spool, a filament change is due.
+- **Several slots (AMS/MMU):** the planner may put parts of different colours into one job as long as the slots suffice.
+
+The **loaded filament** per slot is the starting point for change detection. Enter what is physically in the printer right now — after that PrintTrack maintains the state itself: every time you confirm **Change done** on a print job, the slots are set to that job's spools.
+
+> While a due filament change is unconfirmed, the affected [[print job|jobs]] does not start and is pushed back instead.
 
 ## Editing a machine
 

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { z } from "zod";
 import { publish } from "@/lib/event-bus";
 import { triggerOrderAutoAdvance, triggerPartAutoAdvance } from "@/lib/phase-auto-advance";
+import { triggerAutoPlan } from "@/lib/job-auto-plan";
 
 const bodySchema = z.object({
   verificationToken: z.string(),
@@ -74,6 +75,8 @@ export async function POST(
               details: `Designfreigabe durch Kunden erteilt – Teil auf Phase "${printReadyPhase.name}" gesetzt`,
             },
           });
+          // Print-ready → plan it into a job right away
+          triggerAutoPlan();
         }
       } else {
         const defaultPhase = await prisma.partPhase.findFirst({ where: { isDefault: true } });

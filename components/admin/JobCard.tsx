@@ -4,7 +4,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { GripVertical, Layers } from "lucide-react";
+import { GripVertical, Layers, Repeat } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export interface PrintJobFile {
@@ -29,6 +29,21 @@ export interface PrintJob {
   printTimeMinutes: number | null;
   printTimeFromGcode: boolean;
   notes: string | null;
+  filamentChangeConfirmedAt?: string | null;
+  /** Spools the planner assigned to this job (the "should be loaded" set).
+   *  The server page sends a flat label, the job API the nested filament. */
+  plannedFilaments?: Array<{
+    filamentId: string;
+    label?: string;
+    colorHex?: string | null;
+    filament?: { material: string; color: string; colorHex: string | null };
+  }>;
+  /** Pending spool swap on the machine before this job can print. */
+  filamentChange?: { confirmed: boolean; load: string[]; unload: string[] } | null;
+  /** Minutes of setup (filament swap) still due before the print starts. */
+  setupMinutes?: number;
+  /** When the finished plate can be taken off — later than the print end while nobody is on site. */
+  pickupAt?: string | null;
   machine: { id: string; name: string };
   parts: Array<{
     printJobId: string;
@@ -119,6 +134,16 @@ export function JobCard({
             {job.plannedAt && (
               <span className="text-xs text-muted-foreground">
                 {new Date(job.plannedAt).toLocaleDateString("de-DE")}
+              </span>
+            )}
+            {job.filamentChange && !job.filamentChange.confirmed && (
+              <span
+                data-testid="filament-change-badge"
+                className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded font-medium bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300"
+                title={`Filamentwechsel: ${job.filamentChange.load.join(", ")} einlegen`}
+              >
+                <Repeat className="h-3 w-3" />
+                Filamentwechsel
               </span>
             )}
           </div>

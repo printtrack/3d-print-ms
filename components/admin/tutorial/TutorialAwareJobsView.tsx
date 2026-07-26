@@ -10,6 +10,9 @@ interface ServerData {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   initialJobs: any[];
   teamMembers?: Array<{ id: string; name: string; email: string }>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  initialSkipped?: any[];
+  attendance?: { enabled: boolean; windows: Array<{ day: number; startMinutes: number; endMinutes: number }> };
 }
 
 export function TutorialAwareJobsView(props: ServerData) {
@@ -19,17 +22,17 @@ export function TutorialAwareJobsView(props: ServerData) {
     return <JobsView {...props} />;
   }
 
-  // Before planning: no jobs — the user is about to create them
-  // After print simulated: AWAITING_VERIFICATION so the job bar appears orange
-  const mockJobs = state.printSimulated
-    ? (getTutorialJobs(true) as unknown as PrintJob[])
-    : ([] as PrintJob[]);
+  // The job is already there — planning happens automatically, so the tour shows
+  // the result. After print simulated it turns AWAITING_VERIFICATION (orange bar).
+  const mockJobs = getTutorialJobs(state.printSimulated) as unknown as PrintJob[];
 
   return (
     <JobsView
       machines={TUTORIAL_MACHINES}
       initialJobs={mockJobs}
       teamMembers={[]}
+      initialSkipped={[]}
+      attendance={props.attendance}
     />
   );
 }

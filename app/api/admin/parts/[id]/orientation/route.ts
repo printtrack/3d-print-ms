@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { assertAdmin, getActor } from "@/lib/authz";
 import { z } from "zod";
+import { replanParts } from "@/lib/job-replan";
 
 const patchSchema = z.object({
   qx: z.number(),
@@ -59,6 +60,9 @@ export async function PATCH(
     },
   });
 
+  // The orientation decides footprint and height — re-batch the part.
+  await replanParts([id], "Druckorientierung geändert", userId);
+
   return NextResponse.json(updated);
 }
 
@@ -93,6 +97,8 @@ export async function DELETE(
       details: `Druckorientierung für Teil "${part.name}" zurückgesetzt`,
     },
   });
+
+  await replanParts([id], "Druckorientierung zurückgesetzt", userId);
 
   return NextResponse.json(updated);
 }

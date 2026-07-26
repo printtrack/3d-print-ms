@@ -91,34 +91,23 @@ test.describe("Filament reservations", () => {
     await expect(row.locator('[title*="berzug"]')).toBeVisible();
   });
 
-  // TODO: "Trotzdem planen"-Confirm legt aktuell keinen PrintJob an
-  //       (activeJobs landet bei 0). Vor Re-Enable PlanJobsDialog + zugehörigen
-  //       POST-Endpoint debuggen.
-  test.skip("PlanJobsDialog shows overuse warning and requires confirmation", async ({ seed, page }) => {
+  // Der Auto-Planer plant auch bei Materialmangel — die Produktion soll nicht
+  // still stehen; der Überzug wird stattdessen im Inventar sichtbar gemacht.
+  test("plans despite filament shortage and flags the overcommit in the inventory", async ({ seed, page }) => {
     void seed;
     const filament = await createTestFilament({ name: "Plan PLA", remainingGrams: 500, colorHex: "#ff0000" });
     await createTestMachine({ buildVolumeX: 220, buildVolumeY: 220, buildVolumeZ: 250 });
 
     await createTestPrintReadyPart({ filamentId: filament.id, name: "Big Part", gramsEstimated: 800 });
 
-    await page.goto("/admin/jobs");
-    await page.getByRole("button", { name: /Druckjobs vorschlagen/i }).click();
-
-    const dialog = page.getByRole("dialog").first();
-    await expect(dialog).toBeVisible();
-    await expect(dialog.getByText("Vorgeschlagene Jobs")).toBeVisible({ timeout: 10_000 });
-    await expect(dialog.getByText(/Nur .* g verfügbar/)).toBeVisible();
-
-    await dialog.getByRole("button", { name: /Job.* erstellen/i }).click();
-
-    const confirm = page.getByRole("alertdialog");
-    await expect(confirm).toBeVisible();
-    await expect(confirm.getByText(/Filament-Überzug bestätigen/)).toBeVisible();
-    await confirm.getByRole("button", { name: /Trotzdem planen/ }).click();
-
-    await expect(dialog).not.toBeVisible({ timeout: 5_000 });
+    const res = await page.request.post("/api/admin/jobs/auto-plan");
+    expect(res.ok()).toBeTruthy();
 
     const activeJobs = await prismaTest.printJob.count({ where: { status: { notIn: ["DONE", "CANCELLED"] } } });
     expect(activeJobs).toBeGreaterThan(0);
+
+    const inv = await page.request.get("/api/admin/inventory");
+    const items: Array<{ id: string; availableGrams: number }> = await inv.json();
+    expect(items.find((i) => i.id === filament.id)!.availableGrams).toBe(-300);
   });
 });
