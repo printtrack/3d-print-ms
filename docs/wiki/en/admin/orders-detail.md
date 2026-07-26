@@ -90,6 +90,12 @@ Files uploaded by the customer when submitting the order. These can be opened in
 2. Select one or more files (JPG, PNG, GIF, WebP, STL, OBJ, 3MF — max 50 MB per file).
 3. Files are then visible to all team members, not to the customer.
 
+### Assigning files to a part by drag & drop
+
+You can drag a file from your desktop straight onto a part — a **collapsed** one included. The part's border highlights while you hover it; you don't have to expand it to drop.
+
+Rest on a collapsed part for a moment and it opens as a preview, closing again as soon as you drag on. That way an order with many parts doesn't unfold into a huge list while you drag, and the part you are aiming for stays within reach. Parts you expanded yourself stay open.
+
 ### Downloading or deleting files
 
 - **Download** — click the filename

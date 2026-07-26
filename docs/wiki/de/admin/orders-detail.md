@@ -90,6 +90,12 @@ Dateien, die der Kunde beim Einreichen des Auftrags hochgeladen hat. Diese könn
 2. Wähle eine oder mehrere Dateien aus (JPG, PNG, GIF, WebP, STL, OBJ, 3MF — max. 50 MB je Datei).
 3. Die Dateien sind anschließend für das gesamte Team sichtbar, nicht für den Kunden.
 
+### Dateien per Drag & Drop einem Teil zuordnen
+
+Du kannst eine Datei vom Schreibtisch direkt auf ein Teil ziehen — auch auf ein **zugeklapptes**. Der Rahmen des Teils färbt sich beim Darüberziehen, ein Aufklappen ist zum Ablegen nicht nötig.
+
+Bleibst du kurz über einem zugeklappten Teil stehen, klappt es zur Vorschau auf und wieder zu, sobald du weiterziehst. So bläht ein Auftrag mit vielen Teilen die Liste beim Ziehen nicht auf und das gewünschte Teil bleibt erreichbar. Teile, die du selbst aufgeklappt hast, bleiben offen.
+
 ### Dateien herunterladen oder löschen
 
 - **Download** — Klicke auf den Dateinamen.

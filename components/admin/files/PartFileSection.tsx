@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type DragEvent } from "react";
+import { useEffect, useRef, useState, type DragEvent } from "react";
 import dynamic from "next/dynamic";
 import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronRight, MoreHorizontal, Pencil, Printer, ShieldAlert, ShieldCheck, Trash2, Plus, Link2, X } from "lucide-react";
@@ -26,6 +26,9 @@ import { PartLinkJobDialog } from "./PartLinkJobDialog";
 import { FilamentBadges } from "./FilamentBadges";
 import { Copy, Unlink, Link as LinkIcon } from "lucide-react";
 import { type OrderFileData, type FileCategory, type NoteData } from "./types";
+
+/** Hover time before a dragged file springs a collapsed part section open */
+const SPRING_OPEN_DELAY_MS = 700;
 
 const ModelViewerDialog = dynamic(
   () => import("@/components/ModelViewerDialog").then((m) => m.ModelViewerDialog),
@@ -186,8 +189,16 @@ export function PartFileSection({
   const tc = useTranslations("common");
   const isOrphan = variant === "orphan";
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
-  const dragCounter = useRef(0);
   const [isSectionDragOver, setIsSectionDragOver] = useState(false);
+  // Spring-loaded expand: opens only after hovering a moment, closes again when the
+  // drag leaves without dropping — otherwise dragging across many parts unfolds all
+  // of them and pushes the lower sections out of reach.
+  const springTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const springOpened = useRef(false);
+
+  useEffect(() => () => {
+    if (springTimer.current) clearTimeout(springTimer.current);
+  }, []);
 
   // Part assignees state
   const part = partData?.part;
@@ -308,27 +319,48 @@ export function PartFileSection({
   const sectionGroupPrefix = label ?? "__order__";
 
 
-  // Drag-and-drop: whole section acts as a drop target, auto-expands on drag
+  // Drag-and-drop: whole section acts as a drop target — collapsed sections accept a
+  // drop on their header, so expanding is only a preview and stays reversible.
+  function cancelSpring() {
+    if (springTimer.current) {
+      clearTimeout(springTimer.current);
+      springTimer.current = null;
+    }
+  }
   function handleDragEnter(e: DragEvent) {
     if (!e.dataTransfer.types.includes("Files")) return;
-    dragCounter.current++;
     setIsSectionDragOver(true);
-    if (collapsible && !isExpanded) setIsExpanded(true);
+    if (collapsible && !isExpanded && !springTimer.current) {
+      springTimer.current = setTimeout(() => {
+        springTimer.current = null;
+        springOpened.current = true;
+        setIsExpanded(true);
+      }, SPRING_OPEN_DELAY_MS);
+    }
   }
-  function handleDragLeave() {
-    dragCounter.current = Math.max(0, dragCounter.current - 1);
-    if (dragCounter.current === 0) setIsSectionDragOver(false);
+  function handleDragLeave(e: DragEvent) {
+    // Fires for every child too — ignore moves that stay inside this section
+    const next = e.relatedTarget as Node | null;
+    if (next && e.currentTarget.contains(next)) return;
+    setIsSectionDragOver(false);
+    cancelSpring();
+    if (springOpened.current) {
+      springOpened.current = false;
+      setIsExpanded(false);
+    }
   }
   function handleDragOver(e: DragEvent) {
     if (e.dataTransfer.types.includes("Files")) e.preventDefault();
   }
   function handleDrop(e: DragEvent) {
-    dragCounter.current = 0;
     setIsSectionDragOver(false);
+    cancelSpring();
+    springOpened.current = false;
     const dropped = Array.from(e.dataTransfer.files);
     if (dropped.length === 0) return;
     e.preventDefault();
     onUpload(dropped, activeCategory);
+    if (collapsible) setIsExpanded(true);
   }
 
   async function handleRename() {

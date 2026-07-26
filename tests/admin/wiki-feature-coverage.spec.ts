@@ -64,6 +64,7 @@ const FEATURE_CHECKS: FeatureCheck[] = [
   { feature: "Filament any / egal option", de: ["Farbe egal", "Material egal"], en: ["color any", "material any"] },
   { feature: "Part color-variant duplicate", de: ["Duplizieren (andere Farbe)"], en: ["Duplicate (different color)"] },
   { feature: "Variant shared design", de: ["Geteiltes Design"], en: ["Shared design"] },
+  { feature: "Drop file onto a collapsed part", de: ["auch auf ein **zugeklapptes**"], en: ["a **collapsed** one included"] },
   { feature: "Variant detach design", de: ["Design abkoppeln"], en: ["Detach design"] },
   { feature: "Filament-machine compatibility", de: ["Kompatible Drucker"], en: ["Compatible printers"] },
   { feature: "Colored 3D preview", de: ["farbige 3D-Vorschau"], en: ["colored 3D preview"] },
